@@ -24,15 +24,30 @@ export function normalizeShopifyDomain(input) {
  * @param {Buffer} rawBody
  * @param {string|undefined} hmacHeader X-Shopify-Hmac-Sha256
  */
+function decodeShopifyHmacHeader(header, expectedLength) {
+  const t = String(header || '').trim();
+  const variants = [t, t.replace(/-/g, '+').replace(/_/g, '/')];
+  for (const v of variants) {
+    let padded = v;
+    const mod = padded.length % 4;
+    if (mod) padded += '='.repeat(4 - mod);
+    try {
+      const buf = Buffer.from(padded, 'base64');
+      if (buf.length === expectedLength) return buf;
+    } catch {
+      /* continue */
+    }
+  }
+  return null;
+}
+
 export function verifyShopifyWebhookHmac(rawBody, hmacHeader) {
   if (!SHOPIFY_API_SECRET || !hmacHeader || !Buffer.isBuffer(rawBody)) return false;
-  const calculatedB64 = crypto.createHmac('sha256', SHOPIFY_API_SECRET).update(rawBody).digest('base64');
-  const received = String(hmacHeader).trim();
+  const calculated = crypto.createHmac('sha256', SHOPIFY_API_SECRET).update(rawBody).digest();
+  const receivedRaw = decodeShopifyHmacHeader(hmacHeader, calculated.length);
+  if (!receivedRaw) return false;
   try {
-    const a = Buffer.from(calculatedB64, 'base64');
-    const b = Buffer.from(received, 'base64');
-    if (a.length !== b.length || a.length === 0) return false;
-    return crypto.timingSafeEqual(a, b);
+    return crypto.timingSafeEqual(calculated, receivedRaw);
   } catch {
     return false;
   }
