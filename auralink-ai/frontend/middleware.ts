@@ -14,6 +14,10 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
   if (p === "/shopify/launch" || p === "/shopify/launch/") {
     return NextResponse.next();
   }
+  // Shopify webhooks are sent server-to-server and must not be blocked by Clerk.
+  if (p.startsWith("/api/shopify/webhooks/")) {
+    return NextResponse.next();
+  }
   return clerk(request, event);
 }
 
