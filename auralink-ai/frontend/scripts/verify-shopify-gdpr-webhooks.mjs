@@ -22,6 +22,12 @@ function isUnauthorized401(status, bodySnippet) {
   return s === "Unauthorized" || s.includes("Invalid HMAC");
 }
 
+function isMisconfigured503(status, bodySnippet) {
+  return (
+    status === 503 && bodySnippet.includes("Webhook secret not configured")
+  );
+}
+
 async function main() {
   let failed = false;
   for (const p of paths) {
@@ -38,8 +44,11 @@ async function main() {
     } catch {
       bodySnippet = "(no body)";
     }
-    const ok = isUnauthorized401(res.status, bodySnippet);
-    if (!ok) {
+    if (isMisconfigured503(res.status, bodySnippet)) {
+      failed = true;
+      console.error(`FAIL ${res.status} ${url} — add SHOPIFY_API_SECRET on Vercel Production + redeploy`);
+      console.error(`       body: ${bodySnippet}`);
+    } else if (!isUnauthorized401(res.status, bodySnippet)) {
       failed = true;
       console.error(`FAIL ${res.status} ${url}`);
       console.error(`       body: ${bodySnippet}`);

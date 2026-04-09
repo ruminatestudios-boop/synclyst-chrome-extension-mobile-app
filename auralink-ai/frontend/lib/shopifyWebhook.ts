@@ -9,6 +9,11 @@ function getShopifyWebhookSecret(): string {
   );
 }
 
+/** True when Vercel/Node has a secret to verify Shopify HMAC (for clear 503 vs 401). */
+export function isShopifyWebhookSecretConfigured(): boolean {
+  return getShopifyWebhookSecret().length > 0;
+}
+
 export type ShopifyWebhookHeaders = {
   hmac: string;
   topic?: string;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deferUntil } from "@/lib/deferUntil";
 import { deleteShopifyPlatformTokens } from "@/lib/deleteShopifyPlatformTokens";
 import {
+  isShopifyWebhookSecretConfigured,
   readShopifyWebhookHeaders,
   verifyShopifyWebhookHmac,
 } from "@/lib/shopifyWebhook";
@@ -9,6 +10,10 @@ import {
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
+  if (!isShopifyWebhookSecretConfigured()) {
+    return new NextResponse("Webhook secret not configured", { status: 503 });
+  }
+
   const rawBuf = Buffer.from(await request.arrayBuffer());
   const { hmac } = readShopifyWebhookHeaders(request.headers);
 

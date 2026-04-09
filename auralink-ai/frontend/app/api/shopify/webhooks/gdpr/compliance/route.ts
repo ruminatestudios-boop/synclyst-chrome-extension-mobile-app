@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deferUntil } from "@/lib/deferUntil";
 import { deleteShopifyPlatformTokens } from "@/lib/deleteShopifyPlatformTokens";
 import {
+  isShopifyWebhookSecretConfigured,
   readShopifyWebhookHeaders,
   verifyShopifyWebhookHmac,
 } from "@/lib/shopifyWebhook";
@@ -54,6 +55,11 @@ async function handleComplianceSideEffects(
  * Respond 200 quickly — Shopify enforces ~5s timeout; DB work runs via waitUntil on Vercel.
  */
 export async function POST(request: NextRequest) {
+  if (!isShopifyWebhookSecretConfigured()) {
+    console.error("[gdpr/compliance] Set SHOPIFY_API_SECRET on this deployment (Partners → API secret key).");
+    return new NextResponse("Webhook secret not configured", { status: 503 });
+  }
+
   const rawBuf = Buffer.from(await request.arrayBuffer());
   const { hmac } = readShopifyWebhookHeaders(request.headers);
 
