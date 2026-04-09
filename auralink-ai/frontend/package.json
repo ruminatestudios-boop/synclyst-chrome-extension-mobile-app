@@ -15,7 +15,8 @@
     "apply-flow-ui": "node scripts/apply-flow-ui-standard.mjs",
     "build": "node scripts/inject-api-url.js && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "verify:shopify-webhooks": "node scripts/verify-shopify-gdpr-webhooks.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.0.0",
