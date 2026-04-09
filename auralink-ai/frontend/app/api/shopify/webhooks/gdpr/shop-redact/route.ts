@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { deferUntil } from "@/lib/deferUntil";
 import { deleteShopifyPlatformTokens } from "@/lib/deleteShopifyPlatformTokens";
 import {
   readShopifyWebhookHeaders,
@@ -21,10 +22,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const result = await deleteShopifyPlatformTokens(String(payload.shop_domain || ""));
-  if (!result.ok) {
-    console.error("[gdpr/shop-redact] delete failed", result.error);
-  }
+  const shop = String(payload.shop_domain || "");
+  deferUntil(
+    deleteShopifyPlatformTokens(shop).then((result) => {
+      if (!result.ok) console.error("[gdpr/shop-redact] delete failed", result.error);
+    })
+  );
 
   return new NextResponse(null, { status: 200 });
 }
