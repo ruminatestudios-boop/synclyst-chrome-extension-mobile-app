@@ -1,11 +1,11 @@
 # App Store config for `shopify app deploy` (publishes webhooks incl. mandatory compliance).
 # Sync with Dev Dashboard: same client_id, URLs, and scopes.
 #
-# Each subscription must include `topics`. Compliance topics share the same HTTPS endpoint as
-# app/uninstalled (Shopify app configuration reference).
+# IMPORTANT: Each [[webhooks.subscriptions]] must include `topics` (required by Shopify).
+# Compliance webhooks belong on the same subscription as app/uninstalled (see Shopify docs).
 
 name = "SyncLyst"
-client_id = "9689201284b5118b5ed9dc84416f3952"
+client_id = "a907e83507f284fd9cd84d520194dce9"
 application_url = "https://synclyst.app/shopify/launch"
 embedded = false
 
@@ -20,6 +20,7 @@ redirect_urls = [
 [webhooks]
 api_version = "2025-01"
 
+# Absolute URL avoids any ambiguity when application_url includes a path (/shopify/launch).
 [[webhooks.subscriptions]]
 topics = [ "app/uninstalled" ]
 compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]

@@ -1,28 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deferUntil } from "@/lib/deferUntil";
 import { deleteShopifyPlatformTokens } from "@/lib/deleteShopifyPlatformTokens";
-import {
-  readShopifyWebhookHeaders,
-  verifyShopifyWebhookHmac,
-} from "@/lib/shopifyWebhook";
+import { verifyShopifyJsonWebhook } from "@/lib/shopifyGdprRequest";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  const rawBuf = Buffer.from(await request.arrayBuffer());
-  const { hmac } = readShopifyWebhookHeaders(request.headers);
+  const v = await verifyShopifyJsonWebhook(request);
+  if (!v.ok) return v.response;
 
-  const ok = verifyShopifyWebhookHmac({ rawBody: rawBuf, hmacHeader: hmac });
-  if (!ok) return new NextResponse("Unauthorized", { status: 401 });
-
-  let payload: { shop_domain?: string };
-  try {
-    payload = JSON.parse(rawBuf.toString("utf8")) as { shop_domain?: string };
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const shop = String(payload.shop_domain || "");
+  const shop = String(v.payload.shop_domain || "");
   deferUntil(
     deleteShopifyPlatformTokens(shop).then((result) => {
       if (!result.ok) console.error("[gdpr/shop-redact] delete failed", result.error);
@@ -31,4 +19,3 @@ export async function POST(request: NextRequest) {
 
   return new NextResponse(null, { status: 200 });
 }
-

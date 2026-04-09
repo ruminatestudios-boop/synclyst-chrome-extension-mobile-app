@@ -44,22 +44,6 @@
             opacity: 0.55;
             filter: grayscale(0.35);
         }
-        /* Free tier always greyed out; paid tiers stay black and active */
-        .pricing-card--free {
-            opacity: 0.6;
-            background: #fafafa;
-            border-color: #e5e5e5;
-        }
-        .pricing-card--free:hover {
-            border-color: #e5e5e5;
-            box-shadow: none;
-        }
-        .pricing-card--free .vercel-headline,
-        .pricing-card--free h3,
-        .pricing-card--free .text-\[#111\] { color: #737373 !important; }
-        .pricing-card--free .text-4xl { color: #737373 !important; }
-        .pricing-card--free .text-\[#666\] { color: #a3a3a3 !important; }
-        .pricing-card--free .text-emerald-600 { color: #a7a7a7 !important; }
         .pricing-tier-btn[disabled] {
             cursor: not-allowed !important;
             opacity: 0.85;
@@ -593,8 +577,8 @@
                     <p class="text-[#555] vercel-body">Start free, upgrade when ready — no contracts, cancel anytime</p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="pricing-cards">
-                    <!-- Starter (free tier: always greyed out) -->
-                    <div class="pricing-card pricing-card--free vercel-card p-8 flex flex-col transition-all duration-200" data-tier="starter">
+                    <!-- Starter -->
+                    <div class="pricing-card vercel-card p-8 flex flex-col transition-all duration-200" data-tier="starter">
                         <div class="mb-6">
                             <h3 class="text-xl font-bold mb-2">Starter</h3>
                             <p class="text-sm text-[#666]">Try it free. No credit card needed.</p>
@@ -1139,7 +1123,7 @@
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">5. Your Rights &amp; Contact</h4>
-                <p>You have the right to access, correct, or delete your personal information at any time. For any data-related inquiries or to exercise your rights under GDPR/CCPA, please contact us at: <a href="mailto:privacy@synclyst.app" class="text-[#111] font-medium underline">privacy@synclyst.app</a></p>
+                <p>You have the right to access, correct, or delete your personal information at any time. For any data-related inquiries or to exercise your rights under GDPR/CCPA, please contact us at: <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a></p>
             </section>
         `;
 
@@ -1304,10 +1288,11 @@
           upgradeViewPlans.addEventListener('click', function(e) {
             e.preventDefault();
             closeUpgradeModal();
-            window.location.href = '/landing.html#pricing';
+            var nextTier = getNextUpgradeTier();
+            window.location.href = window.synclystAppUrl('/billing/checkout?tier=' + encodeURIComponent(nextTier));
           });
         }
-        var PRICING_PRELAUNCH = true;
+        var PRICING_PRELAUNCH = false;
         function renderPricingCards() {
           var current = getTier();
           var cards = document.querySelectorAll('.pricing-card');
@@ -1317,7 +1302,7 @@
             var btn = card.querySelector('.pricing-tier-btn');
             if (PRICING_PRELAUNCH) {
               card.classList.add('pricing-card--inactive');
-            } else if (tier !== 'starter') {
+            } else {
               card.classList.remove('pricing-card--inactive');
             }
             if (btn) {
@@ -1348,10 +1333,8 @@
             if (btn.disabled) return;
             var tier = btn.getAttribute('data-tier');
             if (!tier) return;
-            // Paid tiers are paused pre-launch.
             if (tier === 'pro' || tier === 'growth' || tier === 'scale') {
-              var el = document.getElementById('pricing');
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              window.location.href = window.synclystAppUrl('/billing/checkout?tier=' + encodeURIComponent(tier));
               return;
             }
             // Starter: sign up then dashboard (free tier)

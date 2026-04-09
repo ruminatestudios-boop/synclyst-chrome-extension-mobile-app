@@ -16,7 +16,9 @@
     "build": "node scripts/inject-api-url.js && next build",
     "start": "next start",
     "lint": "next lint",
-    "verify:shopify-webhooks": "node scripts/verify-shopify-gdpr-webhooks.mjs"
+    "verify:shopify-webhooks": "node scripts/verify-shopify-gdpr-webhooks.mjs",
+    "verify:shopify:full": "node scripts/shopify-compliance-full-check.mjs",
+    "verify:shopify:hmac": "node scripts/test-shopify-hmac-against-prod.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.0.0",

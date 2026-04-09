@@ -39,22 +39,6 @@
         .pricing-card--inactive {
             opacity: 0.65;
         }
-        /* Free tier always greyed out; paid tiers stay black and active */
-        .pricing-card--free {
-            opacity: 0.6;
-            background: #fafafa;
-            border-color: #e5e5e5;
-        }
-        .pricing-card--free:hover {
-            border-color: #e5e5e5;
-            box-shadow: none;
-        }
-        .pricing-card--free .vercel-headline,
-        .pricing-card--free h3,
-        .pricing-card--free .text-\[#111\] { color: #737373 !important; }
-        .pricing-card--free .text-4xl { color: #737373 !important; }
-        .pricing-card--free .text-\[#666\] { color: #a3a3a3 !important; }
-        .pricing-card--free .text-emerald-600 { color: #a7a7a7 !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
@@ -570,7 +554,7 @@
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="pricing-cards">
                     <!-- Starter (free tier: always greyed out) -->
-                    <div class="pricing-card pricing-card--free vercel-card p-8 flex flex-col transition-all duration-200" data-tier="starter">
+                    <div class="pricing-card vercel-card p-8 flex flex-col transition-all duration-200" data-tier="starter">
                         <div class="mb-6">
                             <h3 class="text-xl font-bold mb-2">Starter</h3>
                             <p class="text-sm text-[#666]">Try it free. No credit card needed.</p>
@@ -1098,15 +1082,15 @@
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">4. Data Retention &amp; Security</h4>
-                <p>Product photos are deleted within 24 hours of processing. Account data is retained while your account is active. Request deletion at <a href="mailto:privacy@synclyst.app" class="text-[#111] font-medium underline">privacy@synclyst.app</a>. We use TLS/HTTPS and restrict access to authorised personnel.</p>
+                <p>Product photos are deleted within 24 hours of processing. Account data is retained while your account is active. Request deletion at <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a>. We use TLS/HTTPS and restrict access to authorised personnel.</p>
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">5. Your Rights (UK/EEA)</h4>
-                <p>Under GDPR you may access, correct, delete, object, or request portability. Contact <a href="mailto:privacy@synclyst.app" class="text-[#111] font-medium underline">privacy@synclyst.app</a>.</p>
+                <p>Under GDPR you may access, correct, delete, object, or request portability. Contact <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a>.</p>
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">Cookies &amp; Contact</h4>
-                <p>We use essential cookies only (session, login). No advertising or tracking cookies. Contact: <a href="mailto:privacy@synclyst.app" class="text-[#111] font-medium underline">privacy@synclyst.app</a></p>
+                <p>We use essential cookies only (session, login). No advertising or tracking cookies. Contact: <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a></p>
             </section>
         `;
 
@@ -1273,7 +1257,7 @@
             closeUpgradeModal();
             // Quota hit flow: take user straight into paid checkout flow
             var nextTier = getNextUpgradeTier();
-            window.location.href = window.synclystAppUrl('/dashboard/upgrade?tier=' + nextTier + '&autostart=1');
+            window.location.href = window.synclystAppUrl('/billing/checkout?tier=' + encodeURIComponent(nextTier));
           });
         }
         function renderPricingCards() {
@@ -1283,8 +1267,7 @@
           cards.forEach(function(card) {
             var tier = card.getAttribute('data-tier');
             var btn = card.querySelector('.pricing-tier-btn');
-            /* Only grey out free tier (Starter); Pro, Growth, Scale stay black and active */
-            if (tier !== 'starter') card.classList.remove('pricing-card--inactive');
+            card.classList.remove('pricing-card--inactive');
             if (btn) {
               if (tier === 'starter') {
                 btn.disabled = false;
@@ -1309,9 +1292,8 @@
             if (btn.disabled) return;
             var tier = btn.getAttribute('data-tier');
             if (!tier) return;
-            // Paid tiers: go to app upgrade flow → Stripe Checkout
             if (tier === 'pro' || tier === 'growth' || tier === 'scale') {
-              window.location.href = window.synclystAppUrl('/dashboard/upgrade?tier=' + tier + '&autostart=1');
+              window.location.href = window.synclystAppUrl('/billing/checkout?tier=' + encodeURIComponent(tier));
               return;
             }
             // Starter: sign up then dashboard (free tier)

@@ -10,25 +10,24 @@ export default function PrivacyPage() {
     <div className="legal-page-root">
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#eaeaea]">
         <nav
-          className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between relative"
+          className="max-w-7xl mx-auto px-6 h-16 grid grid-cols-3 items-center relative"
           aria-label="Main"
         >
-          {/* Match landing.html: logo is viewport-centered within the nav track via absolute + balanced flex-1 sides */}
-          <div className="flex-1 min-w-0" aria-hidden="true" />
+          {/* Keep side columns empty: logo is truly centered on desktop. */}
+          <div aria-hidden="true" />
           <Link
             href="/landing.html"
-            className="flex items-center gap-2 flex-shrink-0 absolute left-1/2 -translate-x-1/2 no-underline"
+            className="legal-logo-link inline-flex items-center justify-center justify-self-center no-underline leading-none py-0.5"
           >
-            <span className="text-lg font-semibold tracking-tight text-[#111]">
-              Synclyst{" "}
-              <sup className="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>
+            <span className="text-lg font-medium tracking-tight text-[#111]">
+              Synclyst <sup className="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>
             </span>
           </Link>
-          <div className="flex-1 min-w-0" aria-hidden="true" />
+          <div aria-hidden="true" />
         </nav>
       </header>
 
-      <main className="legal-main pt-24 sm:pt-28">
+      <main className="legal-main">
         <article className="legal-article legal-prose">
           <h1>Privacy Policy</h1>
           <p className="legal-updated">Last Updated: April 2026</p>

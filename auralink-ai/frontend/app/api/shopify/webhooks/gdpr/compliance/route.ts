@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deferUntil } from "@/lib/deferUntil";
 import { deleteShopifyPlatformTokens } from "@/lib/deleteShopifyPlatformTokens";
-import {
-  readShopifyWebhookHeaders,
-  verifyShopifyWebhookHmac,
-} from "@/lib/shopifyWebhook";
+import { verifyShopifyJsonWebhook } from "@/lib/shopifyGdprRequest";
 import { normalizeMyshopifyDomain } from "@/lib/publishingJwt";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 async function handleComplianceSideEffects(
   topic: string,
@@ -54,26 +52,12 @@ async function handleComplianceSideEffects(
  * Respond 200 quickly — Shopify enforces ~5s timeout; DB work runs via waitUntil on Vercel.
  */
 export async function POST(request: NextRequest) {
-  const rawBuf = Buffer.from(await request.arrayBuffer());
-  const { hmac } = readShopifyWebhookHeaders(request.headers);
-
-  if (!verifyShopifyWebhookHmac({ rawBody: rawBuf, hmacHeader: hmac })) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
-
-  let payload: Record<string, unknown>;
-  try {
-    payload = JSON.parse(rawBuf.toString("utf8")) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const topic = (request.headers.get("x-shopify-topic") || "").trim();
-  const shopFromHeader = (request.headers.get("x-shopify-shop-domain") || "").trim();
+  const v = await verifyShopifyJsonWebhook(request);
+  if (!v.ok) return v.response;
 
   deferUntil(
-    handleComplianceSideEffects(topic, payload, shopFromHeader).catch((e) => {
-      console.error("[gdpr/compliance] async handler error", topic, e);
+    handleComplianceSideEffects(v.topic, v.payload, v.shopFromHeader).catch((e) => {
+      console.error("[gdpr/compliance] async handler error", v.topic, e);
     })
   );
 
