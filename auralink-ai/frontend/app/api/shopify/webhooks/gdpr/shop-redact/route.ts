@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { deleteShopifyPlatformTokens } from "@/lib/deleteShopifyPlatformTokens";
 import {
   readShopifyWebhookHeaders,
   verifyShopifyWebhookHmac,
@@ -11,9 +12,20 @@ export async function POST(request: NextRequest) {
   const { hmac } = readShopifyWebhookHeaders(request.headers);
 
   const ok = verifyShopifyWebhookHmac({ rawBody, hmacHeader: hmac });
-  if (!ok) return NextResponse.json({ error: "Invalid HMAC" }, { status: 401 });
+  if (!ok) return new NextResponse("Unauthorized", { status: 401 });
 
-  // Purge shop-related data/tokens (handled in publishing service); acknowledge here.
-  return NextResponse.json({ ok: true }, { status: 200 });
+  let payload: { shop_domain?: string };
+  try {
+    payload = JSON.parse(rawBody) as { shop_domain?: string };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const result = await deleteShopifyPlatformTokens(String(payload.shop_domain || ""));
+  if (!result.ok) {
+    return NextResponse.json({ error: "Redaction failed" }, { status: 500 });
+  }
+
+  return new NextResponse(null, { status: 200 });
 }
 

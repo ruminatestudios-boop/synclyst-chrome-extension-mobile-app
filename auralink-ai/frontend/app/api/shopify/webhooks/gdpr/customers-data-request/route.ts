@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   const { hmac } = readShopifyWebhookHeaders(request.headers);
 
   const ok = verifyShopifyWebhookHmac({ rawBody, hmacHeader: hmac });
-  if (!ok) return NextResponse.json({ error: "Invalid HMAC" }, { status: 401 });
+  if (!ok) return new NextResponse("Unauthorized", { status: 401 });
 
   // We don't store customer PII; acknowledge the request.
   return NextResponse.json({ ok: true }, { status: 200 });

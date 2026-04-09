@@ -17,9 +17,13 @@ redirect_urls = [
 [webhooks]
 api_version = "2025-01"
 
-# Shopify requires `topics` on each subscription; compliance_topics are added alongside.
-# app/uninstalled hits the same URI — handler acknowledges unknown topics with 200.
+# app/uninstalled → publishing (token cleanup can stay on the API host).
 [[webhooks.subscriptions]]
 topics = [ "app/uninstalled" ]
-compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 uri = "https://synclyst-publishing-299567386855.us-central1.run.app/webhooks/shopify/compliance"
+
+# Mandatory GDPR topics → same host as application_url (synclyst.app). Shopify’s automated
+# checks commonly validate this surface; HMAC uses SHOPIFY_API_SECRET on Vercel.
+[[webhooks.subscriptions]]
+compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+uri = "https://synclyst.app/api/shopify/webhooks/gdpr/compliance"
