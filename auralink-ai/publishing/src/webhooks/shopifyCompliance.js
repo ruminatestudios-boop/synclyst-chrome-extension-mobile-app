@@ -26,11 +26,12 @@ export function normalizeShopifyDomain(input) {
  */
 export function verifyShopifyWebhookHmac(rawBody, hmacHeader) {
   if (!SHOPIFY_API_SECRET || !hmacHeader || !Buffer.isBuffer(rawBody)) return false;
-  const digest = crypto.createHmac('sha256', SHOPIFY_API_SECRET).update(rawBody).digest('base64');
+  const calculatedB64 = crypto.createHmac('sha256', SHOPIFY_API_SECRET).update(rawBody).digest('base64');
+  const received = String(hmacHeader).trim();
   try {
-    const a = Buffer.from(digest, 'utf8');
-    const b = Buffer.from(String(hmacHeader).trim(), 'utf8');
-    if (a.length !== b.length) return false;
+    const a = Buffer.from(calculatedB64, 'base64');
+    const b = Buffer.from(received, 'base64');
+    if (a.length !== b.length || a.length === 0) return false;
     return crypto.timingSafeEqual(a, b);
   } catch {
     return false;

@@ -24,24 +24,31 @@ export function readShopifyWebhookHeaders(headers: Headers): ShopifyWebhookHeade
   };
 }
 
+/**
+ * Matches Shopify’s HTTPS webhook validation:
+ * https://shopify.dev/docs/apps/build/webhooks/subscribe/https#step-2-validate-the-origin-of-your-webhook-to-ensure-its-coming-from-shopify
+ * Compare decoded HMAC bytes (not UTF-8 bytes of the base64 strings — padding/variants differ).
+ */
 export function verifyShopifyWebhookHmac(args: {
-  rawBody: string;
+  rawBody: string | Buffer;
   hmacHeader: string;
   secret?: string;
 }): boolean {
   const secret = (args.secret ?? getShopifyWebhookSecret()).trim();
   if (!secret) return false;
-  if (!args.hmacHeader) return false;
+  const received = args.hmacHeader.trim();
+  if (!received) return false;
 
-  const digest = crypto
-    .createHmac("sha256", secret)
-    .update(args.rawBody, "utf8")
-    .digest("base64");
+  const bodyBuf = Buffer.isBuffer(args.rawBody)
+    ? args.rawBody
+    : Buffer.from(args.rawBody, "utf8");
+
+  const calculatedB64 = crypto.createHmac("sha256", secret).update(bodyBuf).digest("base64");
 
   try {
-    const a = Buffer.from(digest, "utf8");
-    const b = Buffer.from(args.hmacHeader, "utf8");
-    if (a.length !== b.length) return false;
+    const a = Buffer.from(calculatedB64, "base64");
+    const b = Buffer.from(received, "base64");
+    if (a.length !== b.length || a.length === 0) return false;
     return crypto.timingSafeEqual(a, b);
   } catch {
     return false;

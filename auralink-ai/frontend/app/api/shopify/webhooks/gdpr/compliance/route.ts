@@ -13,13 +13,14 @@ export const runtime = "nodejs";
  * Shopify automated checks often validate against the same host as `application_url` (synclyst.app).
  */
 export async function POST(request: NextRequest) {
-  const rawBody = await request.text();
+  const rawBuf = Buffer.from(await request.arrayBuffer());
   const { hmac } = readShopifyWebhookHeaders(request.headers);
 
-  if (!verifyShopifyWebhookHmac({ rawBody, hmacHeader: hmac })) {
+  if (!verifyShopifyWebhookHmac({ rawBody: rawBuf, hmacHeader: hmac })) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
+  const rawBody = rawBuf.toString("utf8");
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(rawBody) as Record<string, unknown>;
@@ -28,9 +29,19 @@ export async function POST(request: NextRequest) {
   }
 
   const topic = (request.headers.get("x-shopify-topic") || "").trim();
+  const shopFromHeader = (request.headers.get("x-shopify-shop-domain") || "").trim();
 
   try {
     switch (topic) {
+      case "app/uninstalled": {
+        const p = payload as { domain?: string; shop_domain?: string };
+        const shop = shopFromHeader || String(p.domain || p.shop_domain || "");
+        const result = await deleteShopifyPlatformTokens(shop);
+        if (!result.ok) {
+          console.error("[gdpr/compliance] app/uninstalled token delete failed", result.error);
+        }
+        break;
+      }
       case "customers/data_request": {
         const shop = normalizeMyshopifyDomain(String(payload.shop_domain || ""));
         const customerId = (payload.customer as { id?: number } | undefined)?.id;
@@ -48,7 +59,6 @@ export async function POST(request: NextRequest) {
         const result = await deleteShopifyPlatformTokens(shop);
         if (!result.ok) {
           console.error("[gdpr/compliance] shop/redact failed", result.error);
-          return NextResponse.json({ error: "Redaction failed" }, { status: 500 });
         }
         break;
       }
