@@ -1,9 +1,12 @@
 import crypto from "crypto";
 
 function getShopifyWebhookSecret(): string {
+  // Prefer API secret (Partners → App → API credentials). A mistaken SHOPIFY_WEBHOOK_SECRET
+  // in Vercel would otherwise override and break HMAC for every real Shopify delivery.
   return (
-    process.env.SHOPIFY_WEBHOOK_SECRET?.trim() ||
     process.env.SHOPIFY_API_SECRET?.trim() ||
+    process.env.SHOPIFY_CLIENT_SECRET?.trim() ||
+    process.env.SHOPIFY_WEBHOOK_SECRET?.trim() ||
     ""
   );
 }
