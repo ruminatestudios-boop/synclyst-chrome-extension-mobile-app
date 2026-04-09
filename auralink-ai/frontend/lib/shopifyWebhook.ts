@@ -1,8 +1,6 @@
 import crypto from "crypto";
 
 function getShopifyWebhookSecret(): string {
-  // Prefer API secret (Partners → App → API credentials). A mistaken SHOPIFY_WEBHOOK_SECRET
-  // in Vercel would otherwise override and break HMAC for every real Shopify delivery.
   return (
     process.env.SHOPIFY_API_SECRET?.trim() ||
     process.env.SHOPIFY_CLIENT_SECRET?.trim() ||
@@ -27,10 +25,30 @@ export function readShopifyWebhookHeaders(headers: Headers): ShopifyWebhookHeade
   };
 }
 
+/** Decode Shopify X-Shopify-Hmac-Sha256 (standard or URL-safe base64, optional padding). */
+function decodeShopifyHmacHeader(header: string, expectedLength: number): Buffer | null {
+  const t = header.trim();
+  const variants = [
+    t,
+    t.replace(/-/g, "+").replace(/_/g, "/"),
+  ];
+  for (const v of variants) {
+    let padded = v;
+    const mod = padded.length % 4;
+    if (mod) padded += "=".repeat(4 - mod);
+    try {
+      const buf = Buffer.from(padded, "base64");
+      if (buf.length === expectedLength) return buf;
+    } catch {
+      /* continue */
+    }
+  }
+  return null;
+}
+
 /**
- * Matches Shopify’s HTTPS webhook validation:
- * https://shopify.dev/docs/apps/build/webhooks/subscribe/https#step-2-validate-the-origin-of-your-webhook-to-ensure-its-coming-from-shopify
- * Compare decoded HMAC bytes (not UTF-8 bytes of the base64 strings — padding/variants differ).
+ * HMAC-SHA256 of raw body vs X-Shopify-Hmac-Sha256 (raw digest comparison).
+ * @see https://shopify.dev/docs/apps/build/webhooks/subscribe/https#step-2-validate-the-origin-of-your-webhook-to-ensure-its-coming-from-shopify
  */
 export function verifyShopifyWebhookHmac(args: {
   rawBody: string | Buffer;
@@ -46,15 +64,12 @@ export function verifyShopifyWebhookHmac(args: {
     ? args.rawBody
     : Buffer.from(args.rawBody, "utf8");
 
-  const calculatedB64 = crypto.createHmac("sha256", secret).update(bodyBuf).digest("base64");
-
+  const calculated = crypto.createHmac("sha256", secret).update(bodyBuf).digest();
+  const receivedRaw = decodeShopifyHmacHeader(received, calculated.length);
+  if (!receivedRaw) return false;
   try {
-    const a = Buffer.from(calculatedB64, "base64");
-    const b = Buffer.from(received, "base64");
-    if (a.length !== b.length || a.length === 0) return false;
-    return crypto.timingSafeEqual(a, b);
+    return crypto.timingSafeEqual(calculated, receivedRaw);
   } catch {
     return false;
   }
 }
-
