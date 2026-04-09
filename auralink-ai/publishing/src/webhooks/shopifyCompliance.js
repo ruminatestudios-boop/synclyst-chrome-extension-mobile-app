@@ -10,7 +10,13 @@ import crypto from 'crypto';
 import { getSupabase } from '../db/client.js';
 import { isDevMode, devDeleteShopifyTokensForShopDomain } from '../db/devStore.js';
 
-const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
+export function getShopifyWebhookSecret() {
+  return (
+    (process.env.SHOPIFY_API_SECRET || '').trim() ||
+    (process.env.SHOPIFY_CLIENT_SECRET || '').trim() ||
+    (process.env.SHOPIFY_WEBHOOK_SECRET || '').trim()
+  );
+}
 
 export function normalizeShopifyDomain(input) {
   const raw = String(input || '').trim().toLowerCase();
@@ -41,16 +47,43 @@ function decodeShopifyHmacHeader(header, expectedLength) {
   return null;
 }
 
-export function verifyShopifyWebhookHmac(rawBody, hmacHeader) {
-  if (!SHOPIFY_API_SECRET || !hmacHeader || !Buffer.isBuffer(rawBody)) return false;
-  const calculated = crypto.createHmac('sha256', SHOPIFY_API_SECRET).update(rawBody).digest();
-  const receivedRaw = decodeShopifyHmacHeader(hmacHeader, calculated.length);
-  if (!receivedRaw) return false;
+function verifyHmacShopifyDocStyle(secret, bodyBuf, received) {
+  let calculatedB64;
   try {
-    return crypto.timingSafeEqual(calculated, receivedRaw);
+    calculatedB64 = crypto.createHmac('sha256', secret).update(bodyBuf).digest('base64');
   } catch {
     return false;
   }
+  const a = Buffer.from(calculatedB64, 'base64');
+  if (a.length !== 32) return false;
+  const bases = [String(received).trim(), String(received).trim().replace(/-/g, '+').replace(/_/g, '/')];
+  for (const base of bases) {
+    for (let pad = 0; pad < 4; pad++) {
+      const padded = base + (pad ? '='.repeat(pad) : '');
+      try {
+        const b = Buffer.from(padded, 'base64');
+        if (b.length === 32 && crypto.timingSafeEqual(a, b)) return true;
+      } catch {
+        /* invalid base64 */
+      }
+    }
+  }
+  return false;
+}
+
+export function verifyShopifyWebhookHmac(rawBody, hmacHeader) {
+  const secret = getShopifyWebhookSecret();
+  if (!secret || !hmacHeader || !Buffer.isBuffer(rawBody)) return false;
+  const calculated = crypto.createHmac('sha256', secret).update(rawBody).digest();
+  const receivedRaw = decodeShopifyHmacHeader(hmacHeader, calculated.length);
+  if (receivedRaw) {
+    try {
+      if (crypto.timingSafeEqual(calculated, receivedRaw)) return true;
+    } catch {
+      /* fall through */
+    }
+  }
+  return verifyHmacShopifyDocStyle(secret, rawBody, hmacHeader);
 }
 
 /**

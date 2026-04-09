@@ -33,6 +33,11 @@ a:hover {
   text-decoration: underline;
 }
 
+/* Logo link in legal header should never underline (matches landing page). */
+.legal-logo-link:hover {
+  text-decoration: none;
+}
+
 /* Dashboard: match landing (glass-card, section-label, hero-grid-bg) */
 .hero-grid-bg {
   background-color: #ffffff;

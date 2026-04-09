@@ -1,24 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  isShopifyWebhookSecretConfigured,
-  readShopifyWebhookHeaders,
-  verifyShopifyWebhookHmac,
-} from "@/lib/shopifyWebhook";
+import { verifyShopifyJsonWebhook } from "@/lib/shopifyGdprRequest";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  if (!isShopifyWebhookSecretConfigured()) {
-    return new NextResponse("Webhook secret not configured", { status: 503 });
-  }
-
-  const rawBuf = Buffer.from(await request.arrayBuffer());
-  const { hmac } = readShopifyWebhookHeaders(request.headers);
-
-  const ok = verifyShopifyWebhookHmac({ rawBody: rawBuf, hmacHeader: hmac });
-  if (!ok) return new NextResponse("Unauthorized", { status: 401 });
-
-  // We don't store customer PII; acknowledge the request.
-  return NextResponse.json({ ok: true }, { status: 200 });
+  const v = await verifyShopifyJsonWebhook(request);
+  if (!v.ok) return v.response;
+  return new NextResponse(null, { status: 200 });
 }
-

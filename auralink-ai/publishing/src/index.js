@@ -64,10 +64,11 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id'],
 }));
 // Shopify mandatory GDPR webhooks: HMAC is computed over the raw body — must not use express.json() first.
+// Use type '*/*' so probes still get a parsed body if Content-Type varies (strict JSON-only match → empty body → 400).
 app.use(
   '/webhooks/shopify/compliance',
   express.raw({
-    type: (req) => String(req.headers['content-type'] || '').toLowerCase().includes('application/json'),
+    type: '*/*',
     limit: '256kb',
   }),
   shopifyComplianceRouter
