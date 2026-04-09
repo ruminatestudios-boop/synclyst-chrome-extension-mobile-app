@@ -1,5 +1,8 @@
 # App Store config for `shopify app deploy` (publishes webhooks incl. mandatory compliance).
 # Sync with Dev Dashboard: same client_id, URLs, and scopes.
+#
+# IMPORTANT: Each [[webhooks.subscriptions]] must include `topics` (required by Shopify).
+# Compliance webhooks belong on the same subscription as app/uninstalled (see Shopify docs).
 
 name = "SyncLyst"
 client_id = "9689201284b5118b5ed9dc84416f3952"
@@ -17,13 +20,8 @@ redirect_urls = [
 [webhooks]
 api_version = "2025-01"
 
-# app/uninstalled → publishing (token cleanup can stay on the API host).
+# Relative uri → resolved against application_url host (synclyst.app).
 [[webhooks.subscriptions]]
 topics = [ "app/uninstalled" ]
-uri = "https://synclyst-publishing-299567386855.us-central1.run.app/webhooks/shopify/compliance"
-
-# Mandatory GDPR topics → same host as application_url (synclyst.app). Shopify’s automated
-# checks commonly validate this surface; HMAC uses SHOPIFY_API_SECRET on Vercel.
-[[webhooks.subscriptions]]
 compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
-uri = "https://synclyst.app/api/shopify/webhooks/gdpr/compliance"
+uri = "/api/shopify/webhooks/gdpr/compliance"

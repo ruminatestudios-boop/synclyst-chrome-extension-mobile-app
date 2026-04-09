@@ -28,9 +28,20 @@ export async function POST(request: NextRequest) {
   }
 
   const topic = (request.headers.get("x-shopify-topic") || "").trim();
+  const shopFromHeader = (request.headers.get("x-shopify-shop-domain") || "").trim();
 
   try {
     switch (topic) {
+      case "app/uninstalled": {
+        const p = payload as { domain?: string; shop_domain?: string };
+        const shop = shopFromHeader || String(p.domain || p.shop_domain || "");
+        const result = await deleteShopifyPlatformTokens(shop);
+        if (!result.ok) {
+          console.error("[gdpr/compliance] app/uninstalled token delete failed", result.error);
+          return NextResponse.json({ error: "Uninstall cleanup failed" }, { status: 500 });
+        }
+        break;
+      }
       case "customers/data_request": {
         const shop = normalizeMyshopifyDomain(String(payload.shop_domain || ""));
         const customerId = (payload.customer as { id?: number } | undefined)?.id;
