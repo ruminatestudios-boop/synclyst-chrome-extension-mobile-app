@@ -14,6 +14,13 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
   if (p === "/shopify/launch" || p === "/shopify/launch/") {
     return NextResponse.next();
   }
+  // Extension companion page should be reachable without auth.
+  if (p === "/extension-ui" || p === "/extension-ui/") {
+    return NextResponse.next();
+  }
+  if (p === "/extension-return" || p === "/extension-return/") {
+    return NextResponse.next();
+  }
   // Shopify webhooks are sent server-to-server and must not be blocked by Clerk.
   if (p.startsWith("/api/shopify/webhooks/")) {
     return NextResponse.next();
