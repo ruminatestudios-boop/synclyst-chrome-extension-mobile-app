@@ -3,17 +3,17 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 
 export const runtime = "nodejs";
 
-function corsHeaders(req: Request) {
+function corsHeaders(req: Request): Headers {
+  const h = new Headers();
   const origin = req.headers.get("origin") || "";
   const isExtension = origin.startsWith("chrome-extension://");
-  if (!isExtension) return {};
-  return {
-    "access-control-allow-origin": origin,
-    "access-control-allow-credentials": "true",
-    "access-control-allow-methods": "GET,OPTIONS",
-    "access-control-allow-headers": "content-type,authorization",
-    vary: "origin",
-  };
+  if (!isExtension) return h;
+  h.set("access-control-allow-origin", origin);
+  h.set("access-control-allow-credentials", "true");
+  h.set("access-control-allow-methods", "GET,OPTIONS");
+  h.set("access-control-allow-headers", "content-type,authorization");
+  h.set("vary", "origin");
+  return h;
 }
 
 export async function OPTIONS(req: Request) {
