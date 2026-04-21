@@ -488,13 +488,8 @@ function openAutostartCheckoutTabForTier(tier) {
   try {
     const base = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
     if (!base) return;
-    const next = `/extension-return?checkout=1&tier=${encodeURIComponent(t)}`;
-    // If they're signed in, go straight to the autostart checkout page.
-    // If not, Clerk will sign in then redirect to the same page.
-    const url = billingSignedIn
-      ? `${base}${next}`
-      : `${base}/sign-in?redirect_url=${encodeURIComponent(next)}`;
-    chrome.tabs.create({ url });
+    // Avoid extension cookie issues by using a first-party redirect endpoint.
+    chrome.tabs.create({ url: `${base}/api/billing/checkout-redirect?tier=${encodeURIComponent(t)}` });
   } catch {
     /* ignore */
   }
