@@ -1,5 +1,6 @@
-import { Suspense } from "react";
-import SignOutClient from "./SignOutClient";
+"use client";
+
+import dynamic from "next/dynamic";
 
 const fallback = (
   <div
@@ -18,10 +19,13 @@ const fallback = (
   </div>
 );
 
+// `useClerk()` throws during prerender if the Clerk provider is disabled by env.
+// Render the client sign-out logic only on the client (no SSR) so builds don't fail.
+const SignOutClient = dynamic(() => import("./SignOutClient"), {
+  ssr: false,
+  loading: () => fallback,
+});
+
 export default function SignOutPage() {
-  return (
-    <Suspense fallback={fallback}>
-      <SignOutClient />
-    </Suspense>
-  );
+  return <SignOutClient />;
 }
