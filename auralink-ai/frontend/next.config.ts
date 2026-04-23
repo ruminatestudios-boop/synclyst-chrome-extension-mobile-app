@@ -57,7 +57,11 @@ const listingFlowRewrites = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  outputFileTracingRoot: path.join(__dirname),
+  /**
+   * `next.config.ts` is evaluated as ESM on Vercel, where `__dirname` is undefined.
+   * Use `process.cwd()` (Vercel sets it to the project root directory) instead.
+   */
+  outputFileTracingRoot: path.resolve(process.cwd()),
   ...(resolvedPublicApiUrl
     ? { env: { NEXT_PUBLIC_API_URL: resolvedPublicApiUrl } }
     : {}),
