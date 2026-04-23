@@ -31,9 +31,13 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // Same as before, without shopify/launch in the lookahead — we skip Clerk in code above.
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpg|jpeg|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-  ],
+  /**
+   * Hard-disable middleware routing.
+   *
+   * We were seeing persistent `MIDDLEWARE_INVOCATION_FAILED` in production Edge runtime,
+   * blocking `/snap` + `/api/snap-pair/*`. Disabling middleware fully removes the Edge hop.
+   *
+   * If/when we need middleware again, reintroduce it only after verifying Edge-safe deps.
+   */
+  matcher: [],
 };
