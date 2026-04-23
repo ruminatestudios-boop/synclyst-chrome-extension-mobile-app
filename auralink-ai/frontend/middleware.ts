@@ -1,15 +1,11 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import type { NextFetchEvent } from "next/server";
 import type { NextRequest } from "next/server";
-
-const clerk = clerkMiddleware();
 
 /**
  * Shopify App URL must not go through Clerk’s auth handshake (no session yet).
  * Relying on `matcher` negative lookahead is unreliable with Next’s path matching on Vercel.
  */
-export default function middleware(request: NextRequest, event: NextFetchEvent) {
+export default function middleware(request: NextRequest) {
   const p = request.nextUrl.pathname;
   if (p === "/shopify/launch" || p === "/shopify/launch/") {
     return NextResponse.next();
@@ -25,7 +21,13 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
   if (p.startsWith("/api/shopify/webhooks/")) {
     return NextResponse.next();
   }
-  return clerk(request, event);
+  /**
+   * IMPORTANT: Middleware runs on the Edge runtime on Vercel.
+   * Some Clerk server helpers pull in Node-only crypto deps, which can break builds.
+   *
+   * We rely on page-level Clerk guards (e.g. SignedIn/SignedOut) instead of Edge middleware.
+   */
+  return NextResponse.next();
 }
 
 export const config = {
