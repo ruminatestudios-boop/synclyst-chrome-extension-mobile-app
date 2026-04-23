@@ -1,4 +1,4 @@
-/* API origin: extension/build-manifest.mjs — npm run extension:manifest (store) or extension:manifest:dev (local). */
+/* API origin: from repo root run `npm run extension:manifest` (store) or `npm run extension:manifest:dev` (local) — see extension/build-manifest.mjs. */
 /* Store build: default host is synclyst.app (HTTPS). Prod CSP blocks loopback; use dev manifest for Next on port 3000. */
 /* Dev build: default 127.0.0.1:3000. Override: chrome.storage.local key synclyst_origin, or open /snap on that host. */
 function defaultSynclystOriginFromManifest() {
@@ -65,7 +65,12 @@ async function pickOriginFromOpenSynclystTab() {
     try {
       const u = new URL(String(raw));
       const p = (u.pathname || "").replace(/\/$/, "");
-      if (p !== "/snap" && p !== "/snap.html" && p !== "/extension-review") return null;
+      const okPath =
+        p === "/snap" ||
+        p === "/snap.html" ||
+        p === "/extension-review" ||
+        p.startsWith("/extension-review/");
+      if (!okPath) return null;
       if (!/^https?:\/\//i.test(u.origin)) return null;
       return u.origin;
     } catch {
@@ -74,13 +79,15 @@ async function pickOriginFromOpenSynclystTab() {
   };
   return new Promise((resolve) => {
     try {
-      chrome.tabs.query({ currentWindow: true }, async (tabs) => {
+      // All windows: `/snap` is often in another window while the user lists from Shopify/eBay.
+      chrome.tabs.query({}, (tabs) => {
         try {
-          // Prefer active tab first (most likely the snap/review page the user just used).
-          const active = (tabs || []).find((t) => t && t.active);
+          const list = tabs || [];
+          // Prefer the focused window’s active tab when it is snap/review (one active tab per window; pick first match).
+          const active = list.find((t) => t && t.active);
           const fromActive = tryUrl(active && active.url);
           if (fromActive) return resolve(fromActive);
-          for (const t of tabs || []) {
+          for (const t of list) {
             const o = tryUrl(t && t.url);
             if (o) return resolve(o);
           }
@@ -155,26 +162,82 @@ function lanIpSortKey(ip) {
 }
 
 /**
- * Manual `synclyst_origin` wins. Otherwise reuses a validated auto cache, or discovers
- * Next on 127.0.0.1 / localhost, then prefers a LAN IP (phone on same Wi‑Fi).
- * If nothing responds, falls back to SYNCLYST_ORIGIN_DEFAULT (dev: :3000, store: synclyst.app).
+ * Prefer a validated SyncLyst `/snap` (or review) tab origin when present — this is what makes local
+ * phone→desktop E2E reliable even if `synclyst_origin` was previously set to production.
+ * Next: manual `synclyst_origin` (if any), then a validated auto cache, then discovery
+ * (127.0.0.1/localhost, then LAN for phone), else SYNCLYST_ORIGIN_DEFAULT.
  */
 async function resolveSynclystOrigin() {
   const o = await storageGet([STORAGE_ORIGIN_MANUAL, STORAGE_ORIGIN_AUTO]);
   const manual = o[STORAGE_ORIGIN_MANUAL] != null ? String(o[STORAGE_ORIGIN_MANUAL]).trim() : "";
-  if (manual && /^https?:\/\//i.test(manual)) {
-    return manual.replace(/\/$/, "");
+  const manualBase = manual && /^https?:\/\//i.test(manual) ? manual.replace(/\/$/, "") : "";
+
+  // If SyncLyst is open in a tab, prefer that exact origin (especially for local /snap E2E).
+  // A stale manual `synclyst_origin` pointing at production is a common footgun: it will make the
+  // extension poll https://synclyst.app while the phone /snap page writes to local Next, so the modal
+  // never populates. In that case, override + clear the manual key.
+  const tabOrigin = await pickOriginFromOpenSynclystTab();
+  if (tabOrigin) {
+    const ok = await validateSnapPairOrigin(tabOrigin);
+    if (ok) {
+      const t = tabOrigin.replace(/\/$/, "");
+      const isLocal =
+        t.startsWith("http://127.0.0.1:") || t.startsWith("http://localhost:") || t.startsWith("http://[::1]:");
+      if (manualBase) {
+        const manualIsLocal =
+          manualBase.startsWith("http://127.0.0.1:") ||
+          manualBase.startsWith("http://localhost:") ||
+          manualBase.startsWith("http://[::1]:");
+        const manualIsLive = manualBase === SYNCLYST_ORIGIN_LIVE;
+        // Phone snap on local Next + stale manual to prod (or any mismatch) → prefer the tab.
+        if (manualBase !== t && (isLocal !== manualIsLocal)) {
+          try {
+            chrome.storage.local.remove([STORAGE_ORIGIN_MANUAL], () => {
+              /* ignore */
+            });
+          } catch {
+            /* ignore */
+          }
+        } else if (isLocal && manualIsLive) {
+          // Open tab is local, manual points at production → always prefer local for dev flows.
+          try {
+            chrome.storage.local.remove([STORAGE_ORIGIN_MANUAL], () => {
+              /* ignore */
+            });
+          } catch {
+            /* ignore */
+          }
+        } else {
+          // Manual matches reality — keep it.
+        }
+      }
+      try {
+        chrome.storage.local.set({ [STORAGE_ORIGIN_AUTO]: t });
+      } catch {
+        /* ignore */
+      }
+      if (!manualBase || manualBase === t) {
+        // manual absent or already aligned
+        return t;
+      }
+      // If we didn't clear `manual` above, respect it.
+      if (manualBase) {
+        const mOk = await validateSnapPairOrigin(manualBase);
+        if (mOk) return manualBase;
+        try {
+          chrome.storage.local.remove([STORAGE_ORIGIN_MANUAL], () => {
+            /* ignore */
+          });
+        } catch {
+          /* ignore */
+        }
+        return t;
+      }
+    }
   }
 
-  // If SyncLyst is open in a tab, use that exact origin.
-  const tabOrigin = await pickOriginFromOpenSynclystTab();
-  if (tabOrigin && (await validateSnapPairOrigin(tabOrigin))) {
-    try {
-      chrome.storage.local.set({ [STORAGE_ORIGIN_AUTO]: tabOrigin.replace(/\/$/, "") });
-    } catch {
-      /* ignore */
-    }
-    return tabOrigin.replace(/\/$/, "");
+  if (manual && /^https?:\/\//i.test(manual)) {
+    return manual.replace(/\/$/, "");
   }
 
   const cached = o[STORAGE_ORIGIN_AUTO] != null ? String(o[STORAGE_ORIGIN_AUTO]).trim() : "";
@@ -1048,6 +1111,34 @@ async function copySnapPairUrl() {
   }
 }
 
+async function copySnapPairLink(pairUrl) {
+  const u = String(pairUrl || "").trim();
+  if (!u) return;
+  const hintEl = document.getElementById("pair-copy-hint");
+  try {
+    await navigator.clipboard.writeText(u);
+    if (hintEl) hintEl.textContent = "Link copied!";
+    setTimeout(() => {
+      if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
+    }, 1600);
+  } catch {
+    if (hintEl) hintEl.textContent = "Couldn’t copy link";
+    setTimeout(() => {
+      if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
+    }, 2400);
+  }
+}
+
+function openSnapPairLink(pairUrl) {
+  const u = String(pairUrl || "").trim();
+  if (!u) return;
+  try {
+    chrome.tabs.create({ url: u });
+  } catch {
+    /* ignore */
+  }
+}
+
 function setLiveLabel(text) {
   const el = document.getElementById("live-label");
   if (el) el.textContent = text;
@@ -1067,7 +1158,12 @@ function sessionIdFromSnapLikeUrl(raw) {
   try {
     const u = new URL(String(raw));
     const p = (u.pathname || "").replace(/\/$/, "");
-    if (p !== "/snap" && p !== "/snap.html" && p !== "/extension-review") return null;
+    const okPath =
+      p === "/snap" ||
+      p === "/snap.html" ||
+      p === "/extension-review" ||
+      p.startsWith("/extension-review/");
+    if (!okPath) return null;
     const s = (u.searchParams.get("s") || "").trim();
     return /^[a-f0-9]{12,32}$/i.test(s) ? s : null;
   } catch {
@@ -1075,18 +1171,32 @@ function sessionIdFromSnapLikeUrl(raw) {
   }
 }
 
-async function pickSessionIdFromOpenSynclystTab() {
+/**
+ * All windows — pairing often lives in a different window than the seller tab where the popup is opened.
+ * If `storedId` is set, prefer a tab whose `?s=` matches (avoids a stale /snap background tab overriding the phone/QR id).
+ */
+function pickSessionIdFromOpenSynclystTab(storedId) {
   return new Promise((resolve) => {
     try {
-      chrome.tabs.query({ currentWindow: true }, (tabs) => {
+      chrome.tabs.query({}, (tabs) => {
         try {
-          const active = (tabs || []).find((t) => t && t.active);
-          const a = sessionIdFromSnapLikeUrl(active && active.url);
-          if (a) return resolve(a);
-          for (const t of tabs || []) {
-            const s = sessionIdFromSnapLikeUrl(t && t.url);
-            if (s) return resolve(s);
+          const list = (tabs || []).filter((t) => t && t.url);
+          const found = [];
+          for (const t of list) {
+            const s = sessionIdFromSnapLikeUrl(t.url);
+            if (s) found.push({ s, active: !!t.active });
           }
+          if (!found.length) return resolve(null);
+          const sid = storedId && /^[a-f0-9]{12,32}$/i.test(String(storedId)) ? String(storedId) : "";
+          if (sid) {
+            const m = found.find((x) => x.s && x.s.toLowerCase() === sid.toLowerCase());
+            if (m) return resolve(m.s);
+            // Persisted id (QR / phone) wins over a leftover /snap tab with a different ?s=.
+            return resolve(null);
+          }
+          const act = found.find((x) => x.active);
+          if (act) return resolve(act.s);
+          return resolve(found[0].s);
         } catch {
           /* ignore */
         }
@@ -1103,40 +1213,50 @@ async function pickSessionIdFromOpenSynclystTab() {
  */
 function getSessionId() {
   return new Promise((resolve) => {
-    // If the user is actively on /snap?s=... or /extension-review?s=..., prefer that exact session id.
-    pickSessionIdFromOpenSynclystTab()
-      .then((fromTab) => {
-        if (fromTab) {
-          try {
-            chrome.storage.local.set({ snap_pair_session_id: fromTab });
-          } catch {
-            /* ignore */
+    chrome.storage.local.get(["snap_pair_session_id"], (o) => {
+      const stored = o && o.snap_pair_session_id && /^[a-f0-9]{12,32}$/i.test(String(o.snap_pair_session_id))
+        ? String(o.snap_pair_session_id)
+        : "";
+      pickSessionIdFromOpenSynclystTab(stored)
+        .then((fromTab) => {
+          if (fromTab) {
+            if (!stored || fromTab.toLowerCase() !== stored.toLowerCase()) {
+              try {
+                chrome.storage.local.set({ snap_pair_session_id: fromTab });
+              } catch {
+                /* ignore */
+              }
+            }
+            resolve(fromTab);
+            return true;
           }
-          resolve(fromTab);
-          return true;
-        }
-        return false;
-      })
-      .then((done) => {
-        if (done) return;
-        chrome.runtime.sendMessage({ type: "SYNCLYST_GET_SESSION" }, (r) => {
-      if (chrome.runtime.lastError) {
-        /* fall through */
-      } else if (r && r.sessionId && /^[a-f0-9]{12,32}$/i.test(r.sessionId)) {
-        resolve(r.sessionId);
-        return;
-      }
-      chrome.storage.local.get(["snap_pair_session_id"], (o) => {
-        const existing = o && o.snap_pair_session_id;
-        if (existing && /^[a-f0-9]{12,32}$/i.test(String(existing))) {
-          resolve(String(existing));
-          return;
-        }
-        const id = genSessionIdLocal();
-        chrome.storage.local.set({ snap_pair_session_id: id }, () => resolve(id));
-      });
+          return false;
+        })
+        .then((done) => {
+          if (done) return;
+          if (stored) {
+            resolve(stored);
+            return;
+          }
+          chrome.runtime.sendMessage({ type: "SYNCLYST_GET_SESSION" }, (r) => {
+            if (chrome.runtime.lastError) {
+              /* fall through */
+            } else if (r && r.sessionId && /^[a-f0-9]{12,32}$/i.test(r.sessionId)) {
+              resolve(r.sessionId);
+              return;
+            }
+            chrome.storage.local.get(["snap_pair_session_id"], (o2) => {
+              const existing = o2 && o2.snap_pair_session_id;
+              if (existing && /^[a-f0-9]{12,32}$/i.test(String(existing))) {
+                resolve(String(existing));
+                return;
+              }
+              const id = genSessionIdLocal();
+              chrome.storage.local.set({ snap_pair_session_id: id }, () => resolve(id));
+            });
+          });
         });
-      });
+    });
   });
 }
 
@@ -1160,33 +1280,18 @@ function revokePrevQrObjectUrl(imgEl) {
 }
 
 /**
- * Remote PNG first (most reliable in MV3 when online), then local SVG/GIF.
- * SVG uses a blob: URL — some Chrome builds handle that better than huge data: URLs.
+ * Generate QR locally (no third-party services).
+ * Prefer GIF data URL (most reliable in MV3 popups), then SVG blob URL fallback.
  */
 async function setQrSrc(imgEl, pairUrl) {
   if (!imgEl || !pairUrl) return;
   revokePrevQrObjectUrl(imgEl);
-  const enc = encodeURIComponent(pairUrl);
-  const remotePng = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${enc}`;
 
   const applyBlobSrc = (blob) => {
     const u = URL.createObjectURL(blob);
     imgEl.dataset.synclystQrBlob = u;
     imgEl.src = u;
   };
-
-  try {
-    const r = await fetchWithTimeout(remotePng, { cache: "no-store" }, 8000);
-    if (r.ok) {
-      const blob = await r.blob();
-      if (blob && blob.size > 80) {
-        applyBlobSrc(blob);
-        return;
-      }
-    }
-  } catch {
-    /* offline or blocked — use local generator */
-  }
 
   const mk = getQrEncodeFactory();
   if (typeof mk === "function") {
@@ -1195,7 +1300,7 @@ async function setQrSrc(imgEl, pairUrl) {
         const qr = mk(type, "M");
         qr.addData(pairUrl);
         qr.make();
-        /** GIF data URL first: fetch(api.qrserver) often fails CORS; SVG blob URLs often render broken in MV3 popups. */
+        /** GIF data URL first: most reliable in MV3 popups. */
         const tag = qr.createImgTag(4, 8);
         const mGif = tag && String(tag).match(/src="([^"]+)"/);
         if (mGif && mGif[1]) {
@@ -1215,12 +1320,9 @@ async function setQrSrc(imgEl, pairUrl) {
     }
   }
 
+  // If the vendor QR library fails to load for any reason, keep the popup usable.
   imgEl.removeAttribute("data-synclyst-qr-blob");
-  imgEl.onerror = function () {
-    imgEl.onerror = null;
-    imgEl.src = `https://chart.googleapis.com/chart?chs=180x180&cht=qr&chl=${enc}`;
-  };
-  imgEl.src = remotePng;
+  imgEl.src = "";
 }
 
 async function registerSession(sessionId) {
@@ -1255,6 +1357,9 @@ async function pollSession(sessionId) {
       {},
       30000
     );
+    if (!r || !r.ok) {
+      return { error: true, status: r && r.status };
+    }
     return await r.json();
   } catch {
     return { error: true };
@@ -2305,6 +2410,8 @@ window.addEventListener("beforeunload", () => {
     });
 
     document.getElementById("btn-copy-pair-url")?.addEventListener("click", copySnapPairUrl);
+    document.getElementById("btn-open-snap-link")?.addEventListener("click", () => openSnapPairLink(pairUrl));
+    document.getElementById("btn-copy-snap-link")?.addEventListener("click", () => copySnapPairLink(pairUrl));
 
     document.getElementById("btn-new-pairing-session")?.addEventListener("click", () => {
       setStatus("");

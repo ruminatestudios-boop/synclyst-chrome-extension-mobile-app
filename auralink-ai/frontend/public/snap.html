@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pair with desktop — SyncLyst®</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --radius-btn-outline: 12px;
+        --radius-session-card: 16px;
+        --radius-snap-card: 20px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        background: #f0ebf9;
+        color: #1f2937;
+      }
+      .wrap {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        /* Leave room for fixed support strip on the lavender background */
+        padding: clamp(1.25rem, 4vh, 2.5rem) clamp(1rem, 4vw, 2.5rem)
+          max(2.85rem, calc(1.25rem + env(safe-area-inset-bottom, 0px)));
+      }
+      .wrap.center {
+        justify-content: center;
+      }
+      .snap-card {
+        width: 100%;
+        /* Phone: ~full width; tablet/desktop: grow up to a comfortable max */
+        max-width: min(40rem, calc(100vw - 2rem));
+        border-radius: var(--radius-snap-card);
+        background: #ffffff;
+        box-shadow: 0 2px 20px rgba(15, 23, 42, 0.06);
+        padding: clamp(1.35rem, 2.5vw, 2.1rem) clamp(1.25rem, 3.5vw, 2.25rem);
+      }
+      @media (min-width: 768px) {
+        .snap-card {
+          box-shadow: 0 4px 36px rgba(15, 23, 42, 0.08);
+        }
+      }
+      .brand-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+      .brand-text {
+        width: 100%;
+        text-align: center;
+      }
+      .brand-text .brand-name {
+        font-size: clamp(0.8125rem, 0.75rem + 0.35vw, 0.9375rem);
+        font-weight: 700;
+        color: #111827;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        margin: 0;
+      }
+      .brand-text .brand-name sup {
+        font-size: 0.55em;
+        font-weight: 400;
+        opacity: 0.85;
+        vertical-align: super;
+        line-height: 0;
+      }
+      .brand-text .brand-meta {
+        font-size: clamp(0.6875rem, 0.65rem + 0.2vw, 0.8125rem);
+        color: #6b7280;
+        margin: 0.15rem 0 0;
+        line-height: 1.3;
+      }
+      h1 {
+        font-size: clamp(0.9375rem, 0.85rem + 0.55vw, 1.125rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0 0 clamp(0.55rem, 1.2vw, 0.75rem);
+        color: #111827;
+        line-height: 1.25;
+        text-align: center;
+      }
+      .sub {
+        font-size: clamp(0.8125rem, 0.78rem + 0.35vw, 0.9375rem);
+        color: #6b7280;
+        margin: 0 auto clamp(1rem, 2vw, 1.35rem);
+        line-height: 1.45;
+        text-align: center;
+        max-width: 36rem;
+      }
+      .session-panel {
+        border: 1px solid #e5e7eb;
+        border-radius: var(--radius-session-card);
+        padding: 0.75rem 0.85rem 0.75rem;
+        margin-bottom: 1rem;
+        background: #fafafa;
+      }
+      .session-panel .session-label {
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        color: #9ca3af;
+        text-transform: uppercase;
+        margin: 0 0 0.45rem;
+        text-align: center;
+      }
+      .session-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      .session-panel .session-code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: #374151;
+        font-variant-numeric: tabular-nums;
+        margin: 0;
+        line-height: 1.3;
+        word-break: break-all;
+        min-width: 0;
+        flex: 1;
+      }
+      /* Match extension popup: big tap-to-copy session control. */
+      .pair-copy {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        text-align: center;
+        padding: 0.7rem 1rem;
+        border-radius: 14px;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.1s;
+      }
+      .pair-copy:hover {
+        border-color: #8b5cf6;
+        background: #faf5ff;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+      }
+      .pair-copy:active {
+        transform: scale(0.99);
+      }
+      .pair-copy:focus-visible {
+        outline: 2px solid #8b5cf6;
+        outline-offset: 2px;
+      }
+      .pair-copy-code {
+        font-size: 0.75rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-weight: 600;
+        color: #111827;
+        letter-spacing: 0.02em;
+        word-break: break-all;
+        line-height: 1.3;
+      }
+      .pair-copy-hint {
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: #9ca3af;
+      }
+      .session-hint {
+        font-size: clamp(0.55rem, 2.4vw, 0.625rem);
+        color: #9ca3af;
+        margin: 0.5rem 0 0;
+        line-height: 1.35;
+        text-align: center;
+      }
+      .session-panel .session-foot {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        margin-top: 0.65rem;
+        padding-top: 0.65rem;
+        border-top: 1px solid #e5e7eb;
+        font-size: 0.6875rem;
+        color: #9ca3af;
+        line-height: 1.4;
+        text-align: center;
+      }
+      .session-panel .session-foot svg {
+        flex-shrink: 0;
+        opacity: 0.85;
+      }
+      .snap-page-foot {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 5;
+        padding: 0.65rem 1rem max(0.65rem, env(safe-area-inset-bottom, 0px));
+        text-align: center;
+        font-size: clamp(0.6rem, 2.5vw, 0.6875rem);
+        color: #64748b;
+        line-height: 1.45;
+        background: transparent;
+        pointer-events: none;
+      }
+      .snap-page-foot .snap-support-link {
+        pointer-events: auto;
+      }
+      .snap-support-link {
+        color: #7c3aed;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .snap-support-link:hover {
+        color: #6d28d9;
+      }
+      .photo-actions {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        width: 100%;
+      }
+      .photo-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        width: 100%;
+        padding: 0.78rem 1.25rem;
+        min-height: 2.75rem;
+        border-radius: var(--radius-btn-outline);
+        font-family: inherit;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
+      }
+      .photo-btn--upload {
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        color: #374151;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      }
+      .photo-btn--upload:hover {
+        border-color: #8b5cf6;
+        background: #faf5ff;
+        color: #5b21b6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+      }
+      .photo-btn--camera {
+        border: 1px solid #0f172a;
+        background: #111827;
+        color: #fff;
+      }
+      .photo-btn--camera:hover {
+        background: #000;
+        border-color: #000;
+      }
+      .photo-btn:active {
+        transform: scale(0.99);
+      }
+      .photo-btn:focus-visible {
+        outline: 2px solid #8b5cf6;
+        outline-offset: 3px;
+      }
+      .photo-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      .photo-btn svg {
+        flex-shrink: 0;
+        opacity: 0.95;
+      }
+      .photo-hint {
+        font-size: clamp(0.55rem, 2.9vw, 0.625rem);
+        color: #9ca3af;
+        margin: 0.15rem 0 0;
+        text-align: center;
+        line-height: 1.35;
+        white-space: normal;
+      }
+      input[type="file"] {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .progress-wrap {
+        margin-top: 1.15rem;
+        padding-top: 1.15rem;
+        border-top: 1px solid #f3f4f6;
+      }
+      .progress-wrap[hidden] {
+        display: none !important;
+      }
+      .progress-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 0.5rem;
+        text-align: left;
+      }
+      .progress-track {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #7c3aed, #c026d3);
+        box-shadow: 0 0 12px rgba(192, 38, 211, 0.35);
+        transition: width 0.2s ease-out;
+      }
+      .progress-eta {
+        font-size: 0.6875rem;
+        color: #64748b;
+        margin-top: 0.45rem;
+        text-align: left;
+        font-variant-numeric: tabular-nums;
+      }
+      .msg {
+        margin-top: 1rem;
+        font-size: 0.8125rem;
+        text-align: left;
+        line-height: 1.45;
+      }
+      .msg.ok {
+        color: #047857;
+        font-weight: 500;
+      }
+      .msg.ok:has(.msg-ok-card) {
+        padding: 0;
+        background: none;
+        font-weight: 400;
+      }
+      .msg-ok-card {
+        display: flex;
+        gap: 0.875rem;
+        align-items: center;
+        padding: 1rem 1.05rem;
+        border-radius: 14px;
+        background: linear-gradient(145deg, #ecfdf5 0%, #f0fdf4 55%, #ecfdf5 100%);
+        border: 1px solid #a7f3d0;
+        box-shadow: 0 1px 3px rgba(5, 150, 105, 0.12);
+        text-align: left;
+      }
+      .msg-ok-icon {
+        flex-shrink: 0;
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 999px;
+        background: #059669;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .msg-ok-icon svg {
+        display: block;
+      }
+      .msg-ok-body {
+        min-width: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .msg-ok-title {
+        margin: 0;
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #065f46;
+        letter-spacing: -0.01em;
+        line-height: 1.3;
+      }
+      .msg-ok-lead {
+        margin: 0;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: #047857;
+        line-height: 1.4;
+      }
+      .msg-ok-badge {
+        display: inline-block;
+        margin-left: 0.25rem;
+        padding: 0.1rem 0.45rem;
+        font-size: 0.5625rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        vertical-align: middle;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid #6ee7b7;
+        color: #065f46;
+      }
+      .msg-ok-hint {
+        margin: 0;
+        padding: 0.4rem 0 0;
+        border-top: 1px solid rgba(16, 185, 129, 0.25);
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #0f766e;
+        line-height: 1.45;
+      }
+      .msg-ok-hint strong {
+        font-weight: 700;
+        color: #065f46;
+      }
+      .msg.ok.msg-ok--info {
+        text-align: center;
+        padding: 0.65rem 0.85rem;
+        border-radius: 12px;
+        background: #f5f3ff;
+        border: 1px solid #e9d5ff;
+        color: #5b21b6;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        font-weight: 500;
+      }
+      .msg.err {
+        color: #b91c1c;
+        word-break: break-word;
+      }
+      .invalid {
+        font-size: 0.8125rem;
+        color: #6b7280;
+        line-height: 1.5;
+        margin: 0;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .progress-fill {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" class="wrap center"></div>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var sessionId = (params.get("s") || "").trim();
+        var root = document.getElementById("root");
+
+        /** Typical vision + push duration; bar moves toward ~90% by then, then “Almost there…” */
+        var ESTIMATE_SEC = 50;
+        var progressTimer = null;
+        var progressStart = 0;
+
+        function renderInvalid() {
+          root.className = "wrap center";
+          root.innerHTML =
+            '<div class="snap-card">' +
+            '<div class="brand-row">' +
+            '<div class="brand-text">' +
+            '<p class="brand-name">SyncLyst<sup>®</sup></p>' +
+            '<p class="brand-meta">Pair with desktop</p>' +
+            "</div></div>" +
+            '<h1>Link not valid</h1>' +
+            '<p class="invalid">Missing or invalid pair code.</p>' +
+            '<p class="sub" style="margin-top:0.65rem">Paste the pairing code from your extension popup to continue.</p>' +
+            '<div class="photo-actions" style="gap:0.5rem;margin-top:0.85rem">' +
+            '<input id="pair-code" inputmode="text" autocomplete="one-time-code" placeholder="e.g. 4f8a… (12–32 chars)" ' +
+            'style="width:100%;padding:0.78rem 1rem;border-radius:12px;border:1px solid #d1d5db;font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:0.8125rem" />' +
+            '<button type="button" class="photo-btn photo-btn--camera" id="btn-go-pair" aria-label="Open pairing">' +
+            "Open Snap upload" +
+            "</button>" +
+            "</div>" +
+            "</div>" +
+            '<p class="snap-page-foot">Need help? <a class="snap-support-link" href="mailto:synclyst@gmail.com">synclyst@gmail.com</a></p>';
+
+          try {
+            var input = document.getElementById("pair-code");
+            var go = document.getElementById("btn-go-pair");
+            function norm(s) {
+              return String(s || "")
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-f0-9]/g, "");
+            }
+            function submit() {
+              var v = norm(input && input.value);
+              if (!/^[a-f0-9]{12,32}$/i.test(v)) {
+                if (input) input.focus();
+                return;
+              }
+              window.location.href = "/snap?s=" + encodeURIComponent(v);
+            }
+            if (go) go.addEventListener("click", submit);
+            if (input) {
+              input.addEventListener("keydown", function (e) {
+                if (e && e.key === "Enter") submit();
+              });
+              setTimeout(function () {
+                input.focus();
+              }, 50);
+            }
+          } catch (_) {}
+        }
+
+        if (!/^[a-f0-9]{12,32}$/i.test(sessionId)) {
+          renderInvalid();
+          return;
+        }
+
+        root.className = "wrap center";
+        root.innerHTML =
+          '<div class="snap-card">' +
+          '<div class="brand-row">' +
+          '<div class="brand-text">' +
+          '<p class="brand-name">SyncLyst<sup>®</sup></p>' +
+          '<p class="brand-meta">Your listing workflow on autopilot</p>' +
+          "</div></div>" +
+          '<h1>Pair with desktop</h1>' +
+          '<div class="session-panel">' +
+          '<p class="session-label">Session</p>' +
+          '<button type="button" class="pair-copy" id="btn-copy-session" title="Copy session code">' +
+          '<span class="pair-copy-code" id="session-display"></span>' +
+          '<span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite">Tap to copy</span>' +
+          "</button>" +
+          '<div class="session-foot">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M3.5 10.5h17"/></svg>' +
+          "<span>Photo updates your desktop extension in real time.</span>" +
+          "</div></div>" +
+          '<p class="sub">Upload from gallery or use the camera.<br />We extract the listing and push it to your extension.</p>' +
+          '<div class="photo-actions">' +
+          '<input type="file" id="file-upload" accept="image/jpeg,image/png,image/webp,image/heic,.heic" multiple />' +
+          '<input type="file" id="file-camera" accept="image/*" capture="environment" />' +
+          '<button type="button" class="photo-btn photo-btn--upload" id="btn-upload" aria-label="Upload image from gallery">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          "Upload image" +
+          "</button>" +
+          '<button type="button" class="photo-btn photo-btn--camera" id="btn-camera" aria-label="Take photo with camera">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M3 9a2 2 0 0 1 2-2h2.5l1-1.5h7l1 1.5H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" stroke-linejoin="round"/></svg>' +
+          "Take photo" +
+          "</button>" +
+          "</div>" +
+          '<div class="progress-wrap" id="progress-wrap" hidden>' +
+          '<div class="progress-label" id="progress-label">Extracting listing…</div>' +
+          '<div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track">' +
+          '<div class="progress-fill" id="progress-fill"></div>' +
+          '</div>' +
+          '<div class="progress-eta" id="progress-eta"></div>' +
+          "</div>" +
+          '<p class="msg" id="msg" hidden></p>' +
+          "</div>" +
+          '<p class="snap-page-foot">Need help? <a class="snap-support-link" href="mailto:synclyst@gmail.com">synclyst@gmail.com</a></p>';
+
+        var fileUpload = document.getElementById("file-upload");
+        var fileCamera = document.getElementById("file-camera");
+        var btnUpload = document.getElementById("btn-upload");
+        var btnCamera = document.getElementById("btn-camera");
+        var photoHint = document.getElementById("photo-hint");
+        var msgEl = document.getElementById("msg");
+        var progressWrap = document.getElementById("progress-wrap");
+        var progressFill = document.getElementById("progress-fill");
+        var progressEta = document.getElementById("progress-eta");
+        var progressLabel = document.getElementById("progress-label");
+        var progressTrack = document.getElementById("progress-track");
+        var copySessionBtn = document.getElementById("btn-copy-session");
+        var sessionDisplay = document.getElementById("session-display");
+        var pairHint = document.getElementById("pair-copy-hint");
+
+        if (sessionDisplay) sessionDisplay.textContent = sessionId;
+
+        function copyTextToClipboard(text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+          }
+          return new Promise(function (resolve, reject) {
+            var ta = document.createElement("textarea");
+            ta.value = text;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "fixed";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              document.execCommand("copy");
+              document.body.removeChild(ta);
+              resolve();
+            } catch (e) {
+              document.body.removeChild(ta);
+              reject(e);
+            }
+          });
+        }
+
+        if (copySessionBtn) {
+          copySessionBtn.addEventListener("click", function () {
+            copyTextToClipboard(sessionId).then(
+              function () {
+                if (pairHint) pairHint.textContent = "Copied!";
+                setTimeout(function () {
+                  if (pairHint) pairHint.textContent = "Tap to copy";
+                }, 1600);
+              },
+              function () {
+                if (pairHint) pairHint.textContent = "Couldn’t copy — select the code";
+                setTimeout(function () {
+                  if (pairHint) pairHint.textContent = "Tap to copy";
+                }, 2400);
+              }
+            );
+          });
+        }
+
+        var DESKTOP_PAIRING_OK_HTML =
+          '<div class="msg-ok-card" role="status">' +
+          '<div class="msg-ok-icon" aria-hidden="true">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+          "</div>" +
+          '<div class="msg-ok-body">' +
+          "<p class=\"msg-ok-title\">Opening SyncLyst on desktop</p>" +
+          '<p class="msg-ok-lead">Choose your marketplace <span class="msg-ok-badge">Step 2</span></p>' +
+          "<p class=\"msg-ok-hint\">If the popup doesn’t open, click the <strong>extensions</strong> (puzzle) icon in the toolbar, then select <strong>SyncLyst</strong>.</p>" +
+          "</div></div>";
+
+        function setDesktopPairingSuccess() {
+          if (!msgEl) return;
+          msgEl.hidden = false;
+          msgEl.className = "msg ok";
+          msgEl.innerHTML = DESKTOP_PAIRING_OK_HTML;
+        }
+
+        function setMsg(text, ok) {
+          if (!text) {
+            msgEl.hidden = true;
+            msgEl.textContent = "";
+            msgEl.innerHTML = "";
+            msgEl.className = "msg";
+            return;
+          }
+          msgEl.hidden = false;
+          if (ok) {
+            msgEl.className = "msg ok";
+            if (String(text).indexOf("Opening SyncLyst on desktop") !== -1) {
+              msgEl.innerHTML = DESKTOP_PAIRING_OK_HTML;
+              return;
+            }
+            if (String(text).indexOf("You selected") !== -1 && String(text).indexOf("photos") !== -1) {
+              msgEl.className = "msg ok msg-ok--info";
+            }
+            msgEl.textContent = text;
+            return;
+          }
+          msgEl.className = "msg err";
+          msgEl.textContent = text;
+        }
+
+        function clearProgressTimer() {
+          if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+          }
+        }
+
+        function startProgress() {
+          clearProgressTimer();
+          progressWrap.hidden = false;
+          progressFill.style.width = "0%";
+          progressLabel.textContent = "Extracting listing…";
+          progressTrack.setAttribute("aria-valuenow", "0");
+          progressStart = Date.now();
+          progressTimer = setInterval(function () {
+            var elapsed = (Date.now() - progressStart) / 1000;
+            var pct;
+            var etaText;
+            if (elapsed <= ESTIMATE_SEC) {
+              pct = Math.min(88, (elapsed / ESTIMATE_SEC) * 88);
+              var left = Math.ceil(ESTIMATE_SEC - elapsed);
+              etaText = left > 1 ? "About " + left + " seconds left" : "Finishing up…";
+            } else {
+              pct = Math.min(96, 88 + Math.min(8, (elapsed - ESTIMATE_SEC) * 0.35));
+              etaText = "Almost there…";
+            }
+            progressFill.style.width = pct + "%";
+            progressTrack.setAttribute("aria-valuenow", String(Math.round(pct)));
+            progressEta.textContent = etaText;
+          }, 200);
+        }
+
+        function finishProgressSuccess() {
+          clearProgressTimer();
+          progressFill.style.width = "100%";
+          progressTrack.setAttribute("aria-valuenow", "100");
+          progressEta.textContent = "Done";
+          progressLabel.textContent = "Sent to your extension";
+        }
+
+        function resetProgress() {
+          clearProgressTimer();
+          progressWrap.hidden = true;
+          progressFill.style.width = "0%";
+          progressEta.textContent = "";
+          progressTrack.setAttribute("aria-valuenow", "0");
+          progressLabel.textContent = "Extracting listing…";
+        }
+
+        function setPhotoInputsEnabled(on) {
+          btnUpload.disabled = !on;
+          btnCamera.disabled = !on;
+          fileUpload.disabled = !on;
+          fileCamera.disabled = !on;
+        }
+
+        btnUpload.addEventListener("click", function () {
+          if (!fileUpload.disabled) fileUpload.click();
+        });
+        btnCamera.addEventListener("click", function () {
+          if (!fileCamera.disabled) fileCamera.click();
+        });
+
+        /** When Next returns HTML or plain “Internal Server Error”, JSON.parse fails — explain what to do. */
+        function explainBadApiResponse(text, status) {
+          var t = String(text || "").trim();
+          if (/missing required error components/i.test(t)) {
+            return (
+              "Next.js dev server is recovering from a crash (missing error UI). Stop Node on port 3000, delete auralink-ai/frontend/.next, then run npm run dev:synclyst from the repo root and wait until the terminal shows Ready."
+            );
+          }
+          if (/^<!DOCTYPE/i.test(t) || /<html[\s>]/i.test(t) || /<pre>/i.test(t)) {
+            if (status === 404) {
+              return "Upload API not found (404). From the repo root run npm run dev:synclyst (starts API :8000 + Next), or run Next from the auralink-ai/frontend folder.";
+            }
+            return (
+              "Next.js returned HTML (HTTP " +
+              status +
+              ") instead of JSON — the dev server on this port is often stale. Stop Node on port 3000, delete auralink-ai/frontend/.next, then from the repo root run: npm run dev:synclyst. Quick check: open /api/snap-pair/config — you should see JSON {\"configured\":…}, not an error page."
+            );
+          }
+          if (/^internal server error$/i.test(t) || /^Internal Server Error$/im.test(t)) {
+            return (
+              "Upload failed (HTTP " +
+              status +
+              "). Start the stack from the repo root: npm run dev:synclyst — that runs the Python vision API on :8000 and Next together."
+            );
+          }
+          return (t && t.slice(0, 400)) || "Bad response from server (HTTP " + status + ").";
+        }
+
+        /** Downscale + JPEG re-encode so the JSON body stays small (avoids dev/proxy limits on big camera photos). */
+        function prepareImageForPush(dataUrl, sourceMime, done) {
+          var maxEdge = 1280;
+          var jpegQ = 0.75;
+          var lower = String(sourceMime || "").toLowerCase();
+          if (lower.indexOf("heic") !== -1 || lower.indexOf("heif") !== -1) {
+            var c0 = dataUrl.indexOf(",");
+            done(c0 >= 0 ? dataUrl.slice(c0 + 1) : dataUrl, sourceMime || "image/jpeg");
+            return;
+          }
+          var img = new Image();
+          img.onload = function () {
+            var w = img.naturalWidth;
+            var h = img.naturalHeight;
+            if (!w || !h) {
+              var c1 = dataUrl.indexOf(",");
+              done(c1 >= 0 ? dataUrl.slice(c1 + 1) : dataUrl, sourceMime || "image/jpeg");
+              return;
+            }
+            var scale = Math.min(1, maxEdge / Math.max(w, h));
+            var nw = Math.max(1, Math.round(w * scale));
+            var nh = Math.max(1, Math.round(h * scale));
+            var canvas = document.createElement("canvas");
+            canvas.width = nw;
+            canvas.height = nh;
+            var ctx = canvas.getContext("2d");
+            if (!ctx) {
+              var c2 = dataUrl.indexOf(",");
+              done(c2 >= 0 ? dataUrl.slice(c2 + 1) : dataUrl, sourceMime || "image/jpeg");
+              return;
+            }
+            ctx.drawImage(img, 0, 0, nw, nh);
+            try {
+              var jpegUrl = canvas.toDataURL("image/jpeg", jpegQ);
+              var c3 = jpegUrl.indexOf(",");
+              done(c3 >= 0 ? jpegUrl.slice(c3 + 1) : jpegUrl, "image/jpeg");
+            } catch (_) {
+              var c4 = dataUrl.indexOf(",");
+              done(c4 >= 0 ? dataUrl.slice(c4 + 1) : dataUrl, sourceMime || "image/jpeg");
+            }
+          };
+          img.onerror = function () {
+            var c5 = dataUrl.indexOf(",");
+            done(c5 >= 0 ? dataUrl.slice(c5 + 1) : dataUrl, sourceMime || "image/jpeg");
+          };
+          img.src = dataUrl;
+        }
+
+        function readAndPrepareImageFile(file, done) {
+          if (!file) {
+            done("", "image/jpeg");
+            return;
+          }
+          var reader = new FileReader();
+          reader.onload = function () {
+            var dataUrl = String(reader.result || "");
+            var mime = file.type || "image/jpeg";
+            prepareImageForPush(dataUrl, mime, function (b64, outMime) {
+              done(b64, outMime);
+            });
+          };
+          reader.onerror = function () {
+            done("", file.type || "image/jpeg");
+          };
+          reader.readAsDataURL(file);
+        }
+
+        function readOriginalImageBase64(file, done) {
+          if (!file) {
+            done("", "image/jpeg");
+            return;
+          }
+          var reader = new FileReader();
+          reader.onload = function () {
+            var dataUrl = String(reader.result || "");
+            var mime = file.type || "image/jpeg";
+            var c = dataUrl.indexOf(",");
+            done(c >= 0 ? dataUrl.slice(c + 1) : dataUrl, mime);
+          };
+          reader.onerror = function () {
+            done("", file.type || "image/jpeg");
+          };
+          reader.readAsDataURL(file);
+        }
+
+        function uploadOriginalToStorage(b64, mime, role, cb) {
+          if (!b64) return cb("");
+          fetch("/api/snap-pair/upload-original", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              session_id: sessionId,
+              image_base64: b64,
+              mime_type: mime || "image/jpeg",
+              role: role || "extra",
+            }),
+          })
+            .then(function (r) {
+              return r.json().then(function (j) {
+                return { ok: r.ok, j: j };
+              });
+            })
+            .then(function (ref) {
+              if (!ref.ok) return cb("");
+              cb((ref.j && ref.j.url) || "");
+            })
+            .catch(function () {
+              cb("");
+            });
+        }
+
+        function appendImageToSession(b64, mime, cb) {
+          fetch("/api/snap-pair/push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              session_id: sessionId,
+              image_base64: b64,
+              mime_type: mime,
+              append_only: true,
+            }),
+          })
+            .then(function (res) {
+              return res.text().then(function (text) {
+                if (res.ok) return cb(true);
+                var data = {};
+                try {
+                  data = text ? JSON.parse(text) : {};
+                } catch (_) {
+                  data = { error: explainBadApiResponse(text, res.status) };
+                }
+                setMsg((data && data.error) || "Upload failed (HTTP " + res.status + ")", false);
+                cb(false);
+              });
+            })
+            .catch(function () {
+              setMsg("Network error — try again.", false);
+              cb(false);
+            });
+        }
+
+        function runPushWithFile(file, extraFiles, opts) {
+          if (!file) return;
+          setPhotoInputsEnabled(false);
+          if (!opts || !opts.keepMsg) setMsg(null);
+
+          readAndPrepareImageFile(file, function (b64, outMime) {
+            var extras = Array.isArray(extraFiles) ? extraFiles.slice(0) : [];
+            if (!opts || !opts.skipStartProgress) startProgress();
+
+            function send(extraImages) {
+              var body = {
+                session_id: sessionId,
+                image_base64: b64,
+                mime_type: outMime,
+              };
+              if (extraImages && extraImages.length) body.extra_images = extraImages;
+              fetch("/api/snap-pair/push", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(body),
+              })
+                .then(function (res) {
+                  return res.text().then(function (text) {
+                    var data = {};
+                    try {
+                      data = text ? JSON.parse(text) : {};
+                    } catch (e) {
+                      data = { error: explainBadApiResponse(text, res.status) };
+                    }
+                    return { res: res, data: data, rawText: text };
+                  });
+                })
+                .then(function (_ref) {
+                  var res = _ref.res;
+                  var data = _ref.data;
+                  var rawText = _ref.rawText;
+                  if (!res.ok) {
+                    if (!opts || !opts.deferResetProgress) resetProgress();
+                    var errText = (data && data.error) || "Upload failed (HTTP " + res.status + ")";
+                    if (
+                      rawText &&
+                      (!data || !data.error) &&
+                      (/<!DOCTYPE/i.test(rawText) || /^internal server error$/i.test(String(rawText).trim()))
+                    ) {
+                      errText = explainBadApiResponse(rawText, res.status);
+                    }
+                    if (
+                      /Vision API unreachable|ECONNREFUSED|502|fetch failed|NetworkError/i.test(String(errText)) ||
+                      (res.status === 502 && !data.error)
+                    ) {
+                      errText +=
+                        " Start the vision API on port 8000 (from repo root: npm run dev:synclyst).";
+                    }
+                    if (res.status === 503 && String(errText).indexOf("not configured") !== -1) {
+                      errText +=
+                        " Set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in auralink-ai/frontend/.env.local, or use dev without Supabase.";
+                    }
+                    setMsg(errText, false);
+                    if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                    return;
+                  }
+                  // If multiple photos were selected, extraction is based on the first image,
+                  // then we append the rest to the session so review UI can show the full set.
+                  if (extras && extras.length) {
+                    var idx = 0;
+                    function nextExtra() {
+                      if (idx >= extras.length) {
+                        if (!opts || !opts.deferFinishProgress) finishProgressSuccess();
+                        if (!opts || !opts.deferSuccessMessage) {
+                          setDesktopPairingSuccess();
+                        }
+                        try {
+                          var payload = {
+                            source: "synclyst-snap-page",
+                            type: "SYNCLYST_SNAP_PAIR_COMPLETE",
+                            sessionId: sessionId,
+                          };
+                          if (window.parent && window.parent !== window) {
+                            window.parent.postMessage(payload, window.location.origin);
+                          } else {
+                            window.postMessage(payload, "*");
+                          }
+                        } catch (_) {}
+                        if (opts && typeof opts.onDone === "function") opts.onDone(true);
+                        return;
+                      }
+                      var f = extras[idx++];
+                      progressLabel.textContent = "Uploading photos… (" + (idx + 1) + " of " + (extras.length + 1) + ")";
+                      readAndPrepareImageFile(f, function (eb64, emime) {
+                        if (!eb64) {
+                          nextExtra();
+                          return;
+                        }
+                        appendImageToSession(eb64, emime || "image/jpeg", function (ok) {
+                          if (!ok) {
+                            if (!opts || !opts.deferResetProgress) resetProgress();
+                            if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                            return;
+                          }
+                          nextExtra();
+                        });
+                      });
+                    }
+                    // Count first image as 1 of N+1
+                    progressLabel.textContent =
+                      "Uploading photos… (1 of " + (extras.length + 1) + ")";
+                    nextExtra();
+                    return;
+                  }
+
+                  if (!opts || !opts.deferFinishProgress) finishProgressSuccess();
+                  if (!opts || !opts.deferSuccessMessage) {
+                    setDesktopPairingSuccess();
+                  }
+                  try {
+                    var payload = {
+                      source: "synclyst-snap-page",
+                      type: "SYNCLYST_SNAP_PAIR_COMPLETE",
+                      sessionId: sessionId,
+                    };
+                    /** Next `/snap` embeds this page in an iframe — snap-bridge.js runs on the parent frame. */
+                    if (window.parent && window.parent !== window) {
+                      window.parent.postMessage(payload, window.location.origin);
+                    } else {
+                      window.postMessage(payload, "*");
+                    }
+                  } catch (_) {}
+                  if (opts && typeof opts.onDone === "function") opts.onDone(true);
+                })
+                .catch(function () {
+                  if (!opts || !opts.deferResetProgress) resetProgress();
+                  setMsg("Network error — try again.", false);
+                  if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                })
+                .finally(function () {
+                  if (!opts || !opts.deferReenableInputs) {
+                    setPhotoInputsEnabled(true);
+                    fileUpload.value = "";
+                    fileCamera.value = "";
+                    clearProgressTimer();
+                    setTimeout(function () {
+                      if (progressFill.style.width === "100%") {
+                        resetProgress();
+                      }
+                    }, 1400);
+                  }
+                });
+            }
+
+            // Upload the full-res original first (best for marketplace photo attach), but still extract from the optimized preview.
+            readOriginalImageBase64(file, function (origB64, origMime) {
+              uploadOriginalToStorage(origB64, origMime, "hero", function (origUrl) {
+                function sendWithOriginal(extraImages) {
+                  var body = {
+                    session_id: sessionId,
+                    image_base64: b64,
+                    mime_type: outMime,
+                  };
+                  if (extraImages && extraImages.length) body.extra_images = extraImages;
+                  if (origUrl) body.original_image_urls = [origUrl];
+                  fetch("/api/snap-pair/push", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(body),
+                  })
+                    .then(function (res) {
+                      return res.text().then(function (text) {
+                        var data = {};
+                        try {
+                          data = text ? JSON.parse(text) : {};
+                        } catch (e) {
+                          data = { error: explainBadApiResponse(text, res.status) };
+                        }
+                        return { res: res, data: data, rawText: text };
+                      });
+                    })
+                    .then(function (_ref) {
+                      var res = _ref.res;
+                      var data = _ref.data;
+                      var rawText = _ref.rawText;
+                      if (!res.ok) {
+                        if (!opts || !opts.deferResetProgress) resetProgress();
+                        var errText = (data && data.error) || "Upload failed (HTTP " + res.status + ")";
+                        if (
+                          rawText &&
+                          (!data || !data.error) &&
+                          (/<!DOCTYPE/i.test(rawText) || /^internal server error$/i.test(String(rawText).trim()))
+                        ) {
+                          errText = explainBadApiResponse(rawText, res.status);
+                        }
+                        if (
+                          /Vision API unreachable|ECONNREFUSED|502|fetch failed|NetworkError/i.test(String(errText)) ||
+                          (res.status === 502 && !data.error)
+                        ) {
+                          errText +=
+                            " Start the vision API on port 8000 (from repo root: npm run dev:synclyst).";
+                        }
+                        if (res.status === 503 && String(errText).indexOf("not configured") !== -1) {
+                          errText +=
+                            " Set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in auralink-ai/frontend/.env.local, or use dev without Supabase.";
+                        }
+                        setMsg(errText, false);
+                        if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                        return;
+                      }
+                      // If multiple photos were selected, extraction is based on the first image,
+                      // then we append the rest to the session so review UI can show the full set.
+                      if (extras && extras.length) {
+                        var idx = 0;
+                        function nextExtra() {
+                          if (idx >= extras.length) {
+                            if (!opts || !opts.deferFinishProgress) finishProgressSuccess();
+                            if (!opts || !opts.deferSuccessMessage) {
+                              setDesktopPairingSuccess();
+                            }
+                            try {
+                              var payload = {
+                                source: "synclyst-snap-page",
+                                type: "SYNCLYST_SNAP_PAIR_COMPLETE",
+                                sessionId: sessionId,
+                              };
+                              if (window.parent && window.parent !== window) {
+                                window.parent.postMessage(payload, window.location.origin);
+                              } else {
+                                window.postMessage(payload, "*");
+                              }
+                            } catch (_) {}
+                            if (opts && typeof opts.onDone === "function") opts.onDone(true);
+                            return;
+                          }
+                          var f = extras[idx++];
+                          progressLabel.textContent =
+                            "Uploading photos… (" + (idx + 1) + " of " + (extras.length + 1) + ")";
+                          readAndPrepareImageFile(f, function (eb64, emime) {
+                            if (!eb64) {
+                              nextExtra();
+                              return;
+                            }
+                            // Upload original for this extra, then append preview + original URL pointer.
+                            readOriginalImageBase64(f, function (origExB64, origExMime) {
+                              uploadOriginalToStorage(origExB64, origExMime, "extra", function (origExUrl) {
+                                fetch("/api/snap-pair/push", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  credentials: "include",
+                                  body: JSON.stringify({
+                                    session_id: sessionId,
+                                    image_base64: eb64,
+                                    mime_type: emime || "image/jpeg",
+                                    append_only: true,
+                                    ...(origExUrl ? { original_image_urls: [origExUrl] } : {}),
+                                  }),
+                                })
+                                  .then(function (r) {
+                                    if (r.ok) return nextExtra();
+                                    return r.text().then(function (t) {
+                                      setMsg("Upload failed", false);
+                                      if (!opts || !opts.deferResetProgress) resetProgress();
+                                      if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                                    });
+                                  })
+                                  .catch(function () {
+                                    setMsg("Network error — try again.", false);
+                                    if (!opts || !opts.deferResetProgress) resetProgress();
+                                    if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                                  });
+                              });
+                            });
+                          });
+                        }
+                        // Count first image as 1 of N+1
+                        progressLabel.textContent =
+                          "Uploading photos… (1 of " + (extras.length + 1) + ")";
+                        nextExtra();
+                        return;
+                      }
+
+                      if (!opts || !opts.deferFinishProgress) finishProgressSuccess();
+                      if (!opts || !opts.deferSuccessMessage) {
+                        setDesktopPairingSuccess();
+                      }
+                      try {
+                        var payload = {
+                          source: "synclyst-snap-page",
+                          type: "SYNCLYST_SNAP_PAIR_COMPLETE",
+                          sessionId: sessionId,
+                        };
+                        /** Next `/snap` embeds this page in an iframe — snap-bridge.js runs on the parent frame. */
+                        if (window.parent && window.parent !== window) {
+                          window.parent.postMessage(payload, window.location.origin);
+                        } else {
+                          window.postMessage(payload, "*");
+                        }
+                      } catch (_) {}
+                      if (opts && typeof opts.onDone === "function") opts.onDone(true);
+                    })
+                    .catch(function () {
+                      if (!opts || !opts.deferResetProgress) resetProgress();
+                      setMsg("Network error — try again.", false);
+                      if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                    })
+                    .finally(function () {
+                      if (!opts || !opts.deferReenableInputs) {
+                        setPhotoInputsEnabled(true);
+                        fileUpload.value = "";
+                        fileCamera.value = "";
+                        clearProgressTimer();
+                        setTimeout(function () {
+                          if (progressFill.style.width === "100%") {
+                            resetProgress();
+                          }
+                        }, 1400);
+                      }
+                    });
+                }
+
+                // Only extract from first image; append extras after extraction to avoid body-size limits.
+                sendWithOriginal([]);
+              });
+            });
+          });
+        }
+
+        function onFileInputChange(ev) {
+          var input = ev.target;
+          var files = input.files;
+          if (!files || !files.length) return;
+          var arr = Array.prototype.slice.call(files);
+          var first = arr[0];
+          var rest = arr.slice(1);
+          if (arr.length > 1) {
+            setMsg(
+              "You selected " +
+                arr.length +
+                " photos. We’ll base the listing on the first photo only, but include all photos in the session for review in the app.",
+              true
+            );
+          }
+          runPushWithFile(first, rest, { keepMsg: true });
+        }
+        fileUpload.addEventListener("change", onFileInputChange);
+        fileCamera.addEventListener("change", function (ev) {
+          var input = ev.target;
+          var file = input.files && input.files[0];
+          if (!file) return;
+          runPushWithFile(file, [], null);
+        });
+      })();
+    </script>
+  </body>
+</html>

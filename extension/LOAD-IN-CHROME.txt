@@ -1,0 +1,34 @@
+Chrome → Load unpacked → select THIS folder (the one that contains manifest.json).
+
+Do NOT select the parent "SyncLyst Chrome Extension" repo root — Chrome needs the folder that directly contains manifest.json.
+
+manifest.json is generated from extension/build-manifest.mjs (single source of truth).
+
+Store / zip (prod manifest, no localhost, no http://*/*) — run from the repo root:
+  npm run extension:manifest
+(writes extension/manifest.json + runs verify-store-manifest.mjs). To copy a loadable folder:
+  npm run extension:package
+  → dist/synclyst-chrome-extension/
+
+Local Next.js on :3000 (dev manifest + LAN snap patterns) — run from the repo root:
+  npm run extension:manifest:dev
+then reload the extension in chrome://extensions. (Optional: `npm run extension:package:dev` writes dev manifest into dist/synclyst-chrome-extension/.)
+
+To switch extension/ folder back to store-ready after dev:
+  npm run extension:manifest
+Edit URL patterns only in extension/build-manifest.mjs.
+
+Tier 2 (Chrome QA — scripted smoke + manual checklist):
+  npm run extension:qa          # prod dist + store checks + print steps
+  npm run extension:qa:dev      # write dev manifest — then restore with extension:manifest
+  Details: extension/TIER2-CHROME-QA.txt
+
+If chrome://extensions → Errors shows CSP blocks for http://127.0.0.1:3000 or localhost:3000, you have the STORE manifest loaded while running local Next — the popup is not allowed to fetch those URLs. Fix: npm run extension:manifest:dev then Reload the extension (restore store build later with npm run extension:manifest).
+
+When using the DEV manifest: popup probes local Next on :3000–:3002 first. If none respond, it uses https://synclyst.app when /api/snap-pair/config is OK — then the popup polls production while /snap on localhost saves to local DB: fields stay empty. Fix: start local Next, reload the popup, or set chrome.storage.local synclyst_origin = "http://127.0.0.1:3000".
+
+Snap upload → Next /api/snap-pair/push calls the Python vision API (port 8000). Only Next (npm run dev) without the API = extraction fails. From repo root: npm run dev:synclyst
+Override anytime: chrome.storage.local synclyst_origin = "https://your-origin".
+
+Popup DevTools (logs for popup.js): open the SyncLyst popup, then right-click inside it → Inspect.
+The service worker “Inspect” on chrome://extensions is only for background.js, not the popup.

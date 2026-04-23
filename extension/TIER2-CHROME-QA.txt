@@ -1,0 +1,62 @@
+SyncLyst® — Tier 2 Chrome QA (store + dev)
+==========================================
+
+Run automated checks first (from repo root):
+
+  npm run extension:qa          # prod: build dist + verify store manifest + file inventory
+  npm run extension:qa:dev      # dev: rewrite extension/manifest.json (dev) + verify dev shape
+                                # then RESTORE with: npm run extension:manifest
+
+The steps below are manual — Chrome cannot be driven from this repo’s CI without your machine.
+
+--- A) Prod smoke (matches reviewer: store manifest, no localhost hosts) ---
+
+1) Build / path
+   - After `npm run extension:qa`, use folder:
+     dist/synclyst-chrome-extension/
+   - Chrome → chrome://extensions → Developer ON → Load unpacked → pick that folder (not repo root).
+
+2) Optional clean profile (closest to Web Store review)
+   - Chrome menu → Settings → “You and Google” → add a new Profile (e.g. “SyncLyst QA”).
+   - In that profile, load unpacked from dist/synclyst-chrome-extension/ only.
+
+3) Popup (production origin)
+   - Open the SyncLyst toolbar popup.
+   - Expected: UI loads (no blank hang). Default API origin is https://synclyst.app when the
+     loaded manifest has no localhost patterns (see popup.js + build-manifest.mjs).
+   - Optional: right‑click inside popup → Inspect → Console should be free of repeated CSP
+     violations for normal pairing fetches.
+
+4) Pairing / snap (needs live https://synclyst.app)
+   - QR or link should point at https://synclyst.app/snap?s=… (or open /snap from that origin).
+   - Open / snap on phone or second tab; upload a test product image if you can.
+   - Expected: session id stable; popup eventually shows listing / step flow (Realtime or poll).
+
+5) One marketplace “Magic Fill” (pick one you use)
+   - With a listing loaded in the popup, open a supported seller tab (e.g. Shopify admin,
+     eBay sell flow) and run Fill from the extension as you normally do.
+   - Expected: no hard crash; fields or media update as designed for that site.
+
+6) Billing / plan surface (optional)
+   - If the popup links to billing or https://synclyst.app payment-success, open in the same
+     profile; complete or cancel as appropriate. tier-bridge.js syncs tier from synclyst.app.
+
+--- B) Dev / LAN regression (after `npm run extension:qa:dev`) ---
+
+1) Reload the extension on chrome://extensions.
+
+2) Local stack: from repo root `npm run dev:synclyst`, then open http://127.0.0.1:3000/local-test
+   (or your flow) so Next + API are up.
+
+3) Popup should prefer local Next when /api/snap-pair/config responds (127.0.0.1 or LAN).
+   Phone on Wi‑Fi: see auralink-ai/frontend/scripts/snap-local-e2e.js for LAN origin tips.
+
+4) When finished, restore store-ready manifest for commits / store zip:
+     npm run extension:manifest
+     npm run extension:package
+   (or rerun `npm run extension:qa` to rebuild + verify `dist/`)
+
+--- C) Quick “did I break packaging?” ---
+
+  npm run extension:qa
+  If it exits 0, dist/ contains required MV3 files and store manifest rules pass.

@@ -88,12 +88,6 @@ const nextConfig: NextConfig = {
         destination: "/connect-store",
         permanent: false,
       },
-      /** Canonical dashboard root should always land on the selected hub page. */
-      {
-        source: "/dashboard",
-        destination: "/dashboard/home",
-        permanent: false,
-      },
       /** Clean slug for static dashboard hub (Next app still uses /dashboard for Clerk). */
       {
         source: "/dashboard-home.html",
@@ -112,6 +106,13 @@ const nextConfig: NextConfig = {
         { source: "/demo", destination: "/demo.html" },
       ],
       afterFiles: [
+        /**
+         * Phone pairing + extension review screens are static HTML in `public/`.
+         * Keep clean URLs (`/snap`, `/extension-review`) working even when the App Router
+         * pages / route handlers are not deployed yet (common when prod is behind local work).
+         */
+        { source: "/snap", destination: "/snap.html" },
+        { source: "/extension-review", destination: "/extension-review.html" },
         ...listingFlowRewrites,
         /** Product scan (public/home.html); URL bar stays /scan */
         { source: "/scan", destination: "/home.html" },
