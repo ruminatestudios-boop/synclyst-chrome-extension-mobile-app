@@ -1,0 +1,174 @@
+{
+  "manifest_version": 3,
+  "name": "SyncLyst®",
+  "version": "2.0.75",
+  "description": "Pair your phone to scan products and auto-fill listings on Shopify, eBay, Etsy, Amazon, TikTok Shop, and more.",
+  "icons": {
+    "16": "icons/synclyst-16.png",
+    "32": "icons/synclyst-32.png",
+    "48": "icons/synclyst-48.png",
+    "128": "icons/synclyst-128.png",
+    "512": "icons/synclyst-512.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://admin.shopify.com/*",
+    "https://*.ebay.com/*",
+    "https://*.etsy.com/*",
+    "https://www.vinted.co.uk/*",
+    "https://www.vinted.de/*",
+    "https://www.vinted.fr/*",
+    "https://www.vinted.com/*",
+    "https://seller.shopee.sg/*",
+    "https://seller.shopee.co.id/*",
+    "https://seller.shopee.co.th/*",
+    "https://seller.shopee.com.my/*",
+    "https://seller.shopee.ph/*",
+    "https://seller.shopee.tw/*",
+    "https://seller.shopee.vn/*",
+    "https://seller.shopee.com.br/*",
+    "https://banhang.shopee.vn/*",
+    "https://sellercenter.lazada.co.id/*",
+    "https://sellercenter.lazada.sg/*",
+    "https://sellercenter.lazada.co.th/*",
+    "https://sellercenter.lazada.com.my/*",
+    "https://sellercenter.lazada.com.ph/*",
+    "https://sellercenter.lazada.vn/*",
+    "https://sellercentral.amazon.com/*",
+    "https://sellercentral.amazon.co.uk/*",
+    "https://sellercentral.amazon.de/*",
+    "https://sellercentral.amazon.fr/*",
+    "https://sellercentral.amazon.it/*",
+    "https://sellercentral.amazon.es/*",
+    "https://sellercentral.amazon.ca/*",
+    "https://sellercentral.amazon.com.au/*",
+    "https://sellercentral.amazon.in/*",
+    "https://sellercentral.amazon.co.jp/*",
+    "https://sellercentral.amazon.com.mx/*",
+    "https://*.depop.com/*",
+    "https://seller.tiktok.com/*",
+    "https://seller-us.tiktok.com/*",
+    "https://seller-uk.tiktok.com/*",
+    "https://seller-id.tiktok.com/*",
+    "https://seller-my.tiktok.com/*",
+    "https://seller-th.tiktok.com/*",
+    "https://seller-vn.tiktok.com/*",
+    "https://seller-ph.tiktok.com/*",
+    "https://seller-sg.tiktok.com/*",
+    "https://business.facebook.com/*",
+    "https://www.facebook.com/*",
+    "https://www.instagram.com/*",
+    "https://synclyst.app/*",
+    "https://*.supabase.co/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*",
+    "http://localhost:3001/*",
+    "http://127.0.0.1:3001/*",
+    "http://localhost:3002/*",
+    "http://127.0.0.1:3002/*",
+    "http://*/*"
+  ],
+  "action": {
+    "default_title": "SyncLyst®",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/synclyst-16.png",
+      "32": "icons/synclyst-32.png",
+      "48": "icons/synclyst-48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' http: https: ws: wss: https://synclyst.app http://localhost:3000 http://127.0.0.1:3000 http://localhost:3001 http://127.0.0.1:3001 http://localhost:3002 http://127.0.0.1:3002 https://*.supabase.co wss://*.supabase.co"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://admin.shopify.com/*",
+        "https://*.ebay.com/*",
+        "https://*.etsy.com/*",
+        "https://www.vinted.co.uk/*",
+        "https://www.vinted.de/*",
+        "https://www.vinted.fr/*",
+        "https://www.vinted.com/*",
+        "https://seller.shopee.sg/*",
+        "https://seller.shopee.co.id/*",
+        "https://seller.shopee.co.th/*",
+        "https://seller.shopee.com.my/*",
+        "https://seller.shopee.ph/*",
+        "https://seller.shopee.tw/*",
+        "https://seller.shopee.vn/*",
+        "https://seller.shopee.com.br/*",
+        "https://banhang.shopee.vn/*",
+        "https://sellercenter.lazada.co.id/*",
+        "https://sellercenter.lazada.sg/*",
+        "https://sellercenter.lazada.co.th/*",
+        "https://sellercenter.lazada.com.my/*",
+        "https://sellercenter.lazada.com.ph/*",
+        "https://sellercenter.lazada.vn/*",
+        "https://sellercentral.amazon.com/*",
+        "https://sellercentral.amazon.co.uk/*",
+        "https://sellercentral.amazon.de/*",
+        "https://sellercentral.amazon.fr/*",
+        "https://sellercentral.amazon.it/*",
+        "https://sellercentral.amazon.es/*",
+        "https://sellercentral.amazon.ca/*",
+        "https://sellercentral.amazon.com.au/*",
+        "https://sellercentral.amazon.in/*",
+        "https://sellercentral.amazon.co.jp/*",
+        "https://sellercentral.amazon.com.mx/*",
+        "https://*.depop.com/*",
+        "https://seller.tiktok.com/*",
+        "https://seller-us.tiktok.com/*",
+        "https://seller-uk.tiktok.com/*",
+        "https://seller-id.tiktok.com/*",
+        "https://seller-my.tiktok.com/*",
+        "https://seller-th.tiktok.com/*",
+        "https://seller-vn.tiktok.com/*",
+        "https://seller-ph.tiktok.com/*",
+        "https://seller-sg.tiktok.com/*",
+        "https://business.facebook.com/*",
+        "https://www.facebook.com/*",
+        "https://www.instagram.com/*"
+      ],
+      "js": [
+        "mapper.js",
+        "content-script.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://synclyst.app/snap*",
+        "https://synclyst.app/extension-review*",
+        "http://*/*"
+      ],
+      "js": [
+        "snap-bridge.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://synclyst.app/*",
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*",
+        "http://localhost:3001/*",
+        "http://127.0.0.1:3001/*",
+        "http://localhost:3002/*",
+        "http://127.0.0.1:3002/*"
+      ],
+      "js": [
+        "tier-bridge.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
