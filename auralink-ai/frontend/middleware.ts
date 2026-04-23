@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 /**
  * Shopify App URL must not go through Clerk’s auth handshake (no session yet).
  * Relying on `matcher` negative lookahead is unreliable with Next’s path matching on Vercel.
  */
-export default function middleware(request: NextRequest) {
+// Keep this file free of TypeScript-only syntax.
+// Vercel's post-build middleware packaging can choke on TS AST tokens (e.g. ColonToken),
+// even though Next itself compiles TS fine.
+export default function middleware(request: any) {
   const p = request.nextUrl.pathname;
   if (p === "/shopify/launch" || p === "/shopify/launch/") {
     return NextResponse.next();
