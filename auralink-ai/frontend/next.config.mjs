@@ -63,13 +63,17 @@ const nextConfig = {
   async rewrites() {
     const pubBase = String(publishingProxyTarget || "").replace(/\/$/, "");
     return {
+      // beforeFiles: run before App Router / public checks so static `public/*.html` wins.
+      // This avoids Vercel NOT_FOUND when the `/snap` App route is missing or not bundled.
       beforeFiles: [
         { source: "/", destination: homepageDestination },
         { source: "/demo", destination: "/demo.html" },
+        { source: "/snap", destination: "/snap.html" },
+        { source: "/snap/", destination: "/snap.html" },
+        { source: "/extension-review", destination: "/extension-review.html" },
+        { source: "/extension-review/", destination: "/extension-review.html" },
       ],
       afterFiles: [
-        { source: "/snap", destination: "/snap.html" },
-        { source: "/extension-review", destination: "/extension-review.html" },
         ...listingFlowRewrites,
         { source: "/scan", destination: "/home.html" },
         { source: "/reading-product", destination: "/flow-2.html" },
