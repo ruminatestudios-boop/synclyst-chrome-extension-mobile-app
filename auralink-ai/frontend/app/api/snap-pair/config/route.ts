@@ -22,11 +22,21 @@ export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, { status: 204, headers: cors(request) });
 }
 
-/** Public anon key + URL for extension Realtime (safe to expose with RLS). */
+/**
+ * Public anon (publishable) key + project URL for phone/extension Realtime.
+ * Accepts same names as Vercel often uses: SUPABASE_URL + publishable in NEXT_PUBLIC_*
+ * or server-only SUPABASE_ANON_KEY (returned in JSON; still a public/anon key).
+ */
 export async function GET(request: NextRequest) {
   const h = cors(request);
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || "";
+  const url =
+    (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").trim() || "";
+  const anon =
+    (
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      ""
+    ).trim() || "";
   const configured = !!(url && anon);
   return NextResponse.json(
     {
