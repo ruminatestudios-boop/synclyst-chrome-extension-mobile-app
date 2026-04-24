@@ -340,20 +340,22 @@ def _candidate_gemini_models(client=None) -> list[str]:
     Return a preferred list of Gemini model names for generate_content.
     Uses list_models() when available to avoid 404s for keys without access.
     """
+    # Omit gemini-2.0-flash-lite: Google returns 404 for new API users ("no longer available").
     preferred = [
         "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
         "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
         "gemini-1.5-flash",
         "gemini-1.5-pro",
+        "gemini-2.5-flash-lite",
     ]
+    # Never use these in fallback even if list_models() still names them.
+    _blocked = frozenset({"gemini-2.0-flash-lite"})
     try:
         c = client
         if c is None:
             settings = get_settings()
             if not settings.gemini_api_key:
-                return preferred
+                return [m for m in preferred if m not in _blocked]
             c = _genai_client(settings.gemini_api_key)
         available = []
         for m in c.models.list():
@@ -362,10 +364,11 @@ def _candidate_gemini_models(client=None) -> list[str]:
             if short and short.startswith("gemini-"):
                 available.append(short)
         # Keep preferred ordering but only include models the key can actually use
-        picked = [m for m in preferred if m in available]
-        return picked or preferred
+        picked = [m for m in preferred if m in available and m not in _blocked]
+        out = picked or [m for m in preferred if m not in _blocked]
+        return out
     except Exception:
-        return preferred
+        return [m for m in preferred if m not in _blocked]
 
 
 def apply_verification_pass(
@@ -717,7 +720,13 @@ def _gemini_extract_sync(
         except Exception as e:
             last_err = e
             err = str(e).lower()
-            if "not found" in err or "404" in err or "model" in err and "invalid" in err:
+            if (
+                "not found" in err
+                or "404" in err
+                or ("model" in err and "invalid" in err)
+                or "no longer" in err
+                or "not available" in err
+            ):
                 logger.info("Gemini model %s not available, trying next: %s", model_name, e)
                 continue
             raise
