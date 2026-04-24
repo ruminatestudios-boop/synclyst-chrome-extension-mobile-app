@@ -1,5 +1,3 @@
-import path from "node:path";
-
 /**
  * Vercel often uses AURALINK_BACKEND_URL; the client bundle only sees NEXT_PUBLIC_*.
  * Map backend URL into NEXT_PUBLIC_API_URL when the latter is unset (build time).
@@ -39,8 +37,6 @@ const listingFlowRewrites = [
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Make workspace root explicit to avoid multi-lockfile warnings on Vercel.
-  outputFileTracingRoot: path.resolve(process.cwd()),
   ...(resolvedPublicApiUrl ? { env: { NEXT_PUBLIC_API_URL: resolvedPublicApiUrl } } : {}),
   async redirects() {
     return [
