@@ -16,7 +16,9 @@
     "extension:package": "MANIFEST_MODE=prod bash scripts/build-extension.sh",
     "extension:package:dev": "MANIFEST_MODE=dev bash scripts/build-extension.sh",
     "extension:qa": "node scripts/extension-tier2-qa.mjs prod",
-    "extension:qa:dev": "node scripts/extension-tier2-qa.mjs dev"
+    "extension:qa:dev": "node scripts/extension-tier2-qa.mjs dev",
+    "local:synclyst:ready": "npm run extension:manifest:dev && node scripts/ready-local-synclyst.mjs",
+    "local:synclyst:stack": "npm run dev:synclyst"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
