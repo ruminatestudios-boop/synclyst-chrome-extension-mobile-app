@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveSupabaseAnonKey, resolveSupabaseProjectUrl } from "@/lib/supabase-env";
 
 export const runtime = "nodejs";
 
@@ -24,25 +25,23 @@ export async function OPTIONS(request: NextRequest) {
 
 /**
  * Public anon (publishable) key + project URL for phone/extension Realtime.
- * Accepts same names as Vercel often uses: SUPABASE_URL + publishable in NEXT_PUBLIC_*
- * or server-only SUPABASE_ANON_KEY (returned in JSON; still a public/anon key).
+ * Tries all common Vercel / Supabase env names so copy-paste from dashboards works.
  */
 export async function GET(request: NextRequest) {
   const h = cors(request);
-  const url =
-    (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").trim() || "";
-  const anon =
-    (
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.SUPABASE_ANON_KEY ||
-      ""
-    ).trim() || "";
+  const url = resolveSupabaseProjectUrl();
+  const anon = resolveSupabaseAnonKey();
   const configured = !!(url && anon);
   return NextResponse.json(
     {
       configured,
       supabaseUrl: configured ? url : null,
       supabaseAnonKey: configured ? anon : null,
+      /** Booleans only — which pieces exist at runtime (helps fix missing Vercel env). */
+      envPresent: {
+        supabaseUrl: !!url,
+        supabaseAnon: !!anon,
+      },
     },
     { headers: h }
   );
