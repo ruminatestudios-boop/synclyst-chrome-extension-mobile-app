@@ -1128,14 +1128,42 @@ async function copySnapPairLink(pairUrl) {
   }
 }
 
+/** Avoid opening many tabs when the user double-clicks the CTA; also ignore duplicate creates in the same burst. */
+let __openSnapPairLinkLastMs = 0;
+
 function openSnapPairLink(pairUrl) {
   const u = String(pairUrl || "").trim();
   if (!u) return;
+  const now = Date.now();
+  if (now - __openSnapPairLinkLastMs < 600) return;
+  __openSnapPairLinkLastMs = now;
   try {
     chrome.tabs.create({ url: u });
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Popup init is async (session, origin, QR, poll, Supabase…). Listeners were previously registered
+ * at the *end* of init, so rapid clicks on “Use this computer to upload” did nothing until loading finished.
+ * Wire snap / copy CTAs as soon as we have session + origin (see init()).
+ */
+let snapPairCtaWired = false;
+function wireSnapPairCtaButtons() {
+  if (snapPairCtaWired) return;
+  snapPairCtaWired = true;
+  const onOpen = (e) => {
+    e.preventDefault();
+    openSnapPairLink(getCurrentPairUrl());
+  };
+  const onCopy = (e) => {
+    e.preventDefault();
+    void copySnapPairLink(getCurrentPairUrl());
+  };
+  document.getElementById("btn-open-snap-on-this-computer")?.addEventListener("click", onOpen);
+  document.getElementById("btn-copy-snap-link")?.addEventListener("click", onCopy);
+  document.getElementById("btn-open-snap-desktop")?.addEventListener("click", onOpen);
 }
 
 function getCurrentPairUrl() {
@@ -2445,6 +2473,7 @@ window.addEventListener("beforeunload", () => {
     }
 
     ensurePairingStepControls();
+    wireSnapPairCtaButtons();
     const codeEl0 = document.getElementById("pair-session-code");
     if (codeEl0) codeEl0.textContent = sessionId;
     const pairUrlForQr = getPhoneQrUrl();
@@ -2576,16 +2605,6 @@ window.addEventListener("beforeunload", () => {
     ["review-title", "review-description", "review-price"].forEach((id) => {
       document.getElementById(id)?.addEventListener("input", () => syncPayloadFromReviewFields());
     });
-
-    document
-      .getElementById("btn-open-snap-on-this-computer")
-      ?.addEventListener("click", () => openSnapPairLink(getCurrentPairUrl()));
-    document
-      .getElementById("btn-copy-snap-link")
-      ?.addEventListener("click", () => copySnapPairLink(getCurrentPairUrl()));
-    document
-      .getElementById("btn-open-snap-desktop")
-      ?.addEventListener("click", () => openSnapPairLink(getCurrentPairUrl()));
 
     document.getElementById("btn-new-pairing-session")?.addEventListener("click", () => {
       setStatus("");

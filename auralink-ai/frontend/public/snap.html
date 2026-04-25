@@ -33,8 +33,8 @@
         --radius-btn-outline: 12px;
         --radius-session-card: 16px;
         --radius-snap-card: 20px;
-        /* Production pairing UI: neutral light gray + white card (matches web mock). */
-        --snap-page-bg: #e7e8ec;
+        /* Production pairing UI: soft lavender + white card */
+        --snap-page-bg: #efebf7;
         --snap-fg: #0f172a;
         --snap-fg-muted: #6b7280;
         --snap-input-border: #0f172a;
@@ -1201,7 +1201,7 @@
           '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M3.5 10.5h17"/></svg>' +
           "<span>Photo updates your desktop extension in real time.</span>" +
           "</div></div>" +
-          '<p class="sub">Upload from gallery or use the camera.<br />We extract the listing and push it to your extension.</p>' +
+          '<p class="sub">Upload images from this computer, or use your phone’s camera for the same session.<br />We extract the listing and push it to your extension.</p>' +
           '<div class="photo-actions">' +
           '<input type="file" id="file-upload" accept="image/jpeg,image/png,image/webp,image/heic,.heic" multiple />' +
           '<input type="file" id="file-camera" accept="image/*" capture="environment" />' +
@@ -1209,9 +1209,9 @@
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
           "Upload photos" +
           "</button>" +
-          '<button type="button" class="photo-btn photo-btn--camera" id="btn-camera" aria-label="Take photo with camera">' +
+          '<button type="button" class="photo-btn photo-btn--camera" id="btn-camera" aria-label="Take photo on your phone — opens a QR code to use this session on your phone">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M3 9a2 2 0 0 1 2-2h2.5l1-1.5h7l1 1.5H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" stroke-linejoin="round"/></svg>' +
-          "Take photo" +
+          "Take photo on phone" +
           "</button>" +
           '<button type="button" class="photo-btn photo-btn--secondary" id="btn-open-desktop" aria-label="Open this session on your desktop">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M20 17H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>' +
@@ -1271,18 +1271,6 @@
           '<p class="phone-qr-hint">Scan with your phone camera to open the session and take a photo.</p>' +
           "</div>" +
           '<div class="phone-link" id="phone-link" aria-label="Open on phone link"></div>' +
-          '<div class="phone-actions">' +
-          '<button type="button" class="photo-btn photo-btn--camera" id="phone-open">Open on phone</button>' +
-          '<button type="button" class="photo-btn photo-btn--upload" id="phone-copy">Copy link</button>' +
-          "</div>" +
-          '<div class="phone-actions-secondary">' +
-          '<button type="button" class="photo-btn photo-btn--upload" id="phone-share">Share</button>' +
-          '<a class="photo-btn photo-btn--upload" id="phone-sms" href=\"#\" role=\"button\">Text (SMS)</a>' +
-          "</div>" +
-          '<div class="phone-actions-secondary">' +
-          '<a class="photo-btn photo-btn--upload" id="phone-email" href=\"#\" role=\"button\">Email</a>' +
-          '<button type="button" class="photo-btn photo-btn--upload" id="phone-close-2">Done</button>' +
-          "</div>" +
           '<p class="phone-note">This keeps the same session — when you upload on your phone, your desktop extension updates automatically.</p>' +
           "</div></div></div>" +
           '<p class="snap-page-foot">Need help? <a class="snap-support-link" href="mailto:synclyst@gmail.com">synclyst@gmail.com</a></p>';
@@ -1310,14 +1298,12 @@
 
         var phoneModal = document.getElementById("phone-modal");
         var phoneClose = document.getElementById("phone-close");
-        var phoneClose2 = document.getElementById("phone-close-2");
         var phoneQrImg = document.getElementById("phone-qr-img");
         var phoneLink = document.getElementById("phone-link");
-        var phoneOpen = document.getElementById("phone-open");
-        var phoneCopy = document.getElementById("phone-copy");
-        var phoneShare = document.getElementById("phone-share");
-        var phoneSms = document.getElementById("phone-sms");
-        var phoneEmail = document.getElementById("phone-email");
+        var phoneCopy = null;
+        var phoneShare = null;
+        var phoneSms = null;
+        var phoneEmail = null;
 
         var snapMVideo = document.getElementById("snap-m-video");
         var snapMErr = document.getElementById("snap-m-camera-error");
@@ -1726,46 +1712,36 @@
           imgEl.src = "";
         }
 
+        function base64UrlEncodeUtf8(str) {
+          try {
+            if (typeof TextEncoder !== "undefined") {
+              var bytes = new TextEncoder().encode(String(str));
+              var bin = "";
+              for (var i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+              return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+            }
+          } catch (_) {}
+          return btoa(String(str)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+        }
+
+        /**
+         * iOS Camera often refuses to "Open" raw http:// LAN links from QR codes (it only offers Copy).
+         * For local dev / LAN, encode the URL through the https://synclyst.app/q.html bridge.
+         */
+        function getPhoneQrUrlFromDirect(directUrl) {
+          var direct = String(directUrl || "").trim();
+          if (!direct) return "";
+          if (/^https:\/\//i.test(direct)) return direct;
+          if (!/^http:\/\//i.test(direct)) return direct;
+          return "https://synclyst.app/q.html#" + base64UrlEncodeUtf8(direct);
+        }
+
         function openPhoneModal() {
           if (!phoneModal) return;
           var url = getOpenOnPhoneUrl();
           if (phoneLink) phoneLink.textContent = url;
-          if (phoneQrImg) setQrSrc(phoneQrImg, url);
-          if (phoneOpen) phoneOpen.onclick = function () { window.open(url, "_blank", "noopener,noreferrer"); };
-          if (phoneCopy)
-            phoneCopy.onclick = function () {
-              copyTextToClipboard(url).then(
-                function () {
-                  setMsg("Link copied — open it on your phone.", true);
-                },
-                function () {
-                  setMsg("Could not copy link — tap and hold to select it.", false);
-                }
-              );
-            };
-          if (phoneShare)
-            phoneShare.onclick = function () {
-              if (navigator.share) {
-                navigator
-                  .share({ title: "SyncLyst — Take photo", text: "Open this link on your phone to take a photo.", url: url })
-                  .catch(function () {});
-              } else {
-                copyTextToClipboard(url).then(function () {
-                  setMsg("Copied — paste into Messages or WhatsApp.", true);
-                });
-              }
-            };
-          try {
-            if (phoneSms) phoneSms.href = "sms:&body=" + encodeURIComponent(url);
-          } catch (_) {}
-          try {
-            if (phoneEmail)
-              phoneEmail.href =
-                "mailto:?subject=" +
-                encodeURIComponent("SyncLyst — take a photo") +
-                "&body=" +
-                encodeURIComponent("Open this link on your phone to take a photo:\n\n" + url);
-          } catch (_) {}
+          var qrUrl = getPhoneQrUrlFromDirect(url);
+          if (phoneQrImg) setQrSrc(phoneQrImg, qrUrl);
           phoneModal.hidden = false;
         }
 
@@ -1775,7 +1751,6 @@
         }
 
         if (phoneClose) phoneClose.addEventListener("click", closePhoneModal);
-        if (phoneClose2) phoneClose2.addEventListener("click", closePhoneModal);
         if (phoneModal) {
           phoneModal.addEventListener("click", function (e) {
             if (e && e.target === phoneModal) closePhoneModal();
