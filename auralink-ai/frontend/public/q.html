@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SyncLyst</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 1.25rem;
+        line-height: 1.4;
+        color: #111827;
+        max-width: 24rem;
+      }
+      a {
+        display: inline-block;
+        margin-top: 0.75rem;
+        color: #7c3aed;
+        font-weight: 600;
+        word-break: break-all;
+      }
+      .muted {
+        color: #6b7280;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="muted" id="status">Opening your snap page…</p>
+    <a id="link" href="#" hidden>Tap to open the Snap page</a>
+    <script>
+      (function () {
+        var h = (location.hash || "").replace(/^#/, "");
+        if (!h) {
+          document.getElementById("status").textContent =
+            "This page is opened from the SyncLyst extension QR. If you see this, open the extension and scan the QR again.";
+          return;
+        }
+        function padB64(s) {
+          s = s.replace(/-/g, "+").replace(/_/g, "/");
+          while (s.length % 4) s += "=";
+          return s;
+        }
+        var raw;
+        try {
+          raw = atob(padB64(h));
+        } catch (e) {
+          document.getElementById("status").textContent = "This link is invalid or expired. Use the latest QR from the SyncLyst extension.";
+          return;
+        }
+        var u = "";
+        for (var i = 0; i < raw.length; i++) u += String.fromCharCode(raw.charCodeAt(i) & 0xff);
+        try {
+          u = decodeURIComponent(escape(u));
+        } catch (e2) {
+          /* keep binary-safe ascii */
+        }
+        if (!u || !/^https?:\/\//.test(u)) {
+          document.getElementById("status").textContent = "Invalid link.";
+          return;
+        }
+        function allowed() {
+          try {
+            var x = new URL(u);
+            if (x.protocol === "https:") return true;
+            if (x.protocol !== "http:") return false;
+            var hn = (x.hostname || "").toLowerCase();
+            if (hn === "localhost" || hn === "127.0.0.1" || hn === "[::1]") return true;
+            var p = hn.split(".");
+            if (p.length !== 4) return false;
+            var a = +p[0];
+            var b = +p[1];
+            if (a === 10) return true;
+            if (a === 192 && b === 168) return true;
+            if (a === 172 && b >= 16 && b <= 31) return true;
+          } catch (e) {
+            return false;
+          }
+          return false;
+        }
+        if (!allowed()) {
+          document.getElementById("status").textContent = "This link is not allowed.";
+          return;
+        }
+        var a = document.getElementById("link");
+        a.href = u;
+        a.removeAttribute("hidden");
+        try {
+          location.replace(u);
+        } catch (e) {
+          document.getElementById("status").textContent =
+            "iPhone / Safari: tap the link below to open the Snap page on your network (HTTP).";
+        }
+        setTimeout(function () {
+          if (document.visibilityState === "visible") {
+            document.getElementById("status").textContent = "If nothing opened, tap:";
+          }
+        }, 600);
+      })();
+    </script>
+  </body>
+</html>

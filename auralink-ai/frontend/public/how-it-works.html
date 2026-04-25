@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How SyncLyst works — SyncLyst®</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --sl-primary: #5d56e1;
+        --sl-primary-dark: #4a43c9;
+        --sl-badge: #ececfe;
+        --sl-text: #111827;
+        --sl-muted: #6b7280;
+        --sl-muted2: #9ca3af;
+        --sl-border: #e5e7eb;
+        --sl-bg: #ffffff;
+        --sl-footer: #f9fafb;
+        --sl-radius: 14px;
+        --sl-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--sl-text);
+        background: var(--sl-bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      .sl-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--sl-border);
+        background: var(--sl-bg);
+      }
+      .sl-logo {
+        font-size: 1.125rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: var(--sl-text);
+      }
+      .sl-logo sup {
+        font-size: 0.55em;
+        font-weight: 500;
+      }
+      .sl-top-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .sl-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: #374151;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+      }
+      .sl-icon-btn:hover {
+        background: #f3f4f6;
+        color: #111827;
+      }
+      .sl-icon-btn:focus-visible {
+        outline: 2px solid var(--sl-primary);
+        outline-offset: 2px;
+      }
+      .sl-wrap {
+        max-width: 440px;
+        margin: 0 auto;
+        padding: 1.25rem 1.25rem 5rem;
+      }
+      .sl-hero {
+        margin-bottom: 1.25rem;
+      }
+      .sl-hero h1 {
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.35rem;
+        line-height: 1.25;
+      }
+      .sl-hero p {
+        margin: 0;
+        font-size: 0.9375rem;
+        color: var(--sl-muted);
+      }
+      .sl-card {
+        background: var(--sl-bg);
+        border: 1px solid var(--sl-border);
+        border-radius: var(--sl-radius);
+        box-shadow: var(--sl-shadow);
+        padding: 1rem 1.1rem;
+        margin-bottom: 0.75rem;
+      }
+      .sl-card-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .sl-card-label {
+        flex: 1;
+        min-width: 0;
+        font-weight: 600;
+        font-size: 0.9375rem;
+      }
+      .sl-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: var(--sl-badge);
+        color: var(--sl-primary-dark);
+      }
+      .sl-muted-card {
+        text-align: center;
+        font-size: 0.875rem;
+        color: var(--sl-muted);
+        padding: 0.85rem;
+      }
+      .sl-btn-primary {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        width: 100%;
+        margin-top: 0.5rem;
+        padding: 0.85rem 1rem;
+        border: none;
+        border-radius: var(--sl-radius);
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.9375rem;
+        color: #fff;
+        background: var(--sl-primary);
+        cursor: pointer;
+        text-decoration: none;
+        box-shadow: 0 2px 8px rgba(93, 86, 225, 0.35);
+        transition: background 0.15s, transform 0.1s;
+      }
+      .sl-btn-primary:hover {
+        background: var(--sl-primary-dark);
+      }
+      .sl-btn-primary:active {
+        transform: scale(0.99);
+      }
+      .sl-kbd {
+        margin-left: auto;
+        padding: 0.2rem 0.45rem;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: rgba(0, 0, 0, 0.12);
+      }
+      .sl-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.65rem;
+        margin-top: 0.75rem;
+      }
+      .sl-mini {
+        border: 1px solid var(--sl-border);
+        border-radius: var(--sl-radius);
+        padding: 1rem 0.65rem;
+        text-align: center;
+        background: var(--sl-bg);
+        box-shadow: var(--sl-shadow);
+      }
+      .sl-mini svg {
+        display: block;
+        margin: 0 auto 0.5rem;
+        color: var(--sl-primary);
+      }
+      .sl-mini strong {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.35;
+        color: var(--sl-text);
+      }
+      .sl-step {
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--sl-muted2);
+        margin: 1.25rem 0 0.5rem;
+      }
+      .sl-step:first-of-type {
+        margin-top: 0;
+      }
+      .sl-footer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.85rem 1.25rem;
+        background: var(--sl-footer);
+        border-top: 1px solid var(--sl-border);
+        font-size: 0.75rem;
+      }
+      .sl-footer-mute {
+        color: var(--sl-muted2);
+      }
+      .sl-footer strong {
+        display: block;
+        color: var(--sl-text);
+        font-size: 0.8125rem;
+        margin-top: 0.15rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="sl-top">
+      <span class="sl-logo">SyncLyst<sup>®</sup></span>
+      <div class="sl-top-actions">
+        <a class="sl-icon-btn" href="/" title="Home" aria-label="Home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+        </a>
+        <a
+          class="sl-icon-btn"
+          id="sl-help-docs"
+          href="https://synclyst.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="SyncLyst — opens in a new tab"
+          aria-label="SyncLyst website — opens in a new tab"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"
+            />
+          </svg>
+        </a>
+      </div>
+    </header>
+
+    <div class="sl-wrap">
+      <div class="sl-hero">
+        <h1>How SyncLyst works</h1>
+        <p>Scan on your phone, review on desktop, then Magic Fill your marketplace listing.</p>
+      </div>
+
+      <p class="sl-step">Flow</p>
+      <div class="sl-card">
+        <div class="sl-card-row">
+          <span class="sl-card-label">Session &amp; QR</span>
+          <span class="sl-pill" id="sl-origin-badge">Pairing</span>
+        </div>
+        <p class="sl-muted-card" style="margin: 0.75rem 0 0; text-align: left">
+          The extension keeps one <strong style="color: var(--sl-text)">session id</strong>. Your phone opens the same session via QR or link so photos and AI results land in the extension.
+        </p>
+      </div>
+
+      <div class="sl-card sl-muted-card" style="margin-bottom: 0.75rem">
+        Optional: hide or blur sensitive text in your photos before you scan (prices, addresses) if you share screens.
+      </div>
+
+      <a class="sl-btn-primary" href="/snap" id="sl-open-snap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+        Open pairing page
+        <span class="sl-kbd">Live</span>
+      </a>
+
+      <div class="sl-grid-2">
+        <div class="sl-mini">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <line x1="8" y1="21" x2="16" y2="21" />
+            <line x1="12" y1="17" x2="12" y2="21" />
+          </svg>
+          <strong>Phone capture → desktop</strong>
+        </div>
+        <div class="sl-mini">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+          <strong>Magic Fill listing forms</strong>
+        </div>
+      </div>
+
+      <p class="sl-step">Steps</p>
+      <div class="sl-card">
+        <strong style="font-size: 0.9375rem">1. Pair your phone</strong>
+        <p style="margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--sl-muted)">
+          Open the extension QR, scan with your phone, upload or take photos. The session id stays in sync with the
+          <code>/snap</code> page.
+        </p>
+      </div>
+      <div class="sl-card">
+        <strong style="font-size: 0.9375rem">2. Choose a marketplace</strong>
+        <p style="margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--sl-muted)">
+          Shopify, eBay, Etsy, Shopee, Depop, or Vinted — the review form matches what that platform needs.
+        </p>
+      </div>
+      <div class="sl-card">
+        <strong style="font-size: 0.9375rem">3. Review &amp; fill</strong>
+        <p style="margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--sl-muted)">
+          Edit title, description, and price, then use <strong style="color: var(--sl-text)">Magic Fill</strong> on an
+          open listing tab. Save on the marketplace as usual.
+        </p>
+      </div>
+
+      <p style="margin: 1.5rem 0 0; font-size: 0.8125rem; color: var(--sl-muted2); text-align: center">
+        Tip: keep the pairing tab and extension on the <strong style="color: var(--sl-muted)">same session id</strong> so
+        the QR and URL always match.
+      </p>
+    </div>
+
+    <footer class="sl-footer">
+      <div>
+        <span class="sl-footer-mute">Product</span>
+        <strong>SyncLyst<sup>®</sup></strong>
+      </div>
+      <div style="text-align: right">
+        <span class="sl-footer-mute">Guide</span>
+        <strong>v1.0</strong>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var o = window.location.origin;
+        var badge = document.getElementById("sl-origin-badge");
+        if (badge) {
+          try {
+            var h = new URL(o).hostname;
+            badge.textContent = h.length > 24 ? h.slice(0, 22) + "…" : h;
+          } catch (e) {
+            badge.textContent = "Local";
+          }
+        }
+        var snap = document.getElementById("sl-open-snap");
+        if (snap) snap.href = o + "/snap";
+        var home = document.querySelector('.sl-top a[href="/"]');
+        if (home) home.href = o + "/";
+      })();
+    </script>
+  </body>
+</html>

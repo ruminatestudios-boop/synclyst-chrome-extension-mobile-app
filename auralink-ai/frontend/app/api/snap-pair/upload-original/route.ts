@@ -96,12 +96,18 @@ export async function POST(request: NextRequest) {
     cacheControl: "3600",
   });
   if (upErr) {
+    console.error("[api/snap-pair/upload-original] storage upload failed", {
+      bucket,
+      path,
+      message: upErr.message,
+    });
     return NextResponse.json({ error: upErr.message }, { status: 500, headers: h });
   }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   const publicUrl = data?.publicUrl || "";
   if (!publicUrl) {
+    console.error("[api/snap-pair/upload-original] missing public URL after upload", { bucket, path });
     return NextResponse.json(
       { error: `Upload ok but could not compute public URL. Ensure bucket "${bucket}" is public, or switch to signed URLs.` },
       { status: 500, headers: h }

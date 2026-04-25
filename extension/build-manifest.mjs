@@ -67,6 +67,8 @@ const SELLER_HOST_MATCHES = [
 const host_permissions = [
   ...SELLER_HOST_MATCHES,
   "https://synclyst.app/*",
+  /** Vercel preview / staging (e.g. synclystchrome.vercel.app) — snap + snap-pair API for popup. */
+  "https://*.vercel.app/*",
   "https://*.supabase.co/*",
 ];
 if (isDev) {
@@ -84,8 +86,19 @@ if (isDev) {
 }
 
 const snapBridgeMatches = isDev
-  ? ["https://synclyst.app/snap*", "https://synclyst.app/extension-review*", "http://*/*"]
-  : ["https://synclyst.app/snap*", "https://synclyst.app/extension-review*"];
+  ? [
+      "https://synclyst.app/snap*",
+      "https://synclyst.app/extension-review*",
+      "https://*.vercel.app/snap*",
+      "https://*.vercel.app/extension-review*",
+      "http://*/*",
+    ]
+  : [
+      "https://synclyst.app/snap*",
+      "https://synclyst.app/extension-review*",
+      "https://*.vercel.app/snap*",
+      "https://*.vercel.app/extension-review*",
+    ];
 
 /** localStorage → chrome.storage for plan label in popup (payment-success.html). */
 const tierBridgeMatches = isDev
@@ -102,7 +115,7 @@ const tierBridgeMatches = isDev
 
 const extensionPagesCsp = isDev
   ? "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' http: https: ws: wss: https://synclyst.app http://localhost:3000 http://127.0.0.1:3000 http://localhost:3001 http://127.0.0.1:3001 http://localhost:3002 http://127.0.0.1:3002 https://*.supabase.co wss://*.supabase.co"
-  : "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://synclyst.app https://*.supabase.co wss://*.supabase.co";
+  : "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://synclyst.app https://*.vercel.app https://*.supabase.co wss://*.supabase.co";
 
 /** Toolbar + chrome://extensions — paths relative to extension root. */
 const extensionIcons = {

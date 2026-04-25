@@ -558,7 +558,14 @@
         flex-direction: column;
         gap: var(--space-5);
       }
+      /* Step 1 (QR): keep items visually grouped/compact. */
+      #state-empty.section--stack {
+        gap: var(--space-3);
+      }
       .section--stack .btn-ghost {
+        margin-top: 0;
+      }
+      .section--stack .btn-magic {
         margin-top: 0;
       }
       #state-loaded {
@@ -663,6 +670,83 @@
         margin: var(--space-4) 0 0;
         line-height: 1.5;
       }
+      .qr-desktop-hint {
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: var(--text-subtle);
+        text-align: center;
+        margin: 0;
+        line-height: 1.4;
+        max-width: 100%;
+      }
+      .pair-copy-bucket {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        margin-top: 0;
+        box-sizing: border-box;
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        background: #ffffff;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .pair-copy-left {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .pair-copy-bucket:hover {
+        border-color: #c4c9d1;
+        background: #f9fafb;
+      }
+      .pair-copy-bucket:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .pair-copy-bucket .pair-copy-code {
+        width: 100%;
+        font-size: 0.7rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pair-copy-bucket .pair-copy-hint {
+        margin: 0;
+        line-height: 1.2;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pair-copy-bucket .pair-copy-hint:empty {
+        display: none;
+      }
+      .pair-copy-chip {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.22rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.04);
+        color: var(--text-muted);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
       .pair-copy {
         flex-direction: column;
         align-items: center;
@@ -670,6 +754,9 @@
         text-align: center;
         padding-top: 0.5rem;
         padding-bottom: 0.5rem;
+      }
+      .section--stack .pair-copy-bucket {
+        margin-top: 0;
       }
       .pair-copy-code {
         font-size: 0.75rem;
@@ -1215,7 +1302,7 @@
       }
       .btn-new-session {
         width: 100%;
-        margin-top: var(--space-3);
+        margin-top: var(--space-2);
         padding: 0.5rem 0.75rem;
         font-size: 0.75rem;
         font-weight: 600;
@@ -1225,6 +1312,10 @@
         border-radius: 10px;
         cursor: pointer;
         line-height: 1.35;
+      }
+      /* Step 1: rely on the stack gap so spacing stays uniform. */
+      #state-empty .btn-new-session {
+        margin-top: 0;
       }
       .btn-new-session:hover {
         color: var(--text);
@@ -1429,7 +1520,7 @@
 
       <div class="section section--pairing-title">
         <div class="label-step-row">
-          <p class="label-step">1. Scan to pair phone</p>
+          <p class="label-step" id="pairing-header-step-label">1. Scan to pair phone</p>
           <div class="live" id="live-status">
             <span class="dot" aria-hidden="true"></span>
             <span id="live-label">Live</span>
@@ -1440,22 +1531,51 @@
       <div id="state-empty" class="section section--stack">
         <div class="qr-card">
           <img id="qr-img" alt="Pairing QR" width="180" height="180" />
-          <p class="qr-hint">Scan with your phone — opens SyncLyst with this session.</p>
+          <p class="qr-hint">
+            Scan with your phone camera, then tap <strong>Open</strong> in the banner. Local Wi‑Fi may show a
+            one-step redirect in Safari first.
+          </p>
+          <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
+          <button
+            type="button"
+            class="btn-magic qr-snap-cta"
+            id="btn-open-snap-on-this-computer"
+            style="
+              display: block;
+              width: 100%;
+              box-sizing: border-box;
+              margin-top: 12px;
+              padding: 10px 14px;
+              min-height: 44px;
+              font-size: 13px;
+              font-weight: 600;
+              line-height: 1.2;
+              color: #fff;
+              background: #111827;
+              border: 1px solid #0f172a;
+              border-radius: 12px;
+              cursor: pointer;
+              font-family: inherit;
+            "
+          >
+            Use this computer to upload
+          </button>
+          <p class="qr-desktop-hint" style="margin-top: 8px">
+            Opens the Snap page on your phone for this session.
+          </p>
         </div>
         <button
           type="button"
-          class="btn-ghost pair-copy"
-          id="btn-copy-pair-url"
-          title="Copy session code"
+          class="pair-copy-bucket"
+          id="btn-copy-snap-link"
+          title="Copy upload link"
+          aria-label="Copy upload link for this session"
         >
-          <span id="pair-session-code" class="pair-copy-code"></span>
-          <span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite"></span>
-        </button>
-        <button type="button" class="btn-ghost" id="btn-open-snap-link">
-          Open Snap upload link
-        </button>
-        <button type="button" class="btn-ghost" id="btn-copy-snap-link">
-          Copy Snap upload link
+          <span class="pair-copy-left">
+            <span id="pair-session-code" class="pair-copy-code"></span>
+            <span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite"></span>
+          </span>
+          <span class="pair-copy-chip" aria-hidden="true">Copy upload link</span>
         </button>
         <button
           type="button"
@@ -1475,6 +1595,9 @@
           <p class="ready-sub" id="loaded-intro">
             Choose a marketplace to start Magic Fill instantly<br />in your open tab and publish faster
           </p>
+          <button type="button" class="btn-ghost hidden" id="btn-open-snap-desktop">
+            Open Snap upload page in a tab
+          </button>
         </div>
 
         <div id="loaded-waiting" class="loaded-waiting hidden" role="status" aria-live="polite">

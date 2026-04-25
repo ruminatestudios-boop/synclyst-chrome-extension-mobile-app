@@ -38,6 +38,7 @@ Set `CORS_ORIGINS` on your API to include `https://synclyst.app` (see `../LAUNCH
 - `https://synclyst.app/api/snap-pair/config` → **200** JSON (extension + phone pairing).
 - `https://synclyst.app/billing` → loads (Clerk + Stripe when configured).
 - Chrome extension: with no local dev server, popup should resolve **`https://synclyst.app`** automatically (`extension/popup.js`).
+- **Phone → extension listing (full E2E):** follow `../docs/live-snap-pair-e2e.md` after deploy.
 
 ## 6. CLI (optional)
 

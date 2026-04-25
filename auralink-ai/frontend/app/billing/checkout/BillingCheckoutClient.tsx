@@ -34,9 +34,19 @@ function BillingCheckoutInner() {
 
     (async () => {
       try {
-        const token = await getToken(
-          CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined
-        );
+        // Prefer the configured JWT template (for backend verification), but fall back
+        // to the default token if the template doesn't exist in this Clerk project.
+        let token: string | null = null;
+        try {
+          token = await getToken(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (CLERK_JWT_TEMPLATE && /jwt template exists with name/i.test(msg)) {
+            token = await getToken();
+          } else {
+            throw e;
+          }
+        }
         if (!token) {
           setError("Could not verify your session. Try signing in again.");
           setStatus("error");
@@ -49,8 +59,8 @@ function BillingCheckoutInner() {
           token,
           body: JSON.stringify({
             tier,
-            success_url: `${origin}/dashboard?billing=success`,
-            cancel_url: `${origin}/landing.html#pricing`,
+            success_url: `${origin}/dashboard?billing=success&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${origin}/billing?tier=${encodeURIComponent(tier)}&canceled=1`,
           }),
         });
         if (!res.ok) {
@@ -95,8 +105,8 @@ function BillingCheckoutInner() {
         <p style={{ color: "#52525b", marginBottom: "1rem", textAlign: "center" }}>
           Pick a paid plan from pricing to continue.
         </p>
-        <Link href="/landing.html#pricing" style={{ fontWeight: 600, color: "#18181b" }}>
-          Back to pricing
+        <Link href="/billing" style={{ fontWeight: 600, color: "#18181b" }}>
+          Back to billing
         </Link>
       </div>
     );
@@ -118,8 +128,8 @@ function BillingCheckoutInner() {
         <p style={{ color: "#52525b", marginBottom: "1rem", textAlign: "center", maxWidth: "24rem" }}>
           Sign-in and billing are not configured in this environment.
         </p>
-        <Link href="/landing.html#pricing" style={{ fontWeight: 600, color: "#18181b" }}>
-          Back to pricing
+        <Link href="/billing" style={{ fontWeight: 600, color: "#18181b" }}>
+          Back to billing
         </Link>
       </div>
     );
@@ -157,8 +167,8 @@ function BillingCheckoutInner() {
               >
                 {error}
               </p>
-              <Link href="/landing.html#pricing" style={{ fontWeight: 600, color: "#18181b" }}>
-                Back to pricing
+              <Link href="/billing" style={{ fontWeight: 600, color: "#18181b" }}>
+                Back to billing
               </Link>
             </>
           ) : (

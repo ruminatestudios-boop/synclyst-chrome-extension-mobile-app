@@ -309,7 +309,6 @@ let qrHomeActive = false;
 /** Last `updated_at` (or stable fallback) we applied — avoids duplicate auto-advance + detects new scans. */
 let lastAppliedListingStamp = null;
 /** One-shot: skip auto-advance when re-applying an existing listing while restoring QR home from storage. */
-let suppressAutoContinueOnce = false;
 /** When true, we just received a "new scan/upload" signal and are waiting for listing content. */
 let extractionPending = false;
 
@@ -1139,6 +1138,117 @@ function openSnapPairLink(pairUrl) {
   }
 }
 
+function getCurrentPairUrl() {
+  const sid = snapPairSessionId;
+  if (!sid) return "";
+  const base = String(SYNCLYST_ORIGIN || SYNCLYST_ORIGIN_DEFAULT).replace(/\/$/, "");
+  return `${base}/snap?s=${encodeURIComponent(sid)}`;
+}
+
+/**
+ * Direct /snap link for the session (used by “Copy link”, desktop, etc.).
+ */
+function getPhonePairUrlDirect() {
+  const sid = snapPairSessionId;
+  if (!sid) return "";
+  const resolved = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
+  const isLoopback =
+    /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/i.test(resolved) ||
+    /^https?:\/\/\[::1\](:\d+)?\/?$/i.test(resolved);
+  const isPublicHttps = /^https:\/\//i.test(resolved) && !isLoopback;
+  const isLanHttp = /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?\/?$/i.test(
+    resolved
+  );
+  if (isPublicHttps || isLanHttp) {
+    return `${resolved}/snap?s=${encodeURIComponent(sid)}`;
+  }
+  return `${SYNCLYST_ORIGIN_LIVE}/snap?s=${encodeURIComponent(sid)}`;
+}
+
+function base64UrlEncodeUtf8(str) {
+  if (typeof TextEncoder !== "undefined") {
+    const bytes = new TextEncoder().encode(String(str));
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  return btoa(String(str)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+/**
+ * URL encoded in the phone QR. iOS often only offers to *copy* raw http:// (LAN) links from the Camera
+ * app, not “Open in Safari”. Use a trustable https:// page on synclyst.app that redirects to the real
+ * /snap link (q.html#base64). Full https targets (Vercel, production) are encoded as-is.
+ */
+function getPhoneQrUrl() {
+  const direct = getPhonePairUrlDirect();
+  if (!direct) return "";
+  if (/^https:\/\//i.test(direct)) return direct;
+  if (!/^http:\/\//i.test(direct)) return direct;
+  const live = SYNCLYST_ORIGIN_LIVE.replace(/\/$/, "");
+  return `${live}/q.html#${base64UrlEncodeUtf8(direct)}`;
+}
+
+const QR_CTA_INJECT_STYLE =
+  "display:block;width:100%;box-sizing:border-box;margin-top:12px;padding:10px 14px;min-height:44px;" +
+  "font-size:13px;font-weight:600;line-height:1.2;color:#fff;background:#111827;border:1px solid #0f172a;" +
+  "border-radius:12px;cursor:pointer;font-family:inherit;";
+
+/**
+ * A stale "Load unpacked" copy may still serve an old popup.html (QR → session only). Recreate the current controls in DOM.
+ * Prefer appending the CTA *inside* `.qr-card` (same as current markup) so it stays inside the visible dashed box.
+ */
+function ensurePairingStepControls() {
+  const root = document.getElementById("state-empty");
+  const qr = root && root.querySelector(".qr-card");
+  if (!root || !qr) return;
+
+  if (!document.getElementById("btn-open-snap-on-this-computer")) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn-magic qr-snap-cta";
+    b.id = "btn-open-snap-on-this-computer";
+    b.textContent = "Use this computer to upload";
+    b.style.cssText = QR_CTA_INJECT_STYLE;
+    const hint = qr.querySelector(".qr-hint");
+    if (hint) {
+      hint.insertAdjacentElement("afterend", b);
+    } else {
+      qr.appendChild(b);
+    }
+
+    const h = document.createElement("p");
+    h.className = "qr-desktop-hint";
+    h.style.marginTop = "8px";
+    h.textContent = "Opens the Snap page on your phone for this session.";
+    b.insertAdjacentElement("afterend", h);
+  } else if (!root.querySelector(".qr-desktop-hint")) {
+    const b = document.getElementById("btn-open-snap-on-this-computer");
+    if (b) {
+      const h = document.createElement("p");
+      h.className = "qr-desktop-hint";
+      h.style.marginTop = "8px";
+      h.textContent = "Opens the Snap page on your phone for this session.";
+      b.insertAdjacentElement("afterend", h);
+    }
+  }
+
+  // In current UI `btn-copy-snap-link` is the whole session card; older UIs may still need a button.
+  if (!document.getElementById("btn-copy-snap-link")) {
+    const snap = document.createElement("button");
+    snap.type = "button";
+    snap.className = "btn-ghost";
+    snap.id = "btn-copy-snap-link";
+    snap.textContent = "Copy upload link";
+    const anchor = document.getElementById("btn-new-pairing-session");
+    if (anchor && anchor.parentNode === root) {
+      root.insertBefore(snap, anchor);
+    } else {
+      root.appendChild(snap);
+    }
+  }
+}
+
 function setLiveLabel(text) {
   const el = document.getElementById("live-label");
   if (el) el.textContent = text;
@@ -1284,7 +1394,8 @@ function revokePrevQrObjectUrl(imgEl) {
  * Prefer GIF data URL (most reliable in MV3 popups), then SVG blob URL fallback.
  */
 async function setQrSrc(imgEl, pairUrl) {
-  if (!imgEl || !pairUrl) return;
+  const u = String(pairUrl || "").trim();
+  if (!imgEl || !u) return;
   revokePrevQrObjectUrl(imgEl);
 
   const applyBlobSrc = (blob) => {
@@ -1298,7 +1409,7 @@ async function setQrSrc(imgEl, pairUrl) {
     for (let type = 1; type <= 40; type += 1) {
       try {
         const qr = mk(type, "M");
-        qr.addData(pairUrl);
+        qr.addData(u);
         qr.make();
         /** GIF data URL first: most reliable in MV3 popups. */
         const tag = qr.createImgTag(4, 8);
@@ -1350,7 +1461,17 @@ async function fetchConfig() {
   }
 }
 
+let _sessionPollCount = 0;
 async function pollSession(sessionId) {
+  /** Stale `SYNCLYST_ORIGIN` (e.g. synclyst.app) while /snap is on 127.0.0.1:3000 makes polls return empty forever. */
+  _sessionPollCount += 1;
+  if (_sessionPollCount === 1 || _sessionPollCount % 3 === 0) {
+    try {
+      SYNCLYST_ORIGIN = await resolveSynclystOrigin();
+    } catch {
+      /* ignore */
+    }
+  }
   try {
     const r = await fetchWithTimeout(
       `${SYNCLYST_ORIGIN}/api/snap-pair/session/${encodeURIComponent(sessionId)}`,
@@ -1397,6 +1518,16 @@ function updateContinueListingButton() {
   cont.classList.toggle("hidden", !show);
 }
 
+function updatePairingHeaderLabel(mode) {
+  const el = document.getElementById("pairing-header-step-label");
+  if (!el) return;
+  if (mode === "qr") {
+    el.textContent = "1. Scan to pair phone";
+  } else {
+    el.textContent = "2. Choose platform";
+  }
+}
+
 function showQrHomeView() {
   qrHomeActive = true;
   chrome.storage.local.set({ [STORAGE_PREFERS_QR_HOME]: true });
@@ -1406,6 +1537,7 @@ function showQrHomeView() {
   if (loaded) loaded.classList.add("hidden");
   const st = document.getElementById("status");
   if (st) st.textContent = "";
+  updatePairingHeaderLabel("qr");
   updateContinueListingButton();
 }
 
@@ -1451,6 +1583,12 @@ function setReviewLoadingState(on, msg) {
   if (cont) cont.classList.add("hidden");
   updateFullReviewButton();
   if (typeof msg === "string") setStatus(msg);
+  try {
+    const cta = document.getElementById("btn-open-snap-desktop");
+    if (cta) cta.classList.toggle("hidden", !on);
+  } catch {
+    /* ignore */
+  }
   refreshLoadedSubstate();
 }
 
@@ -1469,6 +1607,7 @@ function continueToListing() {
   if (loaded) loaded.classList.remove("hidden");
   const cont = document.getElementById("btn-continue-listing");
   if (cont) cont.classList.add("hidden");
+  updatePairingHeaderLabel("listing");
   updateMagicLabel();
   updateFullReviewButton();
   refreshLoadedSubstate();
@@ -1693,7 +1832,6 @@ function applyListing(row) {
     row.updated_at != null && String(row.updated_at).trim() !== ""
       ? String(row.updated_at)
       : `fallback:${snapPairSessionId || ""}:${pickStr(row.title)}\t${(row.description || "").length}`;
-  const isNewer = stamp !== lastAppliedListingStamp;
   const priceStr = formatListingPrice(row.price);
   const coercedImg = pickFirstListingImageUrl(row);
   const resolvedDesc = resolveListingDescription(row);
@@ -1726,9 +1864,19 @@ function applyListing(row) {
     catRow.classList.toggle("hidden", !cat);
   }
   renderExtraImagesStrip(row);
-  if (!qrHomeActive) {
-    document.getElementById("state-empty").classList.add("hidden");
-    document.getElementById("state-loaded").classList.remove("hidden");
+  /**
+   * Leave the QR (step 1) shell whenever we have listing data. Previously we only called
+   * `continueToListing()` when `qrHomeActive && isNewer && !suppress` — a stale stamp or
+   * "suppress first apply" could leave the user on the QR view forever even with a filled row.
+   * DOM is the source of truth: if the empty state is still visible, or the QR-home flag is on, advance.
+   */
+  const stateEmptyEl = document.getElementById("state-empty");
+  const qrPanelVisible = stateEmptyEl && !stateEmptyEl.classList.contains("hidden");
+  if (qrPanelVisible || qrHomeActive) {
+    continueToListing();
+  } else {
+    stateEmptyEl?.classList.add("hidden");
+    document.getElementById("state-loaded")?.classList.remove("hidden");
     chrome.storage.local.set({ [STORAGE_PREFERS_QR_HOME]: false });
   }
 
@@ -1754,11 +1902,6 @@ function applyListing(row) {
   lastAppliedListingStamp = stamp;
   updateContinueListingButton();
   refreshLoadedSubstate();
-
-  if (qrHomeActive && isNewer && !suppressAutoContinueOnce) {
-    continueToListing();
-  }
-  if (suppressAutoContinueOnce) suppressAutoContinueOnce = false;
 }
 
 function getSelectedPlatform() {
@@ -2280,7 +2423,6 @@ window.addEventListener("beforeunload", () => {
   }
 
   try {
-    SYNCLYST_ORIGIN = await resolveSynclystOrigin();
     wireBillingSettings();
     const sessionId = await getSessionId();
     snapPairSessionId = sessionId;
@@ -2289,6 +2431,28 @@ window.addEventListener("beforeunload", () => {
       return;
     }
     setLiveLabel("Live");
+
+    /**
+     * Resolve origin *before* drawing the phone QR. The first-paint `http://127.0.0.1:3000/...` URL is
+     * not openable on a phone (loopback = the device itself) and iOS / Android often only offer
+     * "copy" for that payload instead of "open in browser". `resolveSynclystOrigin` finds https://
+     * synclyst.app, localhost/LAN:port the phone can reach, etc.
+     */
+    try {
+      SYNCLYST_ORIGIN = await resolveSynclystOrigin();
+    } catch {
+      SYNCLYST_ORIGIN = SYNCLYST_ORIGIN_DEFAULT;
+    }
+
+    ensurePairingStepControls();
+    const codeEl0 = document.getElementById("pair-session-code");
+    if (codeEl0) codeEl0.textContent = sessionId;
+    const pairUrlForQr = getPhoneQrUrl();
+    const qrEl = document.getElementById("qr-img");
+    if (qrEl && pairUrlForQr) {
+      await setQrSrc(qrEl, pairUrlForQr);
+    }
+
     await registerSession(sessionId);
 
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -2305,14 +2469,21 @@ window.addEventListener("beforeunload", () => {
       if (!changes[STORAGE_SNAP_LISTING_READY_AT]) return;
       const nv = changes[STORAGE_SNAP_LISTING_READY_AT].newValue;
       if (nv == null) return;
-      // A new scan/upload finished on the phone; don't show stale or blank fields—wait until the session has content.
-      listingHydrated = false;
-      lastPayload = null;
-      lastAppliedListingStamp = null;
-      lastAppliedImageUrl = null;
-      setReviewLoadingState(true, "Extracting your listing…");
-      continueToListing();
-      burstPollUntilListing(snapPairSessionId);
+      void (async () => {
+        try {
+          SYNCLYST_ORIGIN = await resolveSynclystOrigin();
+        } catch {
+          /* ignore */
+        }
+        // A new scan/upload finished on the phone; don't show stale or blank fields—wait until the session has content.
+        listingHydrated = false;
+        lastPayload = null;
+        lastAppliedListingStamp = null;
+        lastAppliedImageUrl = null;
+        setReviewLoadingState(true, "Extracting your listing…");
+        continueToListing();
+        burstPollUntilListing(snapPairSessionId);
+      })();
     });
 
     /** If /snap iframe fired complete before this listener attached (cold openPopup), still jump to step 2. */
@@ -2321,23 +2492,22 @@ window.addEventListener("beforeunload", () => {
         const ts = o && o[STORAGE_SNAP_LISTING_READY_AT];
         /** No max age — pairing / upload can finish while the user is away; still jump to listing when they open the popup. */
         if (ts == null || typeof ts !== "number") return;
-        setReviewLoadingState(true, "Extracting your listing…");
-        continueToListing();
-        burstPollUntilListing(snapPairSessionId);
+        void (async () => {
+          try {
+            SYNCLYST_ORIGIN = await resolveSynclystOrigin();
+          } catch {
+            /* ignore */
+          }
+          setReviewLoadingState(true, "Extracting your listing…");
+          continueToListing();
+          burstPollUntilListing(snapPairSessionId);
+        })();
       });
     } catch {
       /* ignore */
     }
 
     const uiPrefs = await storageGet([STORAGE_LAST_PLATFORM, STORAGE_PREFERS_QR_HOME]);
-
-    const pairUrl = `${SYNCLYST_ORIGIN}/snap?s=${sessionId}`;
-    const codeEl = document.getElementById("pair-session-code");
-    if (codeEl) codeEl.textContent = sessionId;
-    const qr = document.getElementById("qr-img");
-    if (qr) {
-      await setQrSrc(qr, pairUrl);
-    }
 
     const cfg = await fetchConfig();
     const g = typeof window !== "undefined" ? window : {};
@@ -2376,8 +2546,6 @@ window.addEventListener("beforeunload", () => {
 
     const initial = await pollSession(sessionId);
     if (initial && !initial.empty && initial.listing && sessionListingHasContent(initial.listing)) {
-      qrHomeActive = uiPrefs[STORAGE_PREFERS_QR_HOME] === true;
-      if (qrHomeActive) suppressAutoContinueOnce = true;
       applyListing(initial.listing);
     }
     refreshLoadedSubstate();
@@ -2409,9 +2577,15 @@ window.addEventListener("beforeunload", () => {
       document.getElementById(id)?.addEventListener("input", () => syncPayloadFromReviewFields());
     });
 
-    document.getElementById("btn-copy-pair-url")?.addEventListener("click", copySnapPairUrl);
-    document.getElementById("btn-open-snap-link")?.addEventListener("click", () => openSnapPairLink(pairUrl));
-    document.getElementById("btn-copy-snap-link")?.addEventListener("click", () => copySnapPairLink(pairUrl));
+    document
+      .getElementById("btn-open-snap-on-this-computer")
+      ?.addEventListener("click", () => openSnapPairLink(getCurrentPairUrl()));
+    document
+      .getElementById("btn-copy-snap-link")
+      ?.addEventListener("click", () => copySnapPairLink(getCurrentPairUrl()));
+    document
+      .getElementById("btn-open-snap-desktop")
+      ?.addEventListener("click", () => openSnapPairLink(getCurrentPairUrl()));
 
     document.getElementById("btn-new-pairing-session")?.addEventListener("click", () => {
       setStatus("");
