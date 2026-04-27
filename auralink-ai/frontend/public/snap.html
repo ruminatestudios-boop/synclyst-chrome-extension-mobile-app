@@ -53,9 +53,15 @@
       body.snap--pair-invalid {
         background: var(--snap-page-bg);
       }
+      /* Invalid link screen: hide scan-frame decoration (dashed box). */
+      body.snap--pair-invalid .pair-viewfinder {
+        display: none !important;
+      }
       /* Photo upload on phone: full white canvas. */
       body.snap--mobile-min {
         background: #ffffff;
+        height: 100dvh;
+        overflow: hidden;
       }
       .wrap {
         min-height: 100vh;
@@ -542,6 +548,8 @@
       body.snap--mobile-min .wrap {
         padding: 0;
         align-items: stretch;
+        height: 100dvh;
+        overflow: hidden;
       }
       body.snap--mobile-min .snap-card {
         max-width: 100%;
@@ -554,6 +562,7 @@
         flex-direction: column;
         justify-content: flex-start;
         gap: 0;
+        overflow: hidden;
       }
       body:not(.snap--mobile-min) .snap-m-scan {
         display: none !important;
@@ -565,6 +574,7 @@
         min-height: 0;
         width: 100%;
         background: #ffffff;
+        overflow: hidden;
       }
       /* Mobile camera: no top logo bar — more room for live view + bottom controls in one screen. */
       .snap-m-step-camera {
@@ -577,6 +587,8 @@
         background: #fff;
         padding: 0;
         padding-top: env(safe-area-inset-top, 0px);
+        /* Make space for the fixed bottom control bar. */
+        padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
         justify-content: stretch;
         align-items: center;
       }
@@ -657,7 +669,7 @@
         position: absolute;
         left: 1rem;
         right: 1rem;
-        bottom: 6.5rem;
+        bottom: 7.25rem;
         max-width: none;
         margin: 0;
         z-index: 30;
@@ -675,6 +687,17 @@
         -webkit-backdrop-filter: blur(12px);
         backdrop-filter: blur(12px);
         flex-shrink: 0;
+        z-index: 20;
+      }
+      /* Mobile: keep capture controls always visible (sticky can be clipped by overflow containers). */
+      body.snap--mobile-min .scan-control-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: none;
+        margin: 0;
       }
       body.snap--mobile-min .scan-control-bar {
         width: 100%;
@@ -1162,7 +1185,6 @@
           root.innerHTML =
             '<div class="snap-card snap-card--invalid">' +
             '<div class="pair-viewfinder" aria-hidden="true">' +
-            '<div class="pair-viewfinder__dashed"></div>' +
             '<span class="pair-viewfinder__corner pair-viewfinder__corner--tl"></span>' +
             '<span class="pair-viewfinder__corner pair-viewfinder__corner--tr"></span>' +
             '<span class="pair-viewfinder__corner pair-viewfinder__corner--br"></span>' +

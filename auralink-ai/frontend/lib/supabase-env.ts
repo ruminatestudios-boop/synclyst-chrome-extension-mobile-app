@@ -33,5 +33,25 @@ export function resolveSupabaseServiceKey(): string | undefined {
     process.env.SUPABASE_SERVICE_KEY ||
     ""
   ).trim();
-  return k || undefined;
+  if (!k) return undefined;
+
+  // Guardrail: service role key must actually be `service_role`.
+  // A common production misconfig is pasting the anon/publishable key into SUPABASE_SERVICE_*,
+  // which will trigger RLS errors like:
+  // "new row violates row-level security policy for table ..."
+  try {
+    const looksLikeJwt = k.split(".").length === 3;
+    if (looksLikeJwt) {
+      const payloadB64 = k.split(".")[1] || "";
+      const padded = payloadB64.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payloadB64.length / 4) * 4, "=");
+      const json = Buffer.from(padded, "base64").toString("utf8");
+      const payload = JSON.parse(json) as { role?: unknown } | null;
+      const role = payload && typeof payload === "object" ? (payload as { role?: unknown }).role : undefined;
+      if (role && role !== "service_role") return undefined;
+    }
+  } catch {
+    // If we can't parse it, don't block; Supabase keys may change format.
+  }
+
+  return k;
 }
