@@ -30,6 +30,11 @@ const STORAGE_ORIGIN_AUTO = "synclyst_origin_auto";
 /** Resolved after storage read — all fetches use this. */
 let SYNCLYST_ORIGIN = SYNCLYST_ORIGIN_DEFAULT;
 
+function getBillingOrigin() {
+  // Billing + Clerk auth should always run on HTTPS to avoid cookie/session failures on LAN HTTP.
+  return SYNCLYST_ORIGIN_LIVE.replace(/\/$/, "");
+}
+
 /**
  * Extension popups will stay blank forever if fetch() never settles (e.g. stalled TCP to a LAN IP).
  */
@@ -311,6 +316,46 @@ let lastAppliedListingStamp = null;
 /** One-shot: skip auto-advance when re-applying an existing listing while restoring QR home from storage. */
 /** When true, we just received a "new scan/upload" signal and are waiting for listing content. */
 let extractionPending = false;
+let extractionStartedAtMs = 0;
+let extractionTickerId = null;
+
+function fmtElapsedSeconds(startMs) {
+  if (!startMs) return "0s";
+  const s = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+  return `${s}s`;
+}
+
+function setReviewLoadingText(text) {
+  const loadText = document.getElementById("review-loading-text");
+  if (!loadText) return;
+  loadText.textContent = String(text || "").trim();
+}
+
+function stopExtractionTicker() {
+  if (extractionTickerId) {
+    clearInterval(extractionTickerId);
+    extractionTickerId = null;
+  }
+  extractionStartedAtMs = 0;
+}
+
+function startExtractionTicker(stage) {
+  extractionStartedAtMs = Date.now();
+  const st = String(stage || "Extracting your listing").trim() || "Extracting your listing";
+  const render = () => {
+    setReviewLoadingText(`${st}… ${fmtElapsedSeconds(extractionStartedAtMs)}`);
+  };
+  render();
+  if (extractionTickerId) clearInterval(extractionTickerId);
+  extractionTickerId = setInterval(render, 300);
+}
+
+function updateExtractionStage(stage) {
+  if (!extractionPending) return;
+  const st = String(stage || "").trim();
+  if (!st) return;
+  setReviewLoadingText(`${st}… ${fmtElapsedSeconds(extractionStartedAtMs)}`);
+}
 
 function refreshLoadedSubstate() {
   const waiting = document.getElementById("loaded-waiting");
@@ -327,6 +372,9 @@ function refreshLoadedSubstate() {
 const STORAGE_LAST_PLATFORM = "synclyst_last_platform";
 const STORAGE_PREFERS_QR_HOME = "synclyst_prefers_qr_home";
 const STORAGE_SNAP_LISTING_READY_AT = "synclyst_snap_listing_ready_at";
+// Treat `synclyst_snap_listing_ready_at` as a short-lived "extraction in progress" signal.
+// If it’s stale (e.g. user uploaded hours ago), don’t show “Extracting…” on every popup open.
+const SNAP_LISTING_READY_MAX_AGE_MS = 2 * 60 * 1000;
 
 /** Same keys as auralink-ai/frontend/public/payment-success.html → tier-bridge.js → chrome.storage.local */
 const STORAGE_SYNC_TIER = "synclyst_tier";
@@ -336,6 +384,96 @@ const STORAGE_PREF_BILLING_TIER = "synclyst_pref_billing_tier";
 /** Signed-in status for billing UI (derived from synclyst.app Clerk cookies). */
 let billingSignedIn = null;
 let billingEmail = "";
+
+/** tier-bridge.js mirrors these from synclyst.app localStorage into chrome.storage.local. */
+const STORAGE_BILLING_SIGNED_IN = "synclyst_signed_in";
+const STORAGE_BILLING_EMAIL = "synclyst_email";
+const STORAGE_BILLING_AUTH_AT = "synclyst_auth_at";
+
+function readBillingAuthFromStorage() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get([STORAGE_BILLING_SIGNED_IN, STORAGE_BILLING_EMAIL, STORAGE_BILLING_AUTH_AT], (o) => {
+        const raw = o && o[STORAGE_BILLING_SIGNED_IN] != null ? String(o[STORAGE_BILLING_SIGNED_IN]) : "";
+        const signedIn = raw === "1" || raw.toLowerCase() === "true";
+        const email = o && typeof o[STORAGE_BILLING_EMAIL] === "string" ? String(o[STORAGE_BILLING_EMAIL]).trim() : "";
+        const authAtRaw = o && o[STORAGE_BILLING_AUTH_AT] != null ? String(o[STORAGE_BILLING_AUTH_AT]) : "";
+        const authAt = authAtRaw && /^\d+$/.test(authAtRaw) ? Number(authAtRaw) : 0;
+        resolve({ signedIn, email, authAt });
+      });
+    } catch {
+      resolve({ signedIn: false, email: "", authAt: 0 });
+    }
+  });
+}
+
+// ---- Settings diagnostics (for support + debugging) ----
+let diagLastConfig = { configured: null };
+let diagLastPoll = { atMs: 0, status: null, ok: null, error: "" };
+
+function fmtDiagTime(ms) {
+  if (!ms) return "";
+  try {
+    const d = new Date(ms);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+function refreshSettingsDiagnosticsUI() {
+  try {
+    const originEl = document.getElementById("diag-origin");
+    const sessionEl = document.getElementById("diag-session");
+    const configEl = document.getElementById("diag-config");
+    const pollEl = document.getElementById("diag-poll");
+    if (originEl) originEl.textContent = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "") || "—";
+    if (sessionEl) sessionEl.textContent = snapPairSessionId ? String(snapPairSessionId) : "—";
+    if (configEl) {
+      const c = diagLastConfig && typeof diagLastConfig.configured === "boolean" ? diagLastConfig.configured : null;
+      configEl.textContent = c === null ? "—" : c ? "configured ✅" : "not configured ❌";
+    }
+    if (pollEl) {
+      if (!diagLastPoll.atMs) {
+        pollEl.textContent = "—";
+      } else {
+        const t = fmtDiagTime(diagLastPoll.atMs);
+        const s = diagLastPoll.status != null ? `HTTP ${diagLastPoll.status}` : diagLastPoll.ok ? "OK" : "ERR";
+        const extra = diagLastPoll.error ? ` · ${String(diagLastPoll.error).slice(0, 40)}` : "";
+        pollEl.textContent = `${t} · ${s}${extra}`;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+async function copySettingsDiagnostics() {
+  try {
+    const origin = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
+    const sid = snapPairSessionId ? String(snapPairSessionId) : "";
+    const cfg =
+      diagLastConfig && typeof diagLastConfig.configured === "boolean"
+        ? String(diagLastConfig.configured)
+        : "unknown";
+    const pollT = diagLastPoll.atMs ? fmtDiagTime(diagLastPoll.atMs) : "—";
+    const pollS = diagLastPoll.status != null ? String(diagLastPoll.status) : diagLastPoll.ok ? "ok" : "error";
+    const pollE = diagLastPoll.error ? String(diagLastPoll.error).slice(0, 120) : "";
+    const text = [
+      "SyncLyst diagnostics",
+      `origin=${origin || "—"}`,
+      `session_id=${sid || "—"}`,
+      `snap_pair_configured=${cfg}`,
+      `last_poll=${pollT} (${pollS})${pollE ? ` ${pollE}` : ""}`,
+    ].join("\n");
+    await navigator.clipboard.writeText(text);
+    setBillingMsg("Copied diagnostics.");
+    setTimeout(() => setBillingMsg(""), 1400);
+  } catch {
+    setBillingMsg("Couldn’t copy diagnostics.");
+    setTimeout(() => setBillingMsg(""), 1600);
+  }
+}
 
 function setBillingMsg(text) {
   const el = document.getElementById("settings-billing-msg");
@@ -421,9 +559,12 @@ function setPrefBillingTier(tier) {
 
 async function fetchBillingAuthSummary() {
   try {
-    const base = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
-    if (!base) return { signedIn: false };
-    const r = await fetchWithTimeout(`${base}/api/clerk/user-summary`, { credentials: "include", cache: "no-store" }, 7000);
+    const base = getBillingOrigin();
+    const r = await fetchWithTimeout(
+      `${base}/api/clerk/user-summary`,
+      { credentials: "include", cache: "no-store" },
+      7000
+    );
     if (!r.ok) return { signedIn: false };
     const j = await r.json().catch(() => ({}));
     return j && typeof j === "object" ? j : { signedIn: false };
@@ -462,7 +603,12 @@ function refreshSettingsBillingAuthUI() {
   }
   if (btn) btn.disabled = false;
 
-  // Disable paid upgrade buttons until signed in; show copy inline on the button.
+  const planGrid = document.getElementById("settings-plan-grid");
+  if (planGrid) {
+    planGrid.classList.toggle("is-locked", billingSignedIn === false);
+  }
+
+  // Disable paid upgrade buttons until signed in.
   document.querySelectorAll(".settings-plan-open[data-billing-tier]").forEach((el) => {
     const tier = String(el.dataset.billingTier || "").toLowerCase();
     const isPaid = tier === "pro" || tier === "growth" || tier === "scale";
@@ -473,8 +619,7 @@ function refreshSettingsBillingAuthUI() {
       b.classList.remove("is-disabled");
       b.textContent = "Upgrade";
     } else {
-      // Keep it clickable so users can sign in from the same button.
-      b.disabled = false;
+      b.disabled = true;
       b.classList.add("is-disabled");
       b.textContent = "Sign in to upgrade";
     }
@@ -487,10 +632,19 @@ async function refreshSettingsBillingAuthState() {
   billingEmail = "";
   refreshSettingsBillingAuthUI();
   setBillingMsg("");
-  const j = await fetchBillingAuthSummary();
-  billingSignedIn = !!(j && j.signedIn);
-  billingEmail = billingSignedIn && typeof j.email === "string" ? String(j.email).trim() : "";
+  const [net, stored] = await Promise.all([fetchBillingAuthSummary(), readBillingAuthFromStorage()]);
+  const netSigned = !!(net && net.signedIn);
+  const storedFresh = !!(stored && stored.authAt && Date.now() - stored.authAt < 10 * 60 * 1000);
+
+  billingSignedIn = netSigned || (!!stored && stored.signedIn && storedFresh);
+  billingEmail =
+    (netSigned && typeof net.email === "string" ? String(net.email).trim() : "") ||
+    (billingSignedIn && stored && stored.email ? String(stored.email).trim() : "");
+
   refreshSettingsBillingAuthUI();
+  if (!netSigned && billingSignedIn) {
+    setBillingMsg("Signed in via synclyst.app. If it doesn’t update, open the Sign in tab once and come back.");
+  }
 }
 
 async function startStripeCheckoutFromPopup(tier) {
@@ -498,7 +652,7 @@ async function startStripeCheckoutFromPopup(tier) {
   if (t !== "pro" && t !== "growth" && t !== "scale") return;
   try {
     setBillingMsg("Opening secure checkout…");
-    const base = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
+    const base = getBillingOrigin();
     if (!base) return;
     const origin = base;
     const r = await fetchWithTimeout(
@@ -548,7 +702,7 @@ function openAutostartCheckoutTabForTier(tier) {
   const t = String(tier || "").toLowerCase();
   if (t !== "pro" && t !== "growth" && t !== "scale") return;
   try {
-    const base = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
+    const base = getBillingOrigin();
     if (!base) return;
     // Avoid extension cookie issues by using a first-party redirect endpoint.
     chrome.tabs.create({ url: `${base}/api/billing/checkout-redirect?tier=${encodeURIComponent(t)}` });
@@ -561,14 +715,14 @@ function openBillingTabForTier(tier) {
   const t = String(tier).toLowerCase();
   let url;
   try {
-    const base = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
+    const base = getBillingOrigin();
     if (!base) return;
     if (t === "starter") {
       // Use extension-friendly redirect targets (never dashboard).
-      url = `${base}/sign-up?redirect_url=${encodeURIComponent("/extension-return")}&after_sign_up_url=${encodeURIComponent("/extension-return")}`;
+      url = `${base}/sign-up?redirect_url=${encodeURIComponent("/extension-return?auth=1")}&after_sign_up_url=${encodeURIComponent("/extension-return?auth=1")}`;
     } else if (t === "pro" || t === "growth" || t === "scale") {
       // After signing in, send users to a lightweight "back to extension" page (not dashboard).
-      url = `${base}/sign-in?redirect_url=${encodeURIComponent("/extension-return")}&after_sign_in_url=${encodeURIComponent("/extension-return")}`;
+      url = `${base}/sign-in?redirect_url=${encodeURIComponent("/extension-return?auth=1")}&after_sign_in_url=${encodeURIComponent("/extension-return?auth=1")}`;
     } else {
       return;
     }
@@ -752,6 +906,31 @@ function wireBillingSettings() {
   if (billingSettingsWired) return;
   billingSettingsWired = true;
   refreshSettingsTierDisplay();
+
+  function collapseOtherPlanDetails(exceptTier) {
+    try {
+      document
+        .querySelectorAll("#settings-plan-grid .settings-plan-row.is-expanded[data-billing-tier]")
+        .forEach((el) => {
+          const t = String(el.dataset.billingTier || "").toLowerCase();
+          if (exceptTier && t === exceptTier) return;
+          el.classList.remove("is-expanded");
+          el.setAttribute("aria-expanded", "false");
+        });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function togglePlanDetails(rowEl) {
+    if (!rowEl) return;
+    const tier = String(rowEl.dataset.billingTier || "").toLowerCase();
+    const next = !rowEl.classList.contains("is-expanded");
+    collapseOtherPlanDetails(next ? tier : "");
+    rowEl.classList.toggle("is-expanded", next);
+    rowEl.setAttribute("aria-expanded", next ? "true" : "false");
+  }
+
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (
@@ -769,6 +948,7 @@ function wireBillingSettings() {
     refreshSettingsTierDisplay();
     refreshSettingsBillingAuthState();
     setBillingMsg("");
+    refreshSettingsDiagnosticsUI();
     overlay?.classList.remove("hidden");
   });
   document.getElementById("btn-settings-close")?.addEventListener("click", () => {
@@ -789,9 +969,11 @@ function wireBillingSettings() {
 
   const planGrid = document.getElementById("settings-plan-grid");
   planGrid?.addEventListener("click", (e) => {
+    const locked = billingSignedIn === false;
     const openBtn = e.target && e.target.closest && e.target.closest(".settings-plan-open[data-billing-tier]");
     if (openBtn && openBtn.dataset.billingTier) {
       e.stopPropagation();
+      if (locked) return;
       const tier = String(openBtn.dataset.billingTier).toLowerCase();
       setPrefBillingTier(tier);
       if (tier === "pro" || tier === "growth" || tier === "scale") {
@@ -807,18 +989,13 @@ function wireBillingSettings() {
     if (row && row.dataset.billingTier) {
       const tier = String(row.dataset.billingTier).toLowerCase();
       setPrefBillingTier(tier);
-      // Clicking anywhere on a tier row should behave like clicking its CTA.
-      // If it's the current plan, do nothing.
-      if (row.classList.contains("is-current")) return;
-      if (tier === "pro" || tier === "growth" || tier === "scale") {
-        openAutostartCheckoutTabForTier(tier);
-      } else if (tier === "starter") {
-        openBillingTabForTier(tier);
-      }
+      // Row click expands/collapses details (CTA button handles checkout / sign-in).
+      togglePlanDetails(row);
     }
   });
 
   planGrid?.addEventListener("keydown", (e) => {
+    const locked = billingSignedIn === false;
     const row = e.target && e.target.closest && e.target.closest(".settings-plan-row[data-billing-tier]");
     if (!row || (e.target && e.target.closest && e.target.closest(".settings-plan-open"))) return;
     const rows = Array.from(
@@ -829,12 +1006,8 @@ function wireBillingSettings() {
       e.preventDefault();
       const tier = String(row.dataset.billingTier).toLowerCase();
       setPrefBillingTier(tier);
-      if (row.classList.contains("is-current")) return;
-      if (tier === "pro" || tier === "growth" || tier === "scale") {
-        openAutostartCheckoutTabForTier(tier);
-      } else if (tier === "starter") {
-        openBillingTabForTier(tier);
-      }
+      // Expand/collapse on keyboard. CTA still required to upgrade; signed-out can still read details.
+      togglePlanDetails(row);
       return;
     }
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -843,25 +1016,47 @@ function wireBillingSettings() {
       if (next) {
         next.focus();
         setPrefBillingTier(String(next.dataset.billingTier).toLowerCase());
+        // Keep details readable while navigating (do not auto-open checkout).
+        if (!locked) {
+          /* noop */
+        }
       }
     }
   });
 
-  document.getElementById("btn-settings-signin")?.addEventListener("click", () => {
+  document.getElementById("btn-settings-signin")?.addEventListener("click", async () => {
     setBillingMsg("");
+    const btn = document.getElementById("btn-settings-signin");
+    if (btn) btn.disabled = true;
     try {
-      const base = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
+      // Refresh first so we don't use stale signed-in state.
+      await refreshSettingsBillingAuthState();
+    } catch {
+      /* ignore */
+    }
+    try {
+      const base = getBillingOrigin();
       if (!base) return;
-      if (billingSignedIn) {
-        chrome.tabs.create({ url: `${base}/sign-out?redirect_url=${encodeURIComponent("/sign-in")}` });
-      } else {
+      // Only sign out when we are definitely signed in.
+      if (billingSignedIn === true) {
         chrome.tabs.create({
-          url: `${base}/sign-in?redirect_url=${encodeURIComponent("/extension-return")}&after_sign_in_url=${encodeURIComponent("/extension-return")}`,
+          url: `${base}/sign-out?redirect_url=${encodeURIComponent("/extension-return?signed_out=1")}`,
         });
+        return;
       }
+      // Otherwise always go to Clerk sign-in.
+      chrome.tabs.create({
+        url: `${base}/sign-in?redirect_url=${encodeURIComponent("/extension-return?auth=1")}&after_sign_in_url=${encodeURIComponent("/extension-return?auth=1")}`,
+      });
     } catch {
       openBillingTabForTier("pro");
+    } finally {
+      if (btn) btn.disabled = false;
     }
+  });
+
+  document.getElementById("btn-copy-diagnostics")?.addEventListener("click", () => {
+    void copySettingsDiagnostics();
   });
 }
 
@@ -1163,7 +1358,6 @@ function wireSnapPairCtaButtons() {
   };
   document.getElementById("btn-open-snap-on-this-computer")?.addEventListener("click", onOpen);
   document.getElementById("btn-copy-snap-link")?.addEventListener("click", onCopy);
-  document.getElementById("btn-open-snap-desktop")?.addEventListener("click", onOpen);
 }
 
 function getCurrentPairUrl() {
@@ -1231,6 +1425,18 @@ function ensurePairingStepControls() {
   const qr = root && root.querySelector(".qr-card");
   if (!root || !qr) return;
 
+  // Keep QR instructions consistent even if a stale popup.html is loaded.
+  try {
+    const hintEl = qr.querySelector(".qr-hint");
+    if (hintEl) {
+      hintEl.innerHTML =
+        "Scan the QR to pair your phone with this session.<br>" +
+        "Then upload a photo from your phone or from this computer.";
+    }
+  } catch {
+    /* ignore */
+  }
+
   if (!document.getElementById("btn-open-snap-on-this-computer")) {
     const b = document.createElement("button");
     b.type = "button";
@@ -1248,7 +1454,7 @@ function ensurePairingStepControls() {
     const h = document.createElement("p");
     h.className = "qr-desktop-hint";
     h.style.marginTop = "8px";
-    h.textContent = "Opens the Snap page on your phone for this session.";
+    h.textContent = "Opens Snap in a new tab on this computer";
     b.insertAdjacentElement("afterend", h);
   } else if (!root.querySelector(".qr-desktop-hint")) {
     const b = document.getElementById("btn-open-snap-on-this-computer");
@@ -1256,7 +1462,7 @@ function ensurePairingStepControls() {
       const h = document.createElement("p");
       h.className = "qr-desktop-hint";
       h.style.marginTop = "8px";
-      h.textContent = "Opens the Snap page on your phone for this session.";
+      h.textContent = "Opens Snap in a new tab on this computer";
       b.insertAdjacentElement("afterend", h);
     }
   }
@@ -1483,8 +1689,13 @@ async function registerSession(sessionId) {
 async function fetchConfig() {
   try {
     const r = await fetchWithTimeout(`${SYNCLYST_ORIGIN}/api/snap-pair/config`, {}, 6000);
-    return await r.json();
+    const j = await r.json();
+    diagLastConfig = j && typeof j === "object" ? j : { configured: false };
+    refreshSettingsDiagnosticsUI();
+    return j;
   } catch {
+    diagLastConfig = { configured: false };
+    refreshSettingsDiagnosticsUI();
     return { configured: false };
   }
 }
@@ -1501,16 +1712,29 @@ async function pollSession(sessionId) {
     }
   }
   try {
+    if (extractionPending) updateExtractionStage("Checking status");
     const r = await fetchWithTimeout(
       `${SYNCLYST_ORIGIN}/api/snap-pair/session/${encodeURIComponent(sessionId)}`,
       {},
       30000
     );
+    diagLastPoll = { atMs: Date.now(), status: r && typeof r.status === "number" ? r.status : null, ok: !!(r && r.ok), error: "" };
+    refreshSettingsDiagnosticsUI();
     if (!r || !r.ok) {
+      if (extractionPending) updateExtractionStage("Waiting for extraction");
       return { error: true, status: r && r.status };
     }
-    return await r.json();
+    const j = await r.json();
+    if (extractionPending) {
+      if (j && j.empty) updateExtractionStage("Waiting for upload");
+      else if (j && j.listing && !sessionListingHasContent(j.listing)) updateExtractionStage("Processing image");
+      else updateExtractionStage("Finalizing");
+    }
+    return j;
   } catch {
+    diagLastPoll = { atMs: Date.now(), status: null, ok: false, error: "fetch_failed" };
+    refreshSettingsDiagnosticsUI();
+    if (extractionPending) updateExtractionStage("Reconnecting");
     return { error: true };
   }
 }
@@ -1528,6 +1752,7 @@ function burstPollUntilListing(sessionId, opts) {
   async function step() {
     if (my !== snapBurstGen) return;
     if (attempt++ >= maxAttempts) return;
+    if (extractionPending && attempt === 1) updateExtractionStage("Upload received");
     const j = await pollSession(sessionId);
     if (my !== snapBurstGen) return;
     if (j && !j.empty && j.listing && sessionListingHasContent(j.listing)) {
@@ -1569,6 +1794,34 @@ function showQrHomeView() {
   updateContinueListingButton();
 }
 
+let brandHomeWired = false;
+function wireBrandHome() {
+  if (brandHomeWired) return;
+  brandHomeWired = true;
+  const btn = document.getElementById("btn-brand-home");
+  if (!btn) return;
+  btn.addEventListener("click", (e) => {
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+    } catch {
+      /* ignore */
+    }
+    // If Settings (or legal sub-view) is open, close it first so the QR screen is visible.
+    try {
+      closeLegalDocModalIfOpen();
+    } catch {
+      /* ignore */
+    }
+    try {
+      document.getElementById("settings-overlay")?.classList.add("hidden");
+    } catch {
+      /* ignore */
+    }
+    showQrHomeView();
+  });
+}
+
 function setReviewLoadingState(on, msg) {
   extractionPending = !!on;
   // Ensure the right-hand "review" modal stays visible while we wait.
@@ -1578,9 +1831,14 @@ function setReviewLoadingState(on, msg) {
     /* ignore */
   }
   const loadWrap = document.getElementById("review-loading");
-  const loadText = document.getElementById("review-loading-text");
   if (loadWrap) loadWrap.classList.toggle("hidden", !on);
-  if (loadText && typeof msg === "string" && msg.trim()) loadText.textContent = msg.trim();
+  if (on) {
+    const m = typeof msg === "string" && msg.trim() ? msg.trim() : "Extracting your listing";
+    startExtractionTicker(m.replace(/[.…]+$/g, ""));
+  } else {
+    stopExtractionTicker();
+    if (typeof msg === "string" && msg.trim()) setReviewLoadingText(msg.trim());
+  }
   const titleEl = document.getElementById("review-title");
   const descEl = document.getElementById("review-description");
   const priceEl = document.getElementById("review-price");
@@ -1610,13 +1868,9 @@ function setReviewLoadingState(on, msg) {
   const cont = document.getElementById("btn-continue-listing");
   if (cont) cont.classList.add("hidden");
   updateFullReviewButton();
-  if (typeof msg === "string") setStatus(msg);
-  try {
-    const cta = document.getElementById("btn-open-snap-desktop");
-    if (cta) cta.classList.toggle("hidden", !on);
-  } catch {
-    /* ignore */
-  }
+  // Avoid showing the gray status banner while extracting — use the purple banner instead.
+  if (on) setStatus("");
+  else if (typeof msg === "string") setStatus(msg);
   refreshLoadedSubstate();
 }
 
@@ -1847,6 +2101,7 @@ function applyListing(row) {
     extractionPending = false;
     const loadWrap = document.getElementById("review-loading");
     if (loadWrap) loadWrap.classList.add("hidden");
+    stopExtractionTicker();
     const t = document.getElementById("review-title");
     const d = document.getElementById("review-description");
     const p = document.getElementById("review-price");
@@ -1854,6 +2109,14 @@ function applyListing(row) {
     if (d) d.disabled = false;
     if (p) p.disabled = false;
     setStatus("");
+    // Clear the one-shot "listing ready" signal so we don't show stale extracting state later.
+    try {
+      chrome.storage.local.remove([STORAGE_SNAP_LISTING_READY_AT], () => {
+        /* ignore */
+      });
+    } catch {
+      /* ignore */
+    }
   }
   row = mergeListingCoreFromLastPayload(row);
   const stamp =
@@ -1900,7 +2163,11 @@ function applyListing(row) {
    */
   const stateEmptyEl = document.getElementById("state-empty");
   const qrPanelVisible = stateEmptyEl && !stateEmptyEl.classList.contains("hidden");
-  if (qrPanelVisible || qrHomeActive) {
+  // If the user explicitly chose the QR home (logo tap), do NOT auto-switch them back to listing.
+  // Keep QR visible and just update the "Continue" button state.
+  if (qrHomeActive) {
+    showQrHomeView();
+  } else if (qrPanelVisible) {
     continueToListing();
   } else {
     stateEmptyEl?.classList.add("hidden");
@@ -2450,6 +2717,13 @@ window.addEventListener("beforeunload", () => {
     /* ignore */
   }
 
+  // Wire this immediately so the logo always works, even before async init finishes.
+  try {
+    wireBrandHome();
+  } catch {
+    /* ignore */
+  }
+
   try {
     wireBillingSettings();
     const sessionId = await getSessionId();
@@ -2498,6 +2772,17 @@ window.addEventListener("beforeunload", () => {
       if (!changes[STORAGE_SNAP_LISTING_READY_AT]) return;
       const nv = changes[STORAGE_SNAP_LISTING_READY_AT].newValue;
       if (nv == null) return;
+      const ts = typeof nv === "number" ? nv : Number(nv);
+      if (!Number.isFinite(ts) || Date.now() - ts > SNAP_LISTING_READY_MAX_AGE_MS) {
+        try {
+          chrome.storage.local.remove([STORAGE_SNAP_LISTING_READY_AT], () => {
+            /* ignore */
+          });
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
       void (async () => {
         try {
           SYNCLYST_ORIGIN = await resolveSynclystOrigin();
@@ -2518,9 +2803,20 @@ window.addEventListener("beforeunload", () => {
     /** If /snap iframe fired complete before this listener attached (cold openPopup), still jump to step 2. */
     try {
       chrome.storage.local.get([STORAGE_SNAP_LISTING_READY_AT], (o) => {
-        const ts = o && o[STORAGE_SNAP_LISTING_READY_AT];
+        const ts0 = o && o[STORAGE_SNAP_LISTING_READY_AT];
         /** No max age — pairing / upload can finish while the user is away; still jump to listing when they open the popup. */
-        if (ts == null || typeof ts !== "number") return;
+        const ts = typeof ts0 === "number" ? ts0 : Number(ts0);
+        if (!Number.isFinite(ts)) return;
+        if (Date.now() - ts > SNAP_LISTING_READY_MAX_AGE_MS) {
+          try {
+            chrome.storage.local.remove([STORAGE_SNAP_LISTING_READY_AT], () => {
+              /* ignore */
+            });
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
         void (async () => {
           try {
             SYNCLYST_ORIGIN = await resolveSynclystOrigin();
@@ -2597,7 +2893,7 @@ window.addEventListener("beforeunload", () => {
 
     document.getElementById("magic-fill")?.addEventListener("click", runMagicFill);
     document.getElementById("btn-open-full-review")?.addEventListener("click", openFullReviewInBrowser);
-    document.getElementById("btn-brand-home")?.addEventListener("click", showQrHomeView);
+    // (wired early in init)
     document.getElementById("btn-continue-listing")?.addEventListener("click", continueToListing);
     document.getElementById("btn-waiting-back-to-qr")?.addEventListener("click", showQrHomeView);
     updateFullReviewButton();

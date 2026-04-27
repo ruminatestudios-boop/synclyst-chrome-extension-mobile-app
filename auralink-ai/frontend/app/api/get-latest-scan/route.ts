@@ -5,10 +5,16 @@ export const runtime = "nodejs";
 
 function getBackendBaseUrl() {
   const raw =
-    process.env.NEXT_PUBLIC_API_URL?.trim() ||
     process.env.AURALINK_BACKEND_URL?.trim() ||
+    process.env.NEXT_PUBLIC_API_URL?.trim() ||
     "http://localhost:8000";
-  return raw.replace(/\/$/, "");
+  const base = raw.replace(/\/$/, "");
+  const isLocal =
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(base) || /^https?:\/\/\[::1\](:\d+)?\/?$/i.test(base);
+  if (process.env.NODE_ENV === "production" && isLocal) {
+    return "";
+  }
+  return base;
 }
 
 function corsHeaders(request: NextRequest): HeadersInit {
@@ -69,7 +75,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const backendUrl = `${getBackendBaseUrl()}/api/v1/products?limit=1&offset=0`;
+    const base = getBackendBaseUrl();
+    if (!base) {
+      return NextResponse.json(
+        { error: "Server misconfigured: set AURALINK_BACKEND_URL to your live backend." },
+        { status: 500, headers: cors }
+      );
+    }
+    const backendUrl = `${base}/api/v1/products?limit=1&offset=0`;
     const upstream = await fetch(backendUrl, {
       method: "GET",
       headers: {

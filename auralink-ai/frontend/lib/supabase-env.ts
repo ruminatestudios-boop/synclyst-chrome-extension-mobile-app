@@ -3,14 +3,16 @@
  */
 
 export function resolveSupabaseProjectUrl(): string {
+  /**
+   * Server routes should prefer `SUPABASE_URL` (server-only) over `NEXT_PUBLIC_SUPABASE_URL`
+   * to avoid accidentally picking a stale public value in production.
+   */
   return (
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.SUPABASE_URL ||
     process.env.SUPABASE_PROJECT_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
     ""
-  )
-    .trim()
-    .replace(/\/$/, "");
+  ).trim().replace(/\/$/, "");
 }
 
 /** Legacy `anon` JWT, or new `sb_publishable_…` (Publishable) from Supabase → API keys. */

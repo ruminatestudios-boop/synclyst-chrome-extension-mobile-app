@@ -56,7 +56,13 @@ function backendBase() {
     process.env.AURALINK_BACKEND_URL?.trim() ||
     process.env.NEXT_PUBLIC_API_URL?.trim() ||
     "http://localhost:8000";
-  return raw.replace(/\/$/, "");
+  const base = raw.replace(/\/$/, "");
+  const isLocal =
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(base) || /^https?:\/\/\[::1\](:\d+)?\/?$/i.test(base);
+  if (process.env.NODE_ENV === "production" && isLocal) {
+    return "";
+  }
+  return base;
 }
 
 type VisionAttrs = {
@@ -373,7 +379,17 @@ async function handleSnapPairPush(request: NextRequest) {
     return NextResponse.json({ ok: true }, { headers: h });
   }
 
-  const visionUrl = `${backendBase()}/api/v1/vision/extract`;
+  const base = backendBase();
+  if (!base) {
+    return NextResponse.json(
+      {
+        error:
+          "Server misconfigured: set AURALINK_BACKEND_URL to your live backend (e.g. https://<cloud-run-service>).",
+      },
+      { status: 500, headers: h }
+    );
+  }
+  const visionUrl = `${base}/api/v1/vision/extract`;
   const auth = request.headers.get("authorization");
   const visionHeaders: HeadersInit = { "Content-Type": "application/json" };
   if (auth) visionHeaders.Authorization = auth;
@@ -540,7 +556,13 @@ async function handleSnapPairPush(request: NextRequest) {
   );
 
   if (error) {
-    console.error("[api/snap-pair/push] final upsert failed", { sessionId, message: error.message });
+    console.error("[api/snap-pair/push] final upsert failed", {
+      sessionId,
+      message: error.message,
+      name: (error as unknown as { name?: unknown }).name,
+      cause: (error as unknown as { cause?: unknown }).cause,
+      supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_PROJECT_URL,
+    });
     return NextResponse.json({ error: error.message }, { status: 500, headers: h });
   }
 
