@@ -31,10 +31,22 @@ export async function POST(request: NextRequest) {
   const supabase = useDevMemory ? null : getSupabaseAdmin();
   if (!useDevMemory) {
     if (!isSnapPairConfigured()) {
-      return NextResponse.json({ error: "Snap pair not configured" }, { status: 503, headers: h });
+      return NextResponse.json(
+        {
+          error:
+            "Snap pair not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (service_role) on the server.",
+        },
+        { status: 503, headers: h }
+      );
     }
     if (!supabase) {
-      return NextResponse.json({ error: "Server misconfigured" }, { status: 500, headers: h });
+      return NextResponse.json(
+        {
+          error:
+            "Server misconfigured. SUPABASE_SERVICE_ROLE_KEY must be a service_role key (not anon/publishable).",
+        },
+        { status: 500, headers: h }
+      );
     }
   }
   let body: { session_id?: string } = {};
@@ -60,6 +72,16 @@ export async function POST(request: NextRequest) {
     { onConflict: "session_id" }
   );
   if (error) {
+    const msg = String(error.message || "");
+    if (/row-level security|violates row-level security|RLS/i.test(msg)) {
+      return NextResponse.json(
+        {
+          error:
+            'Supabase RLS blocked writing snap_pair_sessions. Ensure SUPABASE_SERVICE_ROLE_KEY is set and is the "service_role" key (not anon).',
+        },
+        { status: 500, headers: h }
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500, headers: h });
   }
   return NextResponse.json({ ok: true }, { headers: h });
