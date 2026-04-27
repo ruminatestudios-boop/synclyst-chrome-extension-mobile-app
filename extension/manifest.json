@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SyncLyst®",
-  "version": "2.0.75",
+  "version": "2.0.76",
   "description": "Pair your phone to scan products and auto-fill listings on Shopify, eBay, Etsy, Amazon, TikTok Shop, and more.",
   "icons": {
     "16": "icons/synclyst-16.png",
@@ -65,14 +65,7 @@
     "https://www.instagram.com/*",
     "https://synclyst.app/*",
     "https://*.vercel.app/*",
-    "https://*.supabase.co/*",
-    "http://localhost:3000/*",
-    "http://127.0.0.1:3000/*",
-    "http://localhost:3001/*",
-    "http://127.0.0.1:3001/*",
-    "http://localhost:3002/*",
-    "http://127.0.0.1:3002/*",
-    "http://*/*"
+    "https://*.supabase.co/*"
   ],
   "action": {
     "default_title": "SyncLyst®",
@@ -87,7 +80,7 @@
     "service_worker": "background.js"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' http: https: ws: wss: https://synclyst.app http://localhost:3000 http://127.0.0.1:3000 http://localhost:3001 http://127.0.0.1:3001 http://localhost:3002 http://127.0.0.1:3002 https://*.supabase.co wss://*.supabase.co"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://synclyst.app https://*.vercel.app https://*.supabase.co wss://*.supabase.co"
   },
   "content_scripts": [
     {
@@ -150,8 +143,7 @@
         "https://synclyst.app/snap*",
         "https://synclyst.app/extension-review*",
         "https://*.vercel.app/snap*",
-        "https://*.vercel.app/extension-review*",
-        "http://*/*"
+        "https://*.vercel.app/extension-review*"
       ],
       "js": [
         "snap-bridge.js"
@@ -160,13 +152,7 @@
     },
     {
       "matches": [
-        "https://synclyst.app/*",
-        "http://localhost:3000/*",
-        "http://127.0.0.1:3000/*",
-        "http://localhost:3001/*",
-        "http://127.0.0.1:3001/*",
-        "http://localhost:3002/*",
-        "http://127.0.0.1:3002/*"
+        "https://synclyst.app/*"
       ],
       "js": [
         "tier-bridge.js"
