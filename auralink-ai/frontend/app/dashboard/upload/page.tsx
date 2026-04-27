@@ -62,16 +62,16 @@ export default function UploadPage() {
         }),
       });
       if (res.status === 402) {
-        let limit = 3;
+        // Send user back to dashboard pricing modal (direct-to-Stripe upgrade).
         try {
-          const j = (await res.json()) as { scans_limit?: number };
-          if (typeof j.scans_limit === "number" && j.scans_limit > 0) limit = j.scans_limit;
+          if (typeof window !== "undefined") {
+            window.location.href = "/dashboard?pricing=1";
+            return;
+          }
         } catch {
-          /* keep default */
+          /* ignore */
         }
-        setWaitlistScansLimit(limit);
-        setError("Scan limit reached. Join the waitlist to unlock paid plans.");
-        setShowWaitlistModal(true);
+        setError("Scan limit reached. Open billing to upgrade.");
         return;
       }
       if (!res.ok) throw new Error(await res.text());

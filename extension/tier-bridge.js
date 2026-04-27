@@ -5,28 +5,51 @@
 (function () {
   const K_TIER = "synclyst_tier";
   const K_RENEWAL = "synclyst_plan_renewal";
+  const K_SIGNED_IN = "synclyst_signed_in";
+  const K_EMAIL = "synclyst_email";
+  const K_AUTH_AT = "synclyst_auth_at";
   let lastTier = null;
   let lastRenewal = null;
+  let lastSignedIn = null;
+  let lastEmail = null;
+  let lastAuthAt = null;
 
   function read() {
     try {
       return {
         tier: localStorage.getItem(K_TIER),
         renewal: localStorage.getItem(K_RENEWAL),
+        signedIn: localStorage.getItem(K_SIGNED_IN),
+        email: localStorage.getItem(K_EMAIL),
+        authAt: localStorage.getItem(K_AUTH_AT),
       };
     } catch {
-      return { tier: null, renewal: null };
+      return { tier: null, renewal: null, signedIn: null, email: null, authAt: null };
     }
   }
 
   function push() {
-    const { tier, renewal } = read();
-    if (tier === lastTier && renewal === lastRenewal) return;
+    const { tier, renewal, signedIn, email, authAt } = read();
+    if (
+      tier === lastTier &&
+      renewal === lastRenewal &&
+      signedIn === lastSignedIn &&
+      email === lastEmail &&
+      authAt === lastAuthAt
+    ) {
+      return;
+    }
     lastTier = tier;
     lastRenewal = renewal;
+    lastSignedIn = signedIn;
+    lastEmail = email;
+    lastAuthAt = authAt;
     const out = {};
     if (tier) out[K_TIER] = String(tier);
     if (renewal) out[K_RENEWAL] = String(renewal);
+    if (signedIn != null) out[K_SIGNED_IN] = String(signedIn);
+    if (email) out[K_EMAIL] = String(email);
+    if (authAt) out[K_AUTH_AT] = String(authAt);
     if (Object.keys(out).length === 0) return;
     try {
       chrome.storage.local.set(out);

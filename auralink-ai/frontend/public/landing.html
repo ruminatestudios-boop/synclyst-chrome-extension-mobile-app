@@ -1316,7 +1316,7 @@
                 btn.className = 'pricing-tier-btn w-full py-2.5 rounded-lg font-medium bg-white text-black border border-[#eaeaea] hover:border-black transition-all';
               } else {
                 btn.disabled = false;
-                btn.textContent = 'Upgrade now';
+                btn.textContent = 'Sign in to upgrade';
                 if (tier === 'growth') {
                   btn.className = 'pricing-tier-btn w-full py-2.5 rounded-lg font-medium bg-black text-white border border-black hover:bg-zinc-800 transition-all';
                 } else {
@@ -1334,7 +1334,8 @@
             var tier = btn.getAttribute('data-tier');
             if (!tier) return;
             if (tier === 'pro' || tier === 'growth' || tier === 'scale') {
-              window.location.href = window.synclystAppUrl('/billing/checkout?tier=' + encodeURIComponent(tier));
+              var returnTo = '/billing/checkout?tier=' + encodeURIComponent(tier);
+              window.location.href = window.synclystAppUrl('/sign-in?redirect_url=' + encodeURIComponent(returnTo));
               return;
             }
             // Starter: sign up then dashboard (free tier)

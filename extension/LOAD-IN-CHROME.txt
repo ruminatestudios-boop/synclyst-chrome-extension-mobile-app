@@ -10,9 +10,10 @@ Store / zip (prod manifest, no localhost, no http://*/*) — run from the repo r
   npm run extension:package
   → dist/synclyst-chrome-extension/
 
-Local Next.js on :3000 (dev manifest + LAN snap patterns) — run from the repo root:
-  npm run extension:manifest:dev
-then reload the extension in chrome://extensions. (Optional: `npm run extension:package:dev` writes dev manifest into dist/synclyst-chrome-extension/.)
+Local Next.js on :3000 (dev manifest + LAN snap patterns) — from the repo root:
+  npm run local:synclyst:ready
+That writes the dev manifest and prints the exact folder to Load unpacked + E2E steps. Then click Reload in chrome://extensions.
+(Equivalent: `npm run extension:manifest:dev` only, without the checklist.) Optional: `npm run extension:package:dev` writes the dev build into dist/synclyst-chrome-extension/.
 
 To switch extension/ folder back to store-ready after dev:
   npm run extension:manifest

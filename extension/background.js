@@ -945,10 +945,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "SYNCLYST_SNAP_PAIR_COMPLETE") {
     const tabId = _sender.tab?.id;
     (async () => {
+      let originAuto = null;
+      try {
+        const u = _sender && _sender.tab && _sender.tab.url;
+        if (u && /^https?:\/\//i.test(String(u))) {
+          originAuto = new URL(String(u)).origin;
+        }
+      } catch {
+        /* ignore */
+      }
       try {
         await chrome.storage.local.set({
           synclyst_prefers_qr_home: false,
           synclyst_snap_listing_ready_at: Date.now(),
+          /** Popup polls `/api/snap-pair/session/:id` on this origin — must match the /snap page (e.g. 127.0.0.1:3000). */
+          ...(originAuto ? { synclyst_origin_auto: originAuto } : {}),
         });
       } catch {
         /* ignore */

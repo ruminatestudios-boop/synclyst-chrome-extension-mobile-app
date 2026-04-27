@@ -65,8 +65,9 @@
         /* Padding (not margin on .panel) so Chrome keeps equal lavender inset top + bottom; outer margins are often clipped at the popup bottom. */
         padding: 14px;
         width: 384px;
-        min-height: 420px;
-        max-height: 640px;
+        /* Avoid forcing a tall popup: keep height content-driven with a sane cap. */
+        min-height: 0;
+        max-height: 560px;
         overflow-y: auto;
         font-family: "Inter", system-ui, -apple-system, sans-serif;
         -webkit-font-smoothing: antialiased;
@@ -130,21 +131,30 @@
         z-index: 20;
         display: flex;
         flex-direction: column;
-        background: var(--card);
+        /* Keep overlay full-height, but avoid a big white "floor" below content. */
+        background: var(--bg-page);
         border-radius: inherit;
         overflow: hidden;
+      }
+      /* Settings should scroll as a single surface (avoid double-scroll with body). */
+      .settings-overlay {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
       .settings-overlay.hidden {
         display: none !important;
       }
       .settings-top {
-        position: relative;
+        position: sticky;
+        top: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: var(--header-pad-top) var(--header-pad-x) var(--header-pad-bottom);
         border-bottom: 1px solid var(--border);
         flex-shrink: 0;
+        background: var(--card);
+        z-index: 1;
       }
       .settings-back {
         position: absolute;
@@ -173,9 +183,11 @@
         color: var(--text);
       }
       .settings-scroll {
-        flex: 1;
-        overflow-y: auto;
-        padding: 1rem 1.15rem 1.25rem;
+        /* Let the overlay own scrolling so we don't get "extra blank space" from flex:1 scroll panes. */
+        flex: 0 0 auto;
+        overflow: visible;
+        background: var(--card);
+        padding: 0.9rem 1.15rem 0.6rem;
         -webkit-overflow-scrolling: touch;
       }
       .settings-scroll.hidden {
@@ -184,7 +196,7 @@
       .legal-scroll {
         flex: 1;
         overflow-y: auto;
-        padding: 1rem 1.15rem 1.25rem;
+        padding: 0.9rem 1.15rem 0.6rem;
         -webkit-overflow-scrolling: touch;
       }
       .legal-scroll.hidden {
@@ -279,6 +291,23 @@
         flex-direction: column;
         gap: 0.5rem;
       }
+      /* Signed-out: plans are read-only (only "Sign in" is clickable). */
+      .settings-plan-grid.is-locked .settings-plan-row {
+        opacity: 0.55;
+        filter: grayscale(1);
+        cursor: not-allowed;
+      }
+      .settings-plan-grid.is-locked .settings-plan-row:hover {
+        border-color: var(--border);
+        background: #fafafa;
+        box-shadow: none;
+      }
+      .settings-plan-grid.is-locked .settings-plan-row:focus-visible {
+        outline: none;
+      }
+      .settings-plan-grid.is-locked .settings-plan-open {
+        pointer-events: none;
+      }
       .settings-plan-row {
         display: flex;
         align-items: center;
@@ -289,6 +318,7 @@
         border-radius: var(--radius-control);
         background: #fafafa;
         cursor: pointer;
+        flex-wrap: wrap;
         transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
       }
       .settings-plan-row:hover {
@@ -306,6 +336,22 @@
         border-color: #111827;
         box-shadow: 0 0 0 1px #111827;
         background: #fff;
+      }
+      .settings-plan-details {
+        width: 100%;
+        display: none;
+        margin-top: 0.35rem;
+        padding-top: 0.45rem;
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+        font-size: 0.6875rem;
+        line-height: 1.45;
+        color: var(--text-muted);
+      }
+      .settings-plan-row.is-expanded .settings-plan-details {
+        display: block;
+      }
+      .settings-plan-details p {
+        margin: 0;
       }
       .settings-plan-meta {
         min-width: 0;
@@ -392,6 +438,7 @@
         letter-spacing: -0.01em;
         color: var(--text);
         font-size: 0.875rem;
+        text-align: center;
       }
       .settings-auth-sub {
         margin: 0.25rem 0 0.65rem;
@@ -401,8 +448,8 @@
       }
       .settings-auth-actions {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        align-items: stretch;
+        justify-content: stretch;
         gap: 0.6rem;
         flex-wrap: wrap;
       }
@@ -410,7 +457,12 @@
         font-size: 0.75rem;
         color: var(--text-muted);
       }
+      .settings-auth-actions .settings-auth-pill {
+        width: 100%;
+        text-align: center;
+      }
       .settings-auth-btn {
+        width: 100%;
         border: 1px solid rgba(99, 102, 241, 0.55);
         background: rgba(99, 102, 241, 0.12);
         color: rgba(99, 102, 241, 0.95);
@@ -436,6 +488,60 @@
         font-size: 0.65rem;
         color: var(--text-subtle);
         line-height: 1.4;
+      }
+      .settings-diagnostics {
+        margin-top: 0.85rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #fafafa;
+      }
+      .settings-diagnostics-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.3rem 0;
+        font-size: 0.6875rem;
+        line-height: 1.35;
+        color: var(--text-muted);
+      }
+      .settings-diagnostics-key {
+        flex: 0 0 auto;
+        color: var(--text-subtle);
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        font-size: 0.56rem;
+      }
+      .settings-diagnostics-val {
+        flex: 1;
+        min-width: 0;
+        text-align: right;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+          monospace;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .settings-diagnostics-actions {
+        margin-top: 0.55rem;
+        display: flex;
+        justify-content: center;
+      }
+      .settings-diagnostics-copy {
+        font: inherit;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        padding: 0.45rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        color: var(--text);
+        cursor: pointer;
+      }
+      .settings-diagnostics-copy:hover {
+        border-color: #111827;
       }
       .settings-legal {
         margin: 0.9rem 0 0;
@@ -558,7 +664,14 @@
         flex-direction: column;
         gap: var(--space-5);
       }
+      /* Step 1 (QR): keep items visually grouped/compact. */
+      #state-empty.section--stack {
+        gap: var(--space-3);
+      }
       .section--stack .btn-ghost {
+        margin-top: 0;
+      }
+      .section--stack .btn-magic {
         margin-top: 0;
       }
       #state-loaded {
@@ -598,6 +711,10 @@
         font-size: 0.8125rem;
         line-height: 1.55;
         color: var(--text-muted);
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
       }
       .loaded-waiting-bullets {
         margin: 0;
@@ -662,6 +779,87 @@
         color: var(--text-muted);
         margin: var(--space-4) 0 0;
         line-height: 1.5;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+      }
+      .qr-desktop-hint {
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: var(--text-subtle);
+        text-align: center;
+        margin: 0;
+        line-height: 1.4;
+        max-width: 100%;
+      }
+      .pair-copy-bucket {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        margin-top: 0;
+        box-sizing: border-box;
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        background: #ffffff;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .pair-copy-left {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .pair-copy-bucket:hover {
+        border-color: #c4c9d1;
+        background: #f9fafb;
+      }
+      .pair-copy-bucket:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .pair-copy-bucket .pair-copy-code {
+        width: 100%;
+        font-size: 0.7rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pair-copy-bucket .pair-copy-hint {
+        margin: 0;
+        line-height: 1.2;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pair-copy-bucket .pair-copy-hint:empty {
+        display: none;
+      }
+      .pair-copy-chip {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.22rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.04);
+        color: var(--text-muted);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
       }
       .pair-copy {
         flex-direction: column;
@@ -670,6 +868,9 @@
         text-align: center;
         padding-top: 0.5rem;
         padding-bottom: 0.5rem;
+      }
+      .section--stack .pair-copy-bucket {
+        margin-top: 0;
       }
       .pair-copy-code {
         font-size: 0.75rem;
@@ -1215,7 +1416,7 @@
       }
       .btn-new-session {
         width: 100%;
-        margin-top: var(--space-3);
+        margin-top: var(--space-2);
         padding: 0.5rem 0.75rem;
         font-size: 0.75rem;
         font-weight: 600;
@@ -1225,6 +1426,10 @@
         border-radius: 10px;
         cursor: pointer;
         line-height: 1.35;
+      }
+      /* Step 1: rely on the stack gap so spacing stays uniform. */
+      #state-empty .btn-new-session {
+        margin-top: 0;
       }
       .btn-new-session:hover {
         color: var(--text);
@@ -1247,7 +1452,11 @@
         background: rgba(124, 58, 237, 0.06);
         color: var(--text);
         font-size: 0.875rem;
-        margin: 0 0 var(--space-5);
+        margin: var(--space-4) 0 0;
+        position: sticky;
+        bottom: 0.75rem;
+        z-index: 10;
+        backdrop-filter: blur(6px);
       }
       .review-loading .spinner {
         width: 18px;
@@ -1313,6 +1522,9 @@
                 <div class="settings-plan-price">£0/mo · 3 scans</div>
               </div>
               <button type="button" class="settings-plan-open" data-billing-tier="starter">Free signup</button>
+              <div class="settings-plan-details" aria-hidden="true">
+                <p>Try SyncLyst with light monthly usage. Pair your phone, scan items, and use Magic Fill to draft listings.</p>
+              </div>
             </div>
             <div
               class="settings-plan-row"
@@ -1331,6 +1543,9 @@
               <button type="button" class="settings-plan-open settings-plan-open--primary" data-billing-tier="pro">
                 Upgrade
               </button>
+              <div class="settings-plan-details" aria-hidden="true">
+                <p>For regular sellers. More scans each month, plus a smoother workflow for drafting and pushing listings.</p>
+              </div>
             </div>
             <div
               class="settings-plan-row"
@@ -1349,6 +1564,9 @@
               <button type="button" class="settings-plan-open settings-plan-open--primary" data-billing-tier="growth">
                 Upgrade
               </button>
+              <div class="settings-plan-details" aria-hidden="true">
+                <p>Built for high-volume weeks. Plenty of scans for frequent sourcing, batch uploads, and consistent publishing.</p>
+              </div>
             </div>
             <div
               class="settings-plan-row"
@@ -1367,6 +1585,9 @@
               <button type="button" class="settings-plan-open settings-plan-open--primary" data-billing-tier="scale">
                 Upgrade
               </button>
+              <div class="settings-plan-details" aria-hidden="true">
+                <p>Best for heavy usage. Unlimited scans for nonstop listing, teams, or large catalogs.</p>
+              </div>
             </div>
           </div>
           <p class="settings-footnote">
@@ -1391,6 +1612,31 @@
             <button type="button" class="settings-legal-link" id="btn-open-privacy">Privacy Policy</button>
           </div>
           <p class="settings-version" id="settings-extension-version" aria-live="polite"></p>
+
+          <p class="settings-section-title settings-section-title--spaced">Diagnostics</p>
+          <div class="settings-diagnostics" aria-label="Diagnostics">
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Origin</span>
+              <span class="settings-diagnostics-val" id="diag-origin">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Session</span>
+              <span class="settings-diagnostics-val" id="diag-session">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Snap config</span>
+              <span class="settings-diagnostics-val" id="diag-config">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Last poll</span>
+              <span class="settings-diagnostics-val" id="diag-poll">—</span>
+            </div>
+            <div class="settings-diagnostics-actions">
+              <button type="button" class="settings-diagnostics-copy" id="btn-copy-diagnostics">
+                Copy diagnostics
+              </button>
+            </div>
+          </div>
         </div>
         <div class="legal-scroll hidden" id="legal-scroll" aria-live="polite">
           <p class="legal-loading" id="legal-loading">Loading…</p>
@@ -1429,7 +1675,7 @@
 
       <div class="section section--pairing-title">
         <div class="label-step-row">
-          <p class="label-step">1. Scan to pair phone</p>
+          <p class="label-step" id="pairing-header-step-label">1. Scan to pair phone</p>
           <div class="live" id="live-status">
             <span class="dot" aria-hidden="true"></span>
             <span id="live-label">Live</span>
@@ -1440,22 +1686,51 @@
       <div id="state-empty" class="section section--stack">
         <div class="qr-card">
           <img id="qr-img" alt="Pairing QR" width="180" height="180" />
-          <p class="qr-hint">Scan with your phone — opens SyncLyst with this session.</p>
+          <p class="qr-hint">
+            Scan the QR to pair your phone with this session.<br />
+            Then upload a photo from your phone or from this computer.
+          </p>
+          <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
+          <button
+            type="button"
+            class="btn-magic qr-snap-cta"
+            id="btn-open-snap-on-this-computer"
+            style="
+              display: block;
+              width: 100%;
+              box-sizing: border-box;
+              margin-top: 12px;
+              padding: 10px 14px;
+              min-height: 44px;
+              font-size: 13px;
+              font-weight: 600;
+              line-height: 1.2;
+              color: #fff;
+              background: #111827;
+              border: 1px solid #0f172a;
+              border-radius: 12px;
+              cursor: pointer;
+              font-family: inherit;
+            "
+          >
+            Use this computer to upload
+          </button>
+          <p class="qr-desktop-hint" style="margin-top: 8px">
+            Opens Snap in a new tab on this computer
+          </p>
         </div>
         <button
           type="button"
-          class="btn-ghost pair-copy"
-          id="btn-copy-pair-url"
-          title="Copy session code"
+          class="pair-copy-bucket"
+          id="btn-copy-snap-link"
+          title="Copy upload link"
+          aria-label="Copy upload link for this session"
         >
-          <span id="pair-session-code" class="pair-copy-code"></span>
-          <span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite"></span>
-        </button>
-        <button type="button" class="btn-ghost" id="btn-open-snap-link">
-          Open Snap upload link
-        </button>
-        <button type="button" class="btn-ghost" id="btn-copy-snap-link">
-          Copy Snap upload link
+          <span class="pair-copy-left">
+            <span id="pair-session-code" class="pair-copy-code"></span>
+            <span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite"></span>
+          </span>
+          <span class="pair-copy-chip" aria-hidden="true">Copy upload link</span>
         </button>
         <button
           type="button"
@@ -1480,8 +1755,8 @@
         <div id="loaded-waiting" class="loaded-waiting hidden" role="status" aria-live="polite">
           <p class="loaded-waiting-title">Waiting for your scan</p>
           <p class="loaded-waiting-sub">
-            Scan the QR with your phone to upload photos. When the upload finishes, we’ll automatically load the
-            extracted listing here.
+            Scan the QR to pair your phone with this session.<br />
+            Then upload a photo from your phone or from this computer.
           </p>
           <ul class="loaded-waiting-bullets">
             <li>Keep this popup open (or reopen it after uploading).</li>

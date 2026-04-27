@@ -340,20 +340,22 @@ def _candidate_gemini_models(client=None) -> list[str]:
     Return a preferred list of Gemini model names for generate_content.
     Uses list_models() when available to avoid 404s for keys without access.
     """
+    # Omit gemini-2.0-flash-lite: Google returns 404 for new API users ("no longer available").
     preferred = [
         "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
         "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
         "gemini-1.5-flash",
         "gemini-1.5-pro",
+        "gemini-2.5-flash-lite",
     ]
+    # Never use these in fallback even if list_models() still names them.
+    _blocked = frozenset({"gemini-2.0-flash-lite"})
     try:
         c = client
         if c is None:
             settings = get_settings()
             if not settings.gemini_api_key:
-                return preferred
+                return [m for m in preferred if m not in _blocked]
             c = _genai_client(settings.gemini_api_key)
         available = []
         for m in c.models.list():
@@ -362,10 +364,11 @@ def _candidate_gemini_models(client=None) -> list[str]:
             if short and short.startswith("gemini-"):
                 available.append(short)
         # Keep preferred ordering but only include models the key can actually use
-        picked = [m for m in preferred if m in available]
-        return picked or preferred
+        picked = [m for m in preferred if m in available and m not in _blocked]
+        out = picked or [m for m in preferred if m not in _blocked]
+        return out
     except Exception:
-        return preferred
+        return [m for m in preferred if m not in _blocked]
 
 
 def apply_verification_pass(
@@ -448,37 +451,263 @@ def _list_str(val):
     return None
 
 
+def _coerce_parsed_extraction_dict(data: dict) -> dict:
+    """Mutate/return a copy-safe dict so Pydantic (0–1 fields, list lengths, title max) does not reject model output."""
+    if not isinstance(data, dict):
+        return {}
+
+    def _d(val):
+        return val if isinstance(val, dict) else {}
+
+    out = data
+    # Top-level confidence
+    c = out.get("confidence_score", 1.0)
+    try:
+        c = float(c)
+    except (TypeError, ValueError):
+        c = 0.5
+    out["confidence_score"] = max(0.0, min(1.0, c))
+
+    att = _d(out.get("attributes"))
+    for key in ("price_confidence", "condition_score"):
+        if att.get(key) is None:
+            continue
+        f = _float_or_none(att.get(key))
+        att[key] = max(0.0, min(1.0, f)) if f is not None else None
+    out["attributes"] = att
+
+    copy_d = _d(out.get("copy"))
+    st = copy_d.get("seo_title")
+    if st is not None and st != "":
+        copy_d["seo_title"] = str(st)[:200]
+    bps = copy_d.get("bullet_points")
+    if isinstance(bps, list):
+        copy_d["bullet_points"] = [str(b) for b in bps[:10]]
+    out["copy"] = copy_d
+
+    tags = _d(out.get("tags"))
+    sk = tags.get("search_keywords")
+    if isinstance(sk, list):
+        tags["search_keywords"] = [str(x) for x in sk[:30]]
+    out["tags"] = tags
+    return out
+
+
+def _extract_balanced_json_objects(s: str) -> list:
+    """Return substrings for each top-level `{ ... }` pair (handles nesting)."""
+    res = []
+    depth = 0
+    start = -1
+    for i, ch in enumerate(s):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start != -1:
+                res.append(s[start : i + 1])
+                start = -1
+    return res
+
+
+def _json_string_candidates(text: str) -> list:
+    """
+    All strings worth trying with json.loads (longest / most likely object first).
+    Fixes 'invalid JSON' when the model adds prose, multiple objects, or broken trailing commas.
+    """
+    raw = text.strip() if text else ""
+    if not raw:
+        return []
+    seen = set()
+    out = []
+
+    def push(s: str):
+        t = s.strip() if s else ""
+        if len(t) < 2 or t in seen:
+            return
+        seen.add(t)
+        out.append(t)
+
+    push(raw)
+    for m in re.finditer(r"```(?:json)?\s*([\s\S]*?)\s*```", raw):
+        push(m.group(1).strip())
+    for obj in sorted(_extract_balanced_json_objects(raw), key=len, reverse=True):
+        push(obj)
+    start, end = raw.find("{"), raw.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        push(raw[start : end + 1])
+    return out
+
+
+def _json_loads_salvage(text: str) -> dict:
+    last_err = None
+    for candidate in _json_string_candidates(text):
+        try:
+            data = json.loads(candidate)
+            if isinstance(data, dict):
+                return data
+        except json.JSONDecodeError as e:
+            last_err = e
+            continue
+    if last_err:
+        logger.debug("JSON salvage failed: %s", last_err)
+    raise VisionServiceError("Vision model returned invalid JSON")
+
+
+def _str_schema(genai_types, nullable: bool = True):
+    s = genai_types.Schema(type="STRING")
+    if nullable:
+        s.nullable = True
+    return s
+
+
+def _num_schema(genai_types, nullable: bool = True):
+    s = genai_types.Schema(type="NUMBER")
+    if nullable:
+        s.nullable = True
+    return s
+
+
+def _build_ucp_gemini_response_schema(genai_types):
+    """
+    Enforce JSON object shape in API (Gemini response_schema + response_mime_type=application/json).
+    Eliminates most markdown / prose / malformed JSON from free-form text generation.
+    """
+    g = genai_types
+    ffp = g.Schema(
+        type="OBJECT",
+        properties={
+            "fact": _str_schema(g, True),
+            "feel": _str_schema(g, True),
+            "proof": _str_schema(g, True),
+        },
+    )
+    copy_obj = g.Schema(
+        type="OBJECT",
+        properties={
+            "seo_title": g.Schema(type="STRING"),
+            "description": _str_schema(g, True),
+            "description_fact_feel_proof": ffp,
+            "bullet_points": g.Schema(
+                type="ARRAY",
+                items=g.Schema(type="STRING"),
+            ),
+        },
+    )
+    attrs = g.Schema(
+        type="OBJECT",
+        properties={
+            "material": _str_schema(g, True),
+            "color": _str_schema(g, True),
+            "weight": _str_schema(g, True),
+            "dimensions": _str_schema(g, True),
+            "brand": _str_schema(g, True),
+            "make": _str_schema(g, True),
+            "exact_model": _str_schema(g, True),
+            "model_year": _str_schema(g, True),
+            "material_composition": _str_schema(g, True),
+            "weight_grams": _num_schema(g, True),
+            "weight_source": _str_schema(g, True),
+            "condition_score": _num_schema(g, True),
+            "condition": _str_schema(g, True),
+            "price_display": _str_schema(g, True),
+            "price_value": _num_schema(g, True),
+            "price_source": _str_schema(g, True),
+            "price_confidence": _num_schema(g, True),
+            "detected_colors": g.Schema(
+                type="ARRAY",
+                items=g.Schema(type="STRING"),
+            ),
+            "detected_sizes": g.Schema(
+                type="ARRAY",
+                items=g.Schema(type="STRING"),
+            ),
+            "detected_materials": g.Schema(
+                type="ARRAY",
+                items=g.Schema(type="STRING"),
+            ),
+            "product_type": _str_schema(g, True),
+        },
+    )
+    tags = g.Schema(
+        type="OBJECT",
+        properties={
+            "category": _str_schema(g, True),
+            "search_keywords": g.Schema(
+                type="ARRAY",
+                items=g.Schema(type="STRING"),
+            ),
+        },
+    )
+    return g.Schema(
+        type="OBJECT",
+        required=["attributes", "copy", "tags", "confidence_score"],
+        properties={
+            "ucp_version": _str_schema(g, True),
+            "schema_context": _str_schema(g, True),
+            "attributes": attrs,
+            "copy": copy_obj,
+            "tags": tags,
+            "raw_ocr_snippets": g.Schema(
+                type="ARRAY",
+                items=g.Schema(type="STRING"),
+            ),
+            "confidence_score": g.Schema(type="NUMBER"),
+            "confidence_per_field": g.Schema(type="OBJECT", nullable=True),
+        },
+    )
+
+
+def _structured_schema_api_error(e: Exception) -> bool:
+    """
+    Some models/keys return INVALID_ARGUMENT for response_schema; retry without structured output.
+    """
+    err = (str(e) or "").lower()
+    if not err:
+        return False
+    return any(
+        x in err
+        for x in (
+            "response_schema",
+            "json_schema",
+            "response_mime_type",
+            "response mime",
+            "schemat",
+            "invalid_argument",
+            "not supported",
+            "unsupported",
+            "unknown name",
+        )
+    )
+
+
 def _parse_extraction_response(text: str) -> VisionExtractionResponse:
     """Parse model output into VisionExtractionResponse (legacy or UCP format)."""
     def _dict(val):
         return val if isinstance(val, dict) else {}
 
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```\s*$", "", text)
-    text = text.strip()
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        # Gemini sometimes returns extra text around JSON. Try to salvage the largest JSON object.
-        try:
-            start = text.find("{")
-            end = text.rfind("}")
-            if start != -1 and end != -1 and end > start:
-                data = json.loads(text[start : end + 1])
-            else:
-                raise VisionServiceError("Vision model returned non-JSON output")
-        except Exception:
-            raise VisionServiceError("Vision model returned invalid JSON")
+    text = (text or "").strip()
+    if not text:
+        raise VisionServiceError("Vision model returned non-JSON output")
+    data = _json_loads_salvage(text)
     if not isinstance(data, dict):
         data = {}
+    data = _coerce_parsed_extraction_dict(data)
     # UCP format (new) has description_fact_feel_proof, weight_grams, etc.
     copy_data = _dict(data.get("copy"))
     if data.get("ucp_version") or copy_data.get("description_fact_feel_proof"):
         try:
             return _parse_ucp_extraction_response(data)
         except (ValidationError, TypeError, ValueError, KeyError) as e:
-            logger.warning("UCP parse fallback: %s", e)
-            raise VisionServiceError("Vision model returned invalid extraction schema")
+            logger.warning("UCP parse failed, trying legacy shape: %s", e)
+            # Join Fact-Feel-Proof into description so the legacy path can still produce a useful listing.
+            ffp = copy_data.get("description_fact_feel_proof")
+            if isinstance(ffp, dict) and not (copy_data.get("description") or "").strip():
+                parts = [ffp.get("fact"), ffp.get("feel"), ffp.get("proof")]
+                copy_data = {**copy_data, "description": " ".join(str(p).strip() for p in parts if p).strip()}
+            data = {**data, "copy": copy_data}
+            data.pop("ucp_version", None)
     att = _dict(data.get("attributes"))
     copy_data = _dict(data.get("copy"))
     tags_data = _dict(data.get("tags"))
@@ -581,6 +810,9 @@ def _parse_ucp_extraction_response(data: dict) -> VisionExtractionResponse:
     if not isinstance(conf_per_field, dict):
         conf_per_field = None
 
+    seo_title = str(copy_data.get("seo_title") or "Product").strip() or "Product"
+    seo_title = seo_title[:200]
+
     return VisionExtractionResponse(
         attributes=ExtractionAttributes(
             material=att.get("material"),
@@ -606,7 +838,7 @@ def _parse_ucp_extraction_response(data: dict) -> VisionExtractionResponse:
             product_type=att.get("product_type"),
         ),
         extraction_copy=ExtractionCopy(
-            seo_title=copy_data.get("seo_title") or "Product",
+            seo_title=seo_title,
             description=description,
             bullet_points=copy_data.get("bullet_points") if isinstance(copy_data.get("bullet_points"), list) else [],
             description_fact_feel_proof=fact_feel_proof,
@@ -694,6 +926,7 @@ def _gemini_extract_sync(
 ) -> VisionExtractionResponse:
     """Synchronous Gemini call (MultimodalProcessor)."""
     types = _genai_types()
+    ucp_schema = _build_ucp_gemini_response_schema(types)
 
     settings = get_settings()
     if not settings.gemini_api_key:
@@ -701,26 +934,64 @@ def _gemini_extract_sync(
     client = _genai_client(settings.gemini_api_key)
     raw, _ = _decode_base64(image_base64)
     image_part = types.Part.from_bytes(data=raw, mime_type=mime_type or "image/jpeg")
+    contents = [_get_system_prompt(), _get_user_prompt(ocr_snippets), image_part]
     last_err = None
     for model_name in _candidate_gemini_models(client):
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[_get_system_prompt(), _get_user_prompt(ocr_snippets), image_part],
-                config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=2048,
-                ),
-            )
-            text = _extract_response_text(response)
-            return _parse_extraction_response(text)
-        except Exception as e:
-            last_err = e
-            err = str(e).lower()
-            if "not found" in err or "404" in err or "model" in err and "invalid" in err:
-                logger.info("Gemini model %s not available, trying next: %s", model_name, e)
-                continue
-            raise
+        for use_structured in (True, False):
+            try:
+                if use_structured:
+                    config = types.GenerateContentConfig(
+                        temperature=0.1,
+                        max_output_tokens=8192,
+                        response_mime_type="application/json",
+                        response_schema=ucp_schema,
+                    )
+                else:
+                    config = types.GenerateContentConfig(
+                        temperature=0.1,
+                        max_output_tokens=8192,
+                    )
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=config,
+                )
+                text = _extract_response_text(response)
+                if not (text or "").strip():
+                    raise VisionServiceError("Vision model returned empty output")
+                return _parse_extraction_response(text)
+            except VisionServiceError as e:
+                if use_structured:
+                    logger.info(
+                        "Gemini structured pass failed on %s (%s); trying free-form output",
+                        model_name,
+                        e,
+                    )
+                    continue
+                raise
+            except Exception as e:
+                last_err = e
+                if use_structured and _structured_schema_api_error(e):
+                    logger.info(
+                        "Gemini structured JSON not accepted on %s, falling back to free-form: %s",
+                        model_name,
+                        e,
+                    )
+                    continue
+                err = str(e).lower()
+                if use_structured:
+                    # e.g. transient — try free-form on same model
+                    continue
+                if (
+                    "not found" in err
+                    or "404" in err
+                    or ("model" in err and "invalid" in err)
+                    or "no longer" in err
+                    or "not available" in err
+                ):
+                    logger.info("Gemini model %s not available, trying next: %s", model_name, e)
+                    break
+                raise
     raise VisionServiceError(f"No available Gemini model for extraction: {last_err}")
 
 

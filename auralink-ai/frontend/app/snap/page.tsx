@@ -5,7 +5,7 @@ import type { Metadata } from "next";
  * Embeds the static pairing page so `https://synclyst.app/snap?s=…` always works.
  */
 export const metadata: Metadata = {
-  title: "Pair with desktop — SyncLyst®",
+  title: "SyncLyst®",
   description: "Upload a photo to pair with the SyncLyst® browser extension.",
 };
 
@@ -32,8 +32,9 @@ export default async function SnapPage({
   const src = snapHtmlSrc(sp);
   return (
     <iframe
-      title="Pair with desktop — SyncLyst®"
+      title="SyncLyst®"
       src={src}
+      allow="camera; microphone"
       style={{
         border: "none",
         display: "block",

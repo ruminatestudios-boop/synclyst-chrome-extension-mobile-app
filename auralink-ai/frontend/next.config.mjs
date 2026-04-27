@@ -58,6 +58,7 @@ const nextConfig = {
   },
   async rewrites() {
     const pubBase = String(publishingProxyTarget || "").replace(/\/$/, "");
+    const apiBase = String(resolvedPublicApiUrl || "").replace(/\/$/, "");
     return {
       // beforeFiles: run before App Router / public checks so static `public/*.html` wins.
       // This avoids Vercel NOT_FOUND when the `/snap` App route is missing or not bundled.
@@ -77,6 +78,8 @@ const nextConfig = {
         { source: "/flow-publishing", destination: "/flow-publishing.html" },
         { source: "/review", destination: "/flow-3.html" },
         { source: "/connect-store", destination: "/stores-connect-shopify.html" },
+        // Backend API proxy (avoid CORS in the browser). Requires NEXT_PUBLIC_API_URL or AURALINK_BACKEND_URL at build time.
+        ...(apiBase ? [{ source: "/api/v1/:path*", destination: `${apiBase}/api/v1/:path*` }] : []),
         {
           source: "/__synclyst_publishing/:path*",
           destination: `${pubBase}/:path*`,
