@@ -18,11 +18,9 @@ create index if not exists snap_pair_sessions_updated_at on public.snap_pair_ses
 
 alter table public.snap_pair_sessions enable row level security;
 
--- Anon (extension Realtime) can read; writes go through Next.js with the service role (bypasses RLS).
-drop policy if exists "snap_pair_read" on public.snap_pair_sessions;
-drop policy if exists "snap_pair_write_service" on public.snap_pair_sessions;
-create policy "snap_pair_select_anon" on public.snap_pair_sessions
-  for select using (true);
+-- NOTE: To avoid public exposure warnings, do NOT allow anon to read/write this table directly.
+-- The app uses Next.js API routes with the Supabase service_role key for reads/writes.
+-- With RLS enabled and no policies, anon/authenticated are denied by default.
 
 -- Dashboard: Database → Replication → enable snap_pair_sessions for Realtime, or run:
 -- alter publication supabase_realtime add table public.snap_pair_sessions;

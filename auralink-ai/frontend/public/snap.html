@@ -825,14 +825,16 @@
         box-shadow: none;
         border-radius: 16px;
         text-align: left;
-        padding: 0.65rem 0.85rem 0.75rem;
+        padding: 1.15rem 0.85rem 0.75rem;
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr;
         grid-template-areas:
-          "bar bar"
-          "label actions"
-          "eta eta";
+          "bar"
+          "label"
+          "eta"
+          "steps";
         align-items: center;
+        position: relative;
       }
       body:not(.snap--mobile-min) .snap-float__bar {
         margin-bottom: 0.4rem;
@@ -852,10 +854,17 @@
         justify-self: center;
         text-align: center;
       }
+      body:not(.snap--mobile-min) .snap-float__steps {
+        grid-area: steps;
+        justify-self: center;
+        text-align: center;
+      }
       body:not(.snap--mobile-min) .snap-float__row-actions {
-        grid-area: actions;
-        justify-content: flex-end;
+        position: absolute;
+        right: 0.7rem;
+        top: 2.25rem;
         margin-top: 0;
+        justify-content: flex-end;
       }
       body:not(.snap--mobile-min) .snap-float__cancel {
         padding: 0.28rem 0.6rem;
@@ -909,6 +918,8 @@
       }
       .snap-float__line {
         margin: 0;
+        width: 100%;
+        text-align: center;
         font-size: 0.8125rem;
         font-weight: 600;
         color: #0f172a;
@@ -936,6 +947,38 @@
         color: #64748b;
         line-height: 1.3;
         font-variant-numeric: tabular-nums;
+      }
+      .snap-float__steps {
+        margin: 0.25rem 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.15rem 0.6rem;
+        font-size: 0.625rem;
+        color: #64748b;
+        line-height: 1.2;
+      }
+      .snap-float__step {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        min-width: 0;
+        white-space: nowrap;
+      }
+      .snap-float__step::before {
+        content: "•";
+        color: rgba(124, 58, 237, 0.95);
+        font-weight: 900;
+      }
+      .snap-float__step.is-done {
+        color: rgba(6, 95, 70, 0.95);
+      }
+      .snap-float__step.is-done::before {
+        content: "✓";
+        color: rgba(6, 95, 70, 0.95);
       }
       .snap-float__row-actions {
         margin-top: 0.65rem;
@@ -1307,8 +1350,14 @@
           '<div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track">' +
           '<div class="progress-fill" id="progress-fill"></div>' +
           "</div></div>" +
-          '<p class="snap-float__line" id="progress-label">Extracting listing…</p>' +
+          '<p class="snap-float__line" id="progress-label">Extracting listing</p>' +
           '<p class="snap-float__eta" id="progress-eta" aria-hidden="true"></p>' +
+          '<ul class="snap-float__steps" id="progress-steps" aria-label="Extraction steps">' +
+          '<li class="snap-float__step" id="progress-step-1">Upload received</li>' +
+          '<li class="snap-float__step" id="progress-step-2">Processing image</li>' +
+          '<li class="snap-float__step" id="progress-step-3">Drafting details</li>' +
+          '<li class="snap-float__step" id="progress-step-4">Finalizing</li>' +
+          "</ul>" +
           '<div class="snap-float__row-actions" id="snap-float-actions" hidden>' +
           '<button type="button" class="snap-float__cancel" id="snap-float-cancel" aria-label="Cancel upload">Cancel</button>' +
           "</div>" +
@@ -1348,6 +1397,12 @@
         var progressEta = document.getElementById("progress-eta");
         var progressLabel = document.getElementById("progress-label");
         var progressTrack = document.getElementById("progress-track");
+        var progressSteps = [
+          document.getElementById("progress-step-1"),
+          document.getElementById("progress-step-2"),
+          document.getElementById("progress-step-3"),
+          document.getElementById("progress-step-4"),
+        ];
         var copySessionBtn = document.getElementById("btn-copy-session");
         var sessionDisplay = document.getElementById("session-display");
         var pairHint = document.getElementById("pair-copy-hint");
@@ -1536,9 +1591,12 @@
           if (snapFloatActions) snapFloatActions.hidden = false;
           if (snapFloatBar) snapFloatBar.hidden = false;
           progressFill.style.width = "0%";
-          if (progressLabel) progressLabel.textContent = "Extracting listing…";
+          if (progressLabel) progressLabel.textContent = "Extracting listing";
           progressTrack.setAttribute("aria-valuenow", "0");
           if (progressEta) progressEta.setAttribute("aria-hidden", "false");
+          for (var i = 0; i < progressSteps.length; i++) {
+            if (progressSteps[i]) progressSteps[i].classList.remove("is-done");
+          }
           progressStart = Date.now();
           progressTimer = setInterval(function () {
             var elapsed = (Date.now() - progressStart) / 1000;
@@ -1554,7 +1612,20 @@
             }
             progressFill.style.width = pct + "%";
             progressTrack.setAttribute("aria-valuenow", String(Math.round(pct)));
-            if (progressEta) progressEta.textContent = etaText;
+            var stepIdx = Math.max(1, Math.min(4, Math.floor((elapsed / Math.max(1, ESTIMATE_SEC)) * 4) + 1));
+            for (var i = 0; i < progressSteps.length; i++) {
+              if (progressSteps[i]) progressSteps[i].classList.toggle("is-done", i + 1 < stepIdx);
+            }
+            var phase =
+              stepIdx >= 4
+                ? "Finalizing"
+                : stepIdx === 3
+                ? "Drafting"
+                : stepIdx === 2
+                ? "Processing"
+                : "Uploading";
+            var etaClean = String(etaText || "").replace(/^~\s*/, "");
+            if (progressEta) progressEta.textContent = "Step " + stepIdx + "/4 - " + etaClean + " left · " + phase;
           }, 200);
         }
 
@@ -1582,7 +1653,7 @@
             progressEta.setAttribute("aria-hidden", "true");
           }
           progressTrack.setAttribute("aria-valuenow", "0");
-          if (progressLabel) progressLabel.textContent = "Extracting listing…";
+          if (progressLabel) progressLabel.textContent = "Extracting listing";
           if (snapFloatActions) snapFloatActions.hidden = true;
           if (msgEl) {
             msgEl.setAttribute("hidden", "");

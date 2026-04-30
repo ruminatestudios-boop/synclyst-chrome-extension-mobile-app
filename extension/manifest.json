@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SyncLyst®",
-  "version": "2.0.76",
+  "version": "2.0.77",
   "description": "Pair your phone to scan products and auto-fill listings on Shopify, eBay, Etsy, Amazon, TikTok Shop, and more.",
   "icons": {
     "16": "icons/synclyst-16.png",
