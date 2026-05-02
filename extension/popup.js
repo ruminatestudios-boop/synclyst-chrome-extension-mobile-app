@@ -434,9 +434,19 @@ const STORAGE_DRAFT_LIBRARY_CLEARED_AT = "synclyst_draft_library_cleared_at_v1";
 const SNAP_LISTING_READY_MAX_AGE_MS = 2 * 60 * 1000;
 const DRAFT_LIBRARY_MAX_ITEMS = 50;
 const DRAFT_LIBRARY_THUMB_SIZE = 44;
+/** Narrow popup: keep draft titles short so the library row doesn’t clip awkwardly. */
+const LIBRARY_UI_TITLE_MAX_CHARS = 32;
 
 function safeTrimStr(v) {
   return typeof v === "string" ? v.trim() : "";
+}
+
+function truncateLibraryTitle(s) {
+  const t = safeTrimStr(s);
+  if (!t) return "";
+  const max = LIBRARY_UI_TITLE_MAX_CHARS;
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(1, max - 1)).trimEnd()}…`;
 }
 
 function fmtShortTime(ms) {
@@ -550,7 +560,9 @@ function updateLibraryBarUI(list) {
   const subEl = document.getElementById("library-bar-sub");
   if (subEl) {
     const t0 = safeTrimStr(items[0] && items[0].title);
-    subEl.textContent = t0 ? t0 : "Open a draft to post again";
+    const shown = t0 ? truncateLibraryTitle(t0) : "";
+    subEl.textContent = shown || "Open a draft to post again";
+    subEl.title = t0.length > LIBRARY_UI_TITLE_MAX_CHARS ? t0 : "";
   }
 
   const thumbEl = document.getElementById("library-bar-thumb");
@@ -605,7 +617,9 @@ function renderDraftLibraryOverlayUI(list) {
     lines.className = "settings-library-lines";
     const name = document.createElement("p");
     name.className = "settings-library-name";
-    name.textContent = safeTrimStr(it.title) || "Untitled draft";
+    const rawName = safeTrimStr(it.title) || "Untitled draft";
+    name.textContent = truncateLibraryTitle(rawName);
+    if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
     const sub = document.createElement("p");
     sub.className = "settings-library-sub";
     const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
@@ -751,7 +765,9 @@ function renderDraftLibraryUI(list) {
     lines.className = "settings-library-lines";
     const name = document.createElement("p");
     name.className = "settings-library-name";
-    name.textContent = safeTrimStr(it.title) || "Untitled draft";
+    const rawName = safeTrimStr(it.title) || "Untitled draft";
+    name.textContent = truncateLibraryTitle(rawName);
+    if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
     const sub = document.createElement("p");
     sub.className = "settings-library-sub";
     const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
@@ -1601,10 +1617,22 @@ function wireBillingSettings() {
   });
 }
 
+/** Bold primary step index (`2.`, `3.`, …) inside `.label-step`; remainder keeps muted styling. */
+function setLabelStepHtml(el, text) {
+  if (!el) return;
+  const s = String(text || "").trim();
+  const m = s.match(/^(\d+\.)\s*(.*)$/);
+  if (m) {
+    el.innerHTML = `<span class="label-step-num">${m[1]}</span> ${m[2]}`;
+  } else {
+    el.textContent = s;
+  }
+}
+
 /** Per-platform copy for the review step (labels + hints). */
 const PLATFORM_REVIEW_TEMPLATES = {
   shopify: {
-    stepLabel: "3. Review for Shopify",
+    stepLabel: "3. Review content for Shopify",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Shopify instantly.",
     title: "Product title",
     description: "Description",
@@ -1613,7 +1641,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "Shopify Admin",
   },
   ebay: {
-    stepLabel: "3. Review for eBay",
+    stepLabel: "3. Review content for eBay",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in eBay instantly.",
     title: "Title",
     description: "Item description",
@@ -1622,7 +1650,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "eBay listing",
   },
   etsy: {
-    stepLabel: "3. Review for Etsy",
+    stepLabel: "3. Review content for Etsy",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Etsy instantly.",
     title: "Listing title",
     description: "Description",
@@ -1631,7 +1659,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "Etsy listing editor",
   },
   shopee: {
-    stepLabel: "3. Review for Shopee",
+    stepLabel: "3. Review content for Shopee",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Shopee instantly.",
     title: "Product name",
     description: "Description",
@@ -1640,7 +1668,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "Shopee Seller Centre",
   },
   depop: {
-    stepLabel: "3. Confirm your listing",
+    stepLabel: "3. Review content for Depop",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Depop instantly.",
     title: "Title",
     description: "Description",
@@ -1649,7 +1677,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "Depop listing",
   },
   vinted: {
-    stepLabel: "3. Review for Vinted",
+    stepLabel: "3. Review content for Vinted",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Vinted instantly.",
     title: "Title",
     description: "Description",
@@ -1705,13 +1733,19 @@ function applyPlatformReviewTemplate(id) {
   const priceInput = document.getElementById("review-price");
   const hintEl = document.getElementById("magic-tab-hint");
   const postHintEl = document.getElementById("magic-post-hint");
-  if (stepEl) stepEl.textContent = t.stepLabel;
+  if (stepEl) setLabelStepHtml(stepEl, t.stepLabel);
   if (subEl) subEl.textContent = t.sub;
   if (lt) lt.textContent = t.title;
   if (ld) ld.textContent = t.description;
   if (lp) lp.textContent = t.price;
   if (priceInput) priceInput.placeholder = t.pricePlaceholder;
   if (hintEl) hintEl.textContent = t.tabHint;
+  const readyHintEl = document.getElementById("platform-ready-hint");
+  if (readyHintEl) {
+    const surface = t.tabHint || "your marketplace";
+    readyHintEl.innerHTML =
+      `Open <strong>${surface}</strong> in a browser tab and go to the product or listing page you’ll publish from.`;
+  }
   if (postHintEl) {
     const safeHint = t.tabHint || "listing";
     postHintEl.innerHTML =
@@ -1863,30 +1897,12 @@ async function copySnapPairUrl() {
   const hintEl = document.getElementById("pair-copy-hint");
   try {
     await navigator.clipboard.writeText(code);
-    if (hintEl) hintEl.textContent = "Copied!";
+    if (hintEl) hintEl.textContent = "Code copied!";
     setTimeout(() => {
       if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
     }, 1600);
   } catch {
     if (hintEl) hintEl.textContent = "Couldn’t copy — select the code";
-    setTimeout(() => {
-      if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
-    }, 2400);
-  }
-}
-
-async function copySnapPairLink(pairUrl) {
-  const u = String(pairUrl || "").trim();
-  if (!u) return;
-  const hintEl = document.getElementById("pair-copy-hint");
-  try {
-    await navigator.clipboard.writeText(u);
-    if (hintEl) hintEl.textContent = "Link copied!";
-    setTimeout(() => {
-      if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
-    }, 1600);
-  } catch {
-    if (hintEl) hintEl.textContent = "Couldn’t copy link";
     setTimeout(() => {
       if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
     }, 2400);
@@ -1911,7 +1927,7 @@ function openSnapPairLink(pairUrl) {
 
 /**
  * Popup init is async (session, origin, QR, poll, Supabase…). Listeners were previously registered
- * at the *end* of init, so rapid clicks on “Use this computer to upload” did nothing until loading finished.
+ * at the *end* of init, so rapid clicks on “Upload from Computer” did nothing until loading finished.
  * Wire snap / copy CTAs as soon as we have session + origin (see init()).
  */
 let snapPairCtaWired = false;
@@ -1944,7 +1960,7 @@ function wireSnapPairCtaButtons() {
   };
   const onCopy = (e) => {
     e.preventDefault();
-    void copySnapPairLink(getCurrentPairUrl());
+    void copySnapPairUrl();
   };
   document.getElementById("btn-open-snap-on-this-computer")?.addEventListener("click", onOpen);
   document.getElementById("btn-copy-snap-link")?.addEventListener("click", onCopy);
@@ -2012,6 +2028,26 @@ const QR_CTA_INJECT_STYLE =
  * A stale "Load unpacked" copy may still serve an old popup.html (QR → session only). Recreate the current controls in DOM.
  * Prefer appending the CTA *inside* `.qr-card` (same as current markup) so it stays inside the visible dashed box.
  */
+function appendQrOrDividerDom(qr) {
+  const hint = qr.querySelector(".qr-hint");
+  if (!hint || qr.querySelector(".qr-or-divider")) return;
+  const div = document.createElement("div");
+  div.className = "qr-or-divider";
+  div.setAttribute("role", "separator");
+  div.setAttribute("aria-label", "Option 2");
+  div.innerHTML =
+    '<span class="qr-or-divider__line" aria-hidden="true"></span><span class="qr-or-divider__text">or</span><span class="qr-or-divider__line" aria-hidden="true"></span>';
+  hint.insertAdjacentElement("afterend", div);
+}
+
+/** Stale markup: QR hint immediately followed by desktop button — insert “or” divider between. */
+function patchQrOrDividerIfStale(qr) {
+  const hint = qr.querySelector(".qr-hint");
+  const btn = document.getElementById("btn-open-snap-on-this-computer");
+  if (!hint || !btn || qr.querySelector(".qr-or-divider")) return;
+  if (hint.nextElementSibling === btn) appendQrOrDividerDom(qr);
+}
+
 function ensurePairingStepControls() {
   const root = document.getElementById("state-empty");
   const qr = root && root.querySelector(".qr-card");
@@ -2021,43 +2057,29 @@ function ensurePairingStepControls() {
   try {
     const hintEl = qr.querySelector(".qr-hint");
     if (hintEl) {
-      hintEl.innerHTML =
-        "Scan the QR to pair your phone with this session.<br>" +
-        "Then upload a photo from your phone or from this computer.";
+      hintEl.textContent = "Scan QR, upload from PC or Phone.";
     }
   } catch {
     /* ignore */
   }
 
   if (!document.getElementById("btn-open-snap-on-this-computer")) {
+    appendQrOrDividerDom(qr);
     const b = document.createElement("button");
     b.type = "button";
     b.className = "btn-magic qr-snap-cta";
     b.id = "btn-open-snap-on-this-computer";
-    b.textContent = "Use this computer to upload";
+    b.textContent = "Upload from Computer";
     b.style.cssText = QR_CTA_INJECT_STYLE;
-    const hint = qr.querySelector(".qr-hint");
-    if (hint) {
-      hint.insertAdjacentElement("afterend", b);
+    const anchor = qr.querySelector(".qr-or-divider") || qr.querySelector(".qr-hint");
+    if (anchor) {
+      anchor.insertAdjacentElement("afterend", b);
     } else {
       qr.appendChild(b);
     }
-
-    const h = document.createElement("p");
-    h.className = "qr-desktop-hint";
-    h.style.marginTop = "8px";
-    h.textContent = "Opens Snap in a new tab on this computer";
-    b.insertAdjacentElement("afterend", h);
-  } else if (!root.querySelector(".qr-desktop-hint")) {
-    const b = document.getElementById("btn-open-snap-on-this-computer");
-    if (b) {
-      const h = document.createElement("p");
-      h.className = "qr-desktop-hint";
-      h.style.marginTop = "8px";
-      h.textContent = "Opens Snap in a new tab on this computer";
-      b.insertAdjacentElement("afterend", h);
-    }
   }
+
+  patchQrOrDividerIfStale(qr);
 
   // In current UI `btn-copy-snap-link` is the whole session card; older UIs may still need a button.
   if (!document.getElementById("btn-copy-snap-link")) {
@@ -2065,7 +2087,7 @@ function ensurePairingStepControls() {
     snap.type = "button";
     snap.className = "btn-ghost";
     snap.id = "btn-copy-snap-link";
-    snap.textContent = "Copy upload link";
+    snap.textContent = "Copy session code";
     const anchor = document.getElementById("btn-new-pairing-session");
     if (anchor && anchor.parentNode === root) {
       root.insertBefore(snap, anchor);
@@ -2393,9 +2415,12 @@ function updatePairingHeaderLabel(mode) {
   const el = document.getElementById("pairing-header-step-label");
   if (!el) return;
   if (mode === "qr") {
-    el.textContent = "1. Scan to pair phone";
+    setLabelStepHtml(el, "1. Scan to pair phone");
+    el.classList.remove("hidden");
   } else {
-    el.textContent = "2. Choose platform";
+    /* Listing: `#state-empty` (which contains this label) is hidden — clear for consistency. */
+    el.textContent = "";
+    el.classList.add("hidden");
   }
 }
 
@@ -2755,7 +2780,7 @@ function applyListing(row) {
     ...(row.listing_extra != null ? { listing_extra: row.listing_extra } : {}),
   };
 
-  // Save to Settings → Library (recent drafts) so the user can reopen and post again later.
+  // Save to Settings → Library (saved scans & drafts) so the user can reopen and post again later.
   try {
     const sid = snapPairSessionId;
     if (sid) {
@@ -2824,6 +2849,7 @@ function applyListing(row) {
     stateEmptyEl?.classList.add("hidden");
     document.getElementById("state-loaded")?.classList.remove("hidden");
     chrome.storage.local.set({ [STORAGE_PREFERS_QR_HOME]: false });
+    updatePairingHeaderLabel("listing");
   }
 
   const newImg = coercedImg || "";

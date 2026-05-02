@@ -155,7 +155,7 @@
         transform: translateY(-50%);
         display: flex;
         align-items: center;
-        gap: 2px;
+        gap: 0.5rem;
       }
       .header-help-link {
         display: inline-flex;
@@ -274,6 +274,10 @@
         font-weight: 800;
         color: var(--text);
         line-height: 1.15;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .library-bar-title span {
         font-size: 0.625rem;
@@ -1034,13 +1038,13 @@
       }
       .loaded-waiting-sub {
         margin: 0;
-        font-size: 0.8125rem;
-        line-height: 1.55;
+        font-size: 0.75rem;
+        line-height: 1.35;
         color: var(--text-muted);
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        overflow: hidden;
+        display: block;
+        text-align: center;
+        white-space: nowrap;
+        letter-spacing: -0.01em;
       }
       .loaded-waiting-bullets {
         margin: 0;
@@ -1058,11 +1062,16 @@
       }
       .label-step {
         font-size: 0.625rem;
-        font-weight: 600;
+        font-weight: 800;
         letter-spacing: 0.07em;
         text-transform: uppercase;
-        color: var(--text-subtle);
+        color: var(--text);
         margin: 0 0 var(--space-3);
+      }
+      .label-step .label-step-num {
+        font-weight: 800;
+        color: var(--text);
+        letter-spacing: 0.07em;
       }
       .label-step-row {
         display: flex;
@@ -1075,8 +1084,10 @@
         flex: 1;
         min-width: 0;
       }
+      /* Step 1 label: only while #state-empty is visible (moved inside that block in HTML). */
       .section--pairing-title {
-        padding-bottom: 0.35rem;
+        padding: 0 0 0.35rem;
+        margin: 0;
       }
       .qr-card {
         position: relative;
@@ -1157,23 +1168,36 @@
         }
       }
       .qr-hint {
-        font-size: 0.8125rem;
+        font-size: 0.75rem;
         color: var(--text-muted);
         margin: var(--space-4) 0 0;
-        line-height: 1.5;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        overflow: hidden;
-      }
-      .qr-desktop-hint {
-        font-size: 0.6875rem;
-        font-weight: 500;
-        color: var(--text-subtle);
+        line-height: 1.35;
+        display: block;
         text-align: center;
-        margin: 0;
-        line-height: 1.4;
-        max-width: 100%;
+        white-space: nowrap;
+        letter-spacing: -0.01em;
+      }
+      .qr-or-divider {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin: 1rem 0 0;
+        width: 100%;
+      }
+      .qr-or-divider__line {
+        flex: 1;
+        min-width: 0;
+        height: 1px;
+        background: var(--border-strong);
+        opacity: 0.65;
+      }
+      .qr-or-divider__text {
+        flex-shrink: 0;
+        font-size: 0.6875rem;
+        font-weight: 650;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
       }
       .pair-copy-bucket {
         display: flex;
@@ -1239,8 +1263,7 @@
         color: var(--text-muted);
         font-size: 0.65rem;
         font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
+        letter-spacing: 0.02em;
         white-space: nowrap;
       }
       .pair-copy {
@@ -1670,6 +1693,21 @@
         padding-top: var(--section-gap);
         margin-top: 0;
         border-top: 1px solid var(--border);
+      }
+      #platform-ready-section {
+        margin-top: var(--space-6);
+      }
+      #platform-ready-section > .ready-sub {
+        margin: 0;
+        line-height: 1.55;
+      }
+      .platform-ready-must {
+        margin: var(--space-2) 0 0;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: var(--accent-hover);
+        line-height: 1.45;
       }
       #magic-send-section {
         margin-top: var(--space-6);
@@ -2168,10 +2206,10 @@
           <button type="button" class="settings-back" id="btn-library-close" title="Back">
             ← Back
           </button>
-          <h2 class="settings-title" id="library-title">Recent drafts</h2>
+          <h2 class="settings-title" id="library-title">Your saved scans &amp; drafts</h2>
         </div>
         <div class="settings-scroll" id="library-scroll">
-          <div class="settings-library" aria-label="Recent drafts">
+          <div class="settings-library" aria-label="Your saved scans and drafts">
             <div class="settings-library-top">
               <p class="settings-library-title">Your drafts</p>
               <button type="button" class="settings-library-clear hidden" id="btn-library-clear-overlay">
@@ -2193,6 +2231,10 @@
           </div>
         </button>
         <div class="popup-header-tools">
+          <div class="live" id="live-status">
+            <span class="dot" aria-hidden="true"></span>
+            <span id="live-label">Live</span>
+          </div>
           <button
             type="button"
             class="header-help-link"
@@ -2211,14 +2253,14 @@
       </header>
 
       <div class="library-bar hidden" id="library-bar">
-        <button type="button" class="library-bar-btn" id="btn-open-library" aria-label="Open recent drafts">
+        <button type="button" class="library-bar-btn" id="btn-open-library" aria-label="Open saved scans and drafts">
           <span class="library-bar-left">
             <span class="library-bar-icon" aria-hidden="true">
               <img class="library-bar-thumb hidden" id="library-bar-thumb" alt="" decoding="async" />
               <span class="library-bar-fallback" id="library-bar-fallback">⟲</span>
             </span>
             <span class="library-bar-title">
-              <strong>Recent drafts</strong>
+              <strong>Saved scans &amp; drafts</strong>
               <span id="library-bar-sub">Reopen a scan and post again</span>
             </span>
           </span>
@@ -2226,26 +2268,23 @@
         </button>
       </div>
 
-      <div class="section section--pairing-title">
-        <div class="label-step-row">
-          <p class="label-step" id="pairing-header-step-label">1. Scan to pair phone</p>
-          <div class="live" id="live-status">
-            <span class="dot" aria-hidden="true"></span>
-            <span id="live-label">Live</span>
-          </div>
-        </div>
-      </div>
-
       <div id="state-empty" class="section section--stack">
+        <div class="section--pairing-title">
+          <p class="label-step" id="pairing-header-step-label">
+            <span class="label-step-num">1.</span> Scan to pair phone
+          </p>
+        </div>
         <div class="qr-card">
           <div class="qr-loader" id="qr-loader" aria-hidden="true">
             <div class="qr-loader-spinner"></div>
           </div>
           <img id="qr-img" alt="Pairing QR" width="180" height="180" />
-          <p class="qr-hint">
-            Scan the QR to pair your phone with this session.<br />
-            Then upload a photo from your phone or from this computer.
-          </p>
+          <p class="qr-hint">Scan QR, upload from PC or Phone.</p>
+          <div class="qr-or-divider" role="separator" aria-label="Option 2">
+            <span class="qr-or-divider__line" aria-hidden="true"></span>
+            <span class="qr-or-divider__text">or</span>
+            <span class="qr-or-divider__line" aria-hidden="true"></span>
+          </div>
           <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
           <button
             type="button"
@@ -2269,32 +2308,29 @@
               font-family: inherit;
             "
           >
-            Use this computer to upload
+            Upload from Computer
           </button>
-          <p class="qr-desktop-hint" style="margin-top: 8px">
-            Opens Snap in a new tab on this computer
-          </p>
         </div>
         <button
           type="button"
           class="pair-copy-bucket"
           id="btn-copy-snap-link"
-          title="Copy upload link"
-          aria-label="Copy upload link for this session"
+          title="Copy session code only (not the full URL)"
+          aria-label="Copy session code for pairing"
         >
           <span class="pair-copy-left">
             <span id="pair-session-code" class="pair-copy-code"></span>
             <span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite"></span>
           </span>
-          <span class="pair-copy-chip" aria-hidden="true">Copy upload link</span>
+          <span class="pair-copy-chip" aria-hidden="true">Copy session code</span>
         </button>
         <button
           type="button"
           class="btn-new-session"
           id="btn-new-pairing-session"
-          title="Use when you want a fresh code for another scan. The QR stays the same until you tap this."
+          title="Creates a new session ID for your next upload. Use after finishing a scan or to avoid mixing photos."
         >
-          New pairing code
+          Generate code for new upload session
         </button>
         <button type="button" class="btn-ghost hidden" id="btn-continue-listing">
           Continue to listing
@@ -2310,10 +2346,7 @@
 
         <div id="loaded-waiting" class="loaded-waiting hidden" role="status" aria-live="polite">
           <p class="loaded-waiting-title">Waiting for your scan</p>
-          <p class="loaded-waiting-sub">
-            Scan the QR to pair your phone with this session.<br />
-            Then upload a photo from your phone or from this computer.
-          </p>
+          <p class="loaded-waiting-sub">Scan QR, upload from PC or Phone.</p>
           <ul class="loaded-waiting-bullets">
             <li>Keep this popup open (or reopen it after uploading).</li>
             <li>If you don’t see updates, reload the extension and try again.</li>
@@ -2325,7 +2358,7 @@
 
         <div id="loaded-main">
           <div class="step-block">
-            <p class="label-step">2. Choose platform</p>
+            <p class="label-step"><span class="label-step-num">2.</span> Choose platform</p>
             <span class="field-label">Where do you want to list?</span>
             <div class="platform-grid" id="platform-grid" role="radiogroup" aria-label="Marketplace">
   <button type="button" class="platform-tile" data-platform="shopify" title="Shopify" aria-pressed="false">
@@ -2447,7 +2480,7 @@
 
           <div id="post-platform-panel" class="hidden">
             <div class="step-block" id="platform-review-section">
-              <p class="label-step" id="review-step-label">3. Review listing</p>
+              <p class="label-step" id="review-step-label"><span class="label-step-num">3.</span> Review content</p>
               <p class="review-template-sub" id="review-template-sub"></p>
               <div id="review-loading" class="review-loading hidden" role="status" aria-live="polite">
                 <svg class="spinner" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -2510,8 +2543,16 @@
               </div>
             </div>
 
+            <div class="step-block" id="platform-ready-section">
+              <p class="label-step" id="platform-ready-step-label">
+                <span class="label-step-num">4.</span> Open marketplace &amp; product page
+              </p>
+              <p class="ready-sub" id="platform-ready-hint"></p>
+              <p class="platform-ready-must">Must do this step or extraction will fail.</p>
+            </div>
+
           <div class="step-block" id="magic-send-section">
-            <p class="label-step">4. Post to the marketplace</p>
+            <p class="label-step"><span class="label-step-num">5.</span> Post to the marketplace</p>
             <p class="ready-sub">
               <span id="magic-post-hint">
                 Keep your <strong id="magic-tab-hint">listing</strong> open. Start from <strong>Products</strong> list;
