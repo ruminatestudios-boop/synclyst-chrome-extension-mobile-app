@@ -147,29 +147,50 @@
             left: 50%;
             width: min(48vw, 180px);
             height: min(48vw, 180px);
-            transform: translate(-50%, -52%);
+            transform: translate(-50%, -50%);
             border: 1px dashed rgba(255, 255, 255, 0.45);
             border-radius: 16px;
             pointer-events: none;
+            box-sizing: border-box;
+            background: transparent;
+            box-shadow: none;
+            z-index: 2;
         }
-        .scan-frame-guide::before,
-        .scan-frame-guide::after {
-            content: "";
+        .scan-frame-guide__corner {
             position: absolute;
-            width: 30px;
-            height: 30px;
-            border: 2px solid rgba(255, 255, 255, 0.75);
-            border-right: 0;
-            border-bottom: 0;
+            width: 28px;
+            height: 28px;
+            border: 0 solid rgba(255, 255, 255, 0.82);
+            pointer-events: none;
+            box-sizing: border-box;
         }
-        .scan-frame-guide::before {
-            top: 12px;
-            left: 12px;
+        .scan-frame-guide__corner--tl {
+            top: 11px;
+            left: 11px;
+            border-top-width: 2px;
+            border-left-width: 2px;
+            border-top-left-radius: 4px;
         }
-        .scan-frame-guide::after {
-            top: 12px;
-            right: 12px;
-            transform: scaleX(-1);
+        .scan-frame-guide__corner--tr {
+            top: 11px;
+            right: 11px;
+            border-top-width: 2px;
+            border-right-width: 2px;
+            border-top-right-radius: 4px;
+        }
+        .scan-frame-guide__corner--br {
+            bottom: 11px;
+            right: 11px;
+            border-bottom-width: 2px;
+            border-right-width: 2px;
+            border-bottom-right-radius: 4px;
+        }
+        .scan-frame-guide__corner--bl {
+            bottom: 11px;
+            left: 11px;
+            border-bottom-width: 2px;
+            border-left-width: 2px;
+            border-bottom-left-radius: 4px;
         }
         /* Review-flow aligned: light zinc chrome + frosted “glass” icon tiles (gallery / rotate style) */
         .scan-control-bar {
@@ -281,7 +302,12 @@
     <div id="scan-step-camera" class="flex-1 flex flex-col items-center justify-center p-0 overflow-hidden relative bg-white">
       <div class="scan-camera-viewport bg-zinc-100 overflow-hidden relative">
         <video id="scan-video" class="w-full h-full object-cover" playsinline="" muted="" autoplay=""></video>
-        <div class="scan-frame-guide" aria-hidden="true"></div>
+        <div class="scan-frame-guide" aria-hidden="true">
+          <span class="scan-frame-guide__corner scan-frame-guide__corner--tl"></span>
+          <span class="scan-frame-guide__corner scan-frame-guide__corner--tr"></span>
+          <span class="scan-frame-guide__corner scan-frame-guide__corner--br"></span>
+          <span class="scan-frame-guide__corner scan-frame-guide__corner--bl"></span>
+        </div>
       </div>
       <div id="scan-camera-error" class="text-red-600 text-sm mt-4 hidden max-w-md text-center rounded-2xl bg-red-50 border border-red-100 p-3"></div>
       

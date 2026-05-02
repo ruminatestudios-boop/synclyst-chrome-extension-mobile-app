@@ -325,6 +325,57 @@ function fmtElapsedSeconds(startMs) {
   return `${s}s`;
 }
 
+function elapsedSeconds(startMs) {
+  if (!startMs) return 0;
+  return Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+}
+
+function extractionStepIndexFromStage(stage) {
+  const s = String(stage || "").toLowerCase();
+  if (!s) return 1;
+  if (s.includes("upload received")) return 1;
+  if (s.includes("processing image") || s.includes("checking status") || s.includes("reconnecting")) return 2;
+  if (s.includes("waiting for extraction")) return 3;
+  if (s.includes("finalizing")) return 4;
+  if (s.includes("waiting for upload")) return 1;
+  if (s.includes("extracting")) return 2;
+  return 2;
+}
+
+function updateExtractionProgressUI(stage, secs) {
+  const stepIdx = extractionStepIndexFromStage(stage);
+  const metaEl = document.getElementById("review-loading-meta");
+  if (metaEl) metaEl.textContent = `Step ${stepIdx}/4 · ${secs}s`;
+
+  const stepEls = [
+    { id: "extract-step-upload", idx: 1 },
+    { id: "extract-step-process", idx: 2 },
+    { id: "extract-step-draft", idx: 3 },
+    { id: "extract-step-finalize", idx: 4 },
+  ];
+  for (const it of stepEls) {
+    const el = document.getElementById(it.id);
+    if (!el) continue;
+    el.classList.toggle("is-done", it.idx < stepIdx);
+  }
+
+  const etaEl = document.getElementById("review-loading-eta");
+  if (etaEl) {
+    // Heuristic ETA: assume 55s typical, clamp.
+    const assumedTotal = 55;
+    const remaining = Math.max(6, Math.min(75, assumedTotal - secs));
+    const remainingSteps =
+      stepIdx >= 4
+        ? "Finalizing…"
+        : stepIdx === 3
+          ? "What’s left: estimating price, finalizing."
+          : stepIdx === 2
+            ? "What’s left: drafting details, estimating price, finalizing."
+            : "What’s left: processing image, drafting details, estimating price, finalizing.";
+    etaEl.textContent = `${remainingSteps} ~${remaining}s left.`;
+  }
+}
+
 function setReviewLoadingText(text) {
   const loadText = document.getElementById("review-loading-text");
   if (!loadText) return;
@@ -343,7 +394,9 @@ function startExtractionTicker(stage) {
   extractionStartedAtMs = Date.now();
   const st = String(stage || "Extracting your listing").trim() || "Extracting your listing";
   const render = () => {
-    setReviewLoadingText(`${st}… ${fmtElapsedSeconds(extractionStartedAtMs)}`);
+    const secs = elapsedSeconds(extractionStartedAtMs);
+    setReviewLoadingText(st);
+    updateExtractionProgressUI(st, secs);
   };
   render();
   if (extractionTickerId) clearInterval(extractionTickerId);
@@ -354,7 +407,9 @@ function updateExtractionStage(stage) {
   if (!extractionPending) return;
   const st = String(stage || "").trim();
   if (!st) return;
-  setReviewLoadingText(`${st}… ${fmtElapsedSeconds(extractionStartedAtMs)}`);
+  const secs = elapsedSeconds(extractionStartedAtMs);
+  setReviewLoadingText(st);
+  updateExtractionProgressUI(st, secs);
 }
 
 function refreshLoadedSubstate() {
@@ -372,9 +427,426 @@ function refreshLoadedSubstate() {
 const STORAGE_LAST_PLATFORM = "synclyst_last_platform";
 const STORAGE_PREFERS_QR_HOME = "synclyst_prefers_qr_home";
 const STORAGE_SNAP_LISTING_READY_AT = "synclyst_snap_listing_ready_at";
+const STORAGE_DRAFT_LIBRARY = "synclyst_draft_library_v1";
+const STORAGE_DRAFT_LIBRARY_CLEARED_AT = "synclyst_draft_library_cleared_at_v1";
 // Treat `synclyst_snap_listing_ready_at` as a short-lived "extraction in progress" signal.
 // If it’s stale (e.g. user uploaded hours ago), don’t show “Extracting…” on every popup open.
 const SNAP_LISTING_READY_MAX_AGE_MS = 2 * 60 * 1000;
+const DRAFT_LIBRARY_MAX_ITEMS = 50;
+const DRAFT_LIBRARY_THUMB_SIZE = 44;
+/** Narrow popup: keep draft titles short so the library row doesn’t clip awkwardly. */
+const LIBRARY_UI_TITLE_MAX_CHARS = 32;
+
+function safeTrimStr(v) {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function truncateLibraryTitle(s) {
+  const t = safeTrimStr(s);
+  if (!t) return "";
+  const max = LIBRARY_UI_TITLE_MAX_CHARS;
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(1, max - 1)).trimEnd()}…`;
+}
+
+function fmtShortTime(ms) {
+  if (!ms) return "";
+  try {
+    const d = new Date(ms);
+    return d.toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+async function tryMakeThumbnailDataUrl(srcUrl) {
+  const src = safeTrimStr(srcUrl);
+  if (!src) return "";
+  // Avoid creating thumbnails from remote URLs without CORS (canvas would be tainted).
+  const looksRemote = /^https?:\/\//i.test(src);
+  const looksInline = src.startsWith("data:") || src.startsWith("blob:");
+  if (!looksInline && looksRemote) return "";
+
+  return await new Promise((resolve) => {
+    try {
+      const img = new Image();
+      // For inline data URLs this is unnecessary; for remote it only helps if server sends CORS.
+      try {
+        img.crossOrigin = "anonymous";
+      } catch {
+        /* ignore */
+      }
+      img.onload = () => {
+        try {
+          const w = img.naturalWidth || img.width || 0;
+          const h = img.naturalHeight || img.height || 0;
+          if (!w || !h) return resolve("");
+          const size = DRAFT_LIBRARY_THUMB_SIZE;
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve("");
+          // Cover crop (center)
+          const scale = Math.max(size / w, size / h);
+          const dw = Math.ceil(w * scale);
+          const dh = Math.ceil(h * scale);
+          const dx = Math.floor((size - dw) / 2);
+          const dy = Math.floor((size - dh) / 2);
+          ctx.drawImage(img, dx, dy, dw, dh);
+          let out = "";
+          try {
+            out = canvas.toDataURL("image/jpeg", 0.72);
+          } catch {
+            out = "";
+          }
+          resolve(typeof out === "string" ? out : "");
+        } catch {
+          resolve("");
+        }
+      };
+      img.onerror = () => resolve("");
+      img.src = src;
+    } catch {
+      resolve("");
+    }
+  });
+}
+
+function readDraftLibrary() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get([STORAGE_DRAFT_LIBRARY], (o) => {
+        const raw = o && o[STORAGE_DRAFT_LIBRARY];
+        const list = Array.isArray(raw) ? raw : [];
+        resolve(list.filter((x) => x && typeof x === "object" && typeof x.sessionId === "string"));
+      });
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+function readDraftLibraryClearedAt() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get([STORAGE_DRAFT_LIBRARY_CLEARED_AT], (o) => {
+        const raw = o && o[STORAGE_DRAFT_LIBRARY_CLEARED_AT];
+        const n = typeof raw === "number" ? raw : Number(raw);
+        resolve(Number.isFinite(n) ? n : 0);
+      });
+    } catch {
+      resolve(0);
+    }
+  });
+}
+
+function writeDraftLibrary(list) {
+  const safe = Array.isArray(list) ? list : [];
+  try {
+    chrome.storage.local.set({ [STORAGE_DRAFT_LIBRARY]: safe.slice(0, DRAFT_LIBRARY_MAX_ITEMS) });
+  } catch {
+    /* ignore */
+  }
+}
+
+function updateLibraryBarUI(list) {
+  const items = Array.isArray(list) ? list : [];
+  const bar = document.getElementById("library-bar");
+  if (bar) bar.classList.toggle("hidden", !items.length);
+  if (!items.length) return;
+  const countEl = document.getElementById("library-bar-count");
+  if (countEl) countEl.textContent = String(items.length || 0);
+  const subEl = document.getElementById("library-bar-sub");
+  if (subEl) {
+    const t0 = safeTrimStr(items[0] && items[0].title);
+    const shown = t0 ? truncateLibraryTitle(t0) : "";
+    subEl.textContent = shown || "Open a draft to post again";
+    subEl.title = t0.length > LIBRARY_UI_TITLE_MAX_CHARS ? t0 : "";
+  }
+
+  const thumbEl = document.getElementById("library-bar-thumb");
+  const fallbackEl = document.getElementById("library-bar-fallback");
+  const thumbUrl = safeTrimStr(items[0] && items[0].imageUrl);
+  if (thumbEl && thumbEl.tagName === "IMG") {
+    const showThumb = !!thumbUrl;
+    thumbEl.classList.toggle("hidden", !showThumb);
+    if (showThumb) thumbEl.src = thumbUrl;
+  }
+  if (fallbackEl) fallbackEl.classList.toggle("hidden", !!thumbUrl);
+}
+
+function renderDraftLibraryOverlayUI(list) {
+  const wrap = document.getElementById("library-overlay-list");
+  const empty = document.getElementById("library-overlay-empty");
+  const clearBtn = document.getElementById("btn-library-clear-overlay");
+  if (!wrap) return;
+  const items = Array.isArray(list) ? list : [];
+  wrap.innerHTML = "";
+  const has = items.length > 0;
+  if (empty) empty.classList.toggle("hidden", has);
+  if (clearBtn) clearBtn.classList.toggle("hidden", !has);
+  for (const it of items.slice(0, DRAFT_LIBRARY_MAX_ITEMS)) {
+    if (!it || typeof it !== "object") continue;
+    const sid = safeTrimStr(it.sessionId);
+    if (!sid) continue;
+
+    const row = document.createElement("div");
+    row.className = "settings-library-item";
+
+    const meta = document.createElement("div");
+    meta.className = "settings-library-item-meta";
+
+    const thumbUrl = safeTrimStr(it.imageUrl);
+    if (thumbUrl) {
+      const img = document.createElement("img");
+      img.className = "settings-library-thumb";
+      img.alt = "";
+      img.decoding = "async";
+      img.src = thumbUrl;
+      meta.appendChild(img);
+    } else {
+      const ph = document.createElement("div");
+      ph.className = "settings-library-thumb settings-library-thumb--placeholder";
+      ph.setAttribute("aria-hidden", "true");
+      ph.textContent = "—";
+      meta.appendChild(ph);
+    }
+
+    const lines = document.createElement("div");
+    lines.className = "settings-library-lines";
+    const name = document.createElement("p");
+    name.className = "settings-library-name";
+    const rawName = safeTrimStr(it.title) || "Untitled draft";
+    name.textContent = truncateLibraryTitle(rawName);
+    if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
+    const sub = document.createElement("p");
+    sub.className = "settings-library-sub";
+    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
+    sub.textContent = `${t || "—"} · ${sid}`;
+    lines.appendChild(name);
+    lines.appendChild(sub);
+    meta.appendChild(lines);
+
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "settings-library-open";
+    openBtn.textContent = "Open";
+    openBtn.addEventListener("click", (e) => {
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+      } catch {
+        /* ignore */
+      }
+      openLibrarySession(sid);
+    });
+
+    row.appendChild(meta);
+    row.appendChild(openBtn);
+    row.addEventListener("click", () => openLibrarySession(sid));
+    wrap.appendChild(row);
+  }
+}
+
+async function upsertDraftLibraryItem(item) {
+  const sid = safeTrimStr(item && item.sessionId);
+  if (!sid) return;
+  const clearedAt = await readDraftLibraryClearedAt();
+  const itemMs =
+    typeof item && item && typeof item.updatedAtMs === "number" && Number.isFinite(item.updatedAtMs)
+      ? item.updatedAtMs
+      : 0;
+  // If the user just cleared drafts, don't immediately re-add the current/stale row on the next poll.
+  // Only allow drafts newer than the clear action.
+  if (clearedAt && itemMs && itemMs <= clearedAt) return;
+  const next = {
+    sessionId: sid,
+    title: safeTrimStr(item && item.title) || "Untitled draft",
+    updatedAtMs: typeof item.updatedAtMs === "number" && Number.isFinite(item.updatedAtMs) ? item.updatedAtMs : Date.now(),
+    stamp: safeTrimStr(item && item.stamp),
+    imageUrl: safeTrimStr(item && item.imageUrl),
+  };
+  const list = await readDraftLibrary();
+  const out = [next];
+  for (const it of list) {
+    if (!it || typeof it !== "object") continue;
+    const s0 = safeTrimStr(it.sessionId);
+    if (!s0) continue;
+    if (s0.toLowerCase() === sid.toLowerCase()) continue;
+    out.push(it);
+    if (out.length >= DRAFT_LIBRARY_MAX_ITEMS) break;
+  }
+  writeDraftLibrary(out);
+  try {
+    renderDraftLibraryUI(out);
+    renderDraftLibraryOverlayUI(out);
+    updateLibraryBarUI(out);
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearDraftLibrary() {
+  try {
+    const clearedAt = Date.now();
+    chrome.storage.local.set({ [STORAGE_DRAFT_LIBRARY_CLEARED_AT]: clearedAt }, () => {
+      /* ignore */
+    });
+    chrome.storage.local.remove([STORAGE_DRAFT_LIBRARY], () => {
+      try {
+        renderDraftLibraryUI([]);
+        renderDraftLibraryOverlayUI([]);
+        updateLibraryBarUI([]);
+      } catch {
+        /* ignore */
+      }
+    });
+  } catch {
+    try {
+      renderDraftLibraryUI([]);
+      renderDraftLibraryOverlayUI([]);
+      updateLibraryBarUI([]);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function openLibrarySession(sessionId) {
+  const sid = safeTrimStr(sessionId);
+  if (!sid) return;
+  try {
+    chrome.storage.local.set({ snap_pair_session_id: sid, [STORAGE_PREFERS_QR_HOME]: false }, () => {
+      window.location.reload();
+    });
+  } catch {
+    window.location.reload();
+  }
+}
+
+function renderDraftLibraryUI(list) {
+  const wrap = document.getElementById("library-list");
+  const empty = document.getElementById("library-empty");
+  const clearBtn = document.getElementById("btn-library-clear");
+  if (!wrap) return;
+  const items = Array.isArray(list) ? list : [];
+  wrap.innerHTML = "";
+  const has = items.length > 0;
+  if (empty) empty.classList.toggle("hidden", has);
+  if (clearBtn) clearBtn.classList.toggle("hidden", !has);
+  for (const it of items.slice(0, DRAFT_LIBRARY_MAX_ITEMS)) {
+    if (!it || typeof it !== "object") continue;
+    const sid = safeTrimStr(it.sessionId);
+    if (!sid) continue;
+    const row = document.createElement("div");
+    row.className = "settings-library-item";
+
+    const meta = document.createElement("div");
+    meta.className = "settings-library-item-meta";
+
+    const thumbUrl = safeTrimStr(it.imageUrl);
+    if (thumbUrl) {
+      const img = document.createElement("img");
+      img.className = "settings-library-thumb";
+      img.alt = "";
+      img.decoding = "async";
+      img.src = thumbUrl;
+      meta.appendChild(img);
+    } else {
+      const ph = document.createElement("div");
+      ph.className = "settings-library-thumb settings-library-thumb--placeholder";
+      ph.setAttribute("aria-hidden", "true");
+      ph.textContent = "—";
+      meta.appendChild(ph);
+    }
+
+    const lines = document.createElement("div");
+    lines.className = "settings-library-lines";
+    const name = document.createElement("p");
+    name.className = "settings-library-name";
+    const rawName = safeTrimStr(it.title) || "Untitled draft";
+    name.textContent = truncateLibraryTitle(rawName);
+    if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
+    const sub = document.createElement("p");
+    sub.className = "settings-library-sub";
+    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
+    sub.textContent = `${t || "—"} · ${sid}`;
+    lines.appendChild(name);
+    lines.appendChild(sub);
+    meta.appendChild(lines);
+
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "settings-library-open";
+    openBtn.textContent = "Open";
+    openBtn.addEventListener("click", (e) => {
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+      } catch {
+        /* ignore */
+      }
+      openLibrarySession(sid);
+    });
+
+    row.appendChild(meta);
+    row.appendChild(openBtn);
+    row.addEventListener("click", () => openLibrarySession(sid));
+    wrap.appendChild(row);
+  }
+}
+
+let libraryOverlayWired = false;
+function wireLibraryOverlay() {
+  if (libraryOverlayWired) return;
+  libraryOverlayWired = true;
+  const overlay = document.getElementById("library-overlay");
+  const openBtn = document.getElementById("btn-open-library");
+  const closeBtn = document.getElementById("btn-library-close");
+  const clearBtn = document.getElementById("btn-library-clear-overlay");
+
+  const open = () => {
+    void readDraftLibrary().then((list) => {
+      renderDraftLibraryOverlayUI(list);
+      updateLibraryBarUI(list);
+      overlay?.classList.remove("hidden");
+    });
+  };
+  const close = () => {
+    overlay?.classList.add("hidden");
+  };
+
+  openBtn?.addEventListener("click", (e) => {
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+    } catch {
+      /* ignore */
+    }
+    open();
+  });
+  closeBtn?.addEventListener("click", (e) => {
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+    } catch {
+      /* ignore */
+    }
+    close();
+  });
+  clearBtn?.addEventListener("click", (e) => {
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+    } catch {
+      /* ignore */
+    }
+    clearDraftLibrary();
+    close();
+    showToast("Drafts cleared.", "success", 1400);
+  });
+}
 
 /** Same keys as auralink-ai/frontend/public/payment-success.html → tier-bridge.js → chrome.storage.local */
 const STORAGE_SYNC_TIER = "synclyst_tier";
@@ -424,14 +896,67 @@ function fmtDiagTime(ms) {
 function refreshSettingsDiagnosticsUI() {
   try {
     const originEl = document.getElementById("diag-origin");
+    const originSrcEl = document.getElementById("diag-origin-src");
     const sessionEl = document.getElementById("diag-session");
+    const viewEl = document.getElementById("diag-view");
+    const platformEl = document.getElementById("diag-platform");
+    const versionEl = document.getElementById("diag-version");
     const configEl = document.getElementById("diag-config");
+    const billEl = document.getElementById("diag-billing");
+    const rtEl = document.getElementById("diag-realtime");
+    const exEl = document.getElementById("diag-extraction");
+    const stampEl = document.getElementById("diag-stamp");
+    const fieldsEl = document.getElementById("diag-fields");
+    const draftsEl = document.getElementById("diag-drafts");
     const pollEl = document.getElementById("diag-poll");
     if (originEl) originEl.textContent = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "") || "—";
+    if (originSrcEl) {
+      chrome.storage.local.get([STORAGE_ORIGIN_MANUAL, STORAGE_ORIGIN_AUTO], (o) => {
+        const manual = o && o[STORAGE_ORIGIN_MANUAL] != null ? String(o[STORAGE_ORIGIN_MANUAL]).trim() : "";
+        const auto = o && o[STORAGE_ORIGIN_AUTO] != null ? String(o[STORAGE_ORIGIN_AUTO]).trim() : "";
+        originSrcEl.textContent = manual ? "manual" : auto ? "auto" : "default";
+      });
+    }
     if (sessionEl) sessionEl.textContent = snapPairSessionId ? String(snapPairSessionId) : "—";
+    if (viewEl) viewEl.textContent = qrHomeActive ? "QR home" : "Listing";
+    if (platformEl) platformEl.textContent = getSelectedPlatform() ? String(getSelectedPlatform()) : "—";
+    if (versionEl) {
+      try {
+        const man = typeof chrome.runtime.getManifest === "function" ? chrome.runtime.getManifest() : null;
+        versionEl.textContent = man && man.version ? String(man.version) : "—";
+      } catch {
+        versionEl.textContent = "—";
+      }
+    }
     if (configEl) {
       const c = diagLastConfig && typeof diagLastConfig.configured === "boolean" ? diagLastConfig.configured : null;
       configEl.textContent = c === null ? "—" : c ? "configured ✅" : "not configured ❌";
+    }
+    if (billEl) {
+      if (billingSignedIn === null) billEl.textContent = "checking…";
+      else billEl.textContent = billingSignedIn ? `signed in${billingEmail ? ` · ${billingEmail}` : ""}` : "signed out";
+    }
+    if (rtEl) rtEl.textContent = supabaseClient && realtimeChannel ? "connected ✅" : "off";
+    if (exEl) {
+      if (extractionPending) exEl.textContent = `in progress · ${fmtElapsedSeconds(extractionStartedAtMs)}`;
+      else exEl.textContent = "idle";
+    }
+    if (stampEl) stampEl.textContent = lastAppliedListingStamp ? String(lastAppliedListingStamp).slice(0, 26) : "—";
+    if (fieldsEl) {
+      const p = lastPayload && typeof lastPayload === "object" ? lastPayload : null;
+      if (!p) fieldsEl.textContent = "—";
+      else {
+        const hasT = !!(p.title && String(p.title).trim());
+        const hasD = !!(p.description && String(p.description).trim());
+        const hasP = !!(p.price && String(p.price).trim());
+        const hasI = !!(p.image_url && String(p.image_url).trim());
+        fieldsEl.textContent = `${hasT ? "T" : "—"} ${hasD ? "D" : "—"} ${hasP ? "£" : "—"} ${hasI ? "IMG" : "—"}`;
+      }
+    }
+    if (draftsEl) {
+      void readDraftLibrary().then((list) => {
+        draftsEl.textContent = Array.isArray(list) ? String(list.length) : "0";
+      });
     }
     if (pollEl) {
       if (!diagLastPoll.atMs) {
@@ -452,6 +977,36 @@ async function copySettingsDiagnostics() {
   try {
     const origin = String(SYNCLYST_ORIGIN || "").replace(/\/$/, "");
     const sid = snapPairSessionId ? String(snapPairSessionId) : "";
+    const view = qrHomeActive ? "qr_home" : "listing";
+    const platform = getSelectedPlatform() ? String(getSelectedPlatform()) : "";
+    const rt = supabaseClient && realtimeChannel ? "connected" : "off";
+    const extracting = extractionPending ? `in_progress_${fmtElapsedSeconds(extractionStartedAtMs)}` : "idle";
+    const stamp = lastAppliedListingStamp ? String(lastAppliedListingStamp).slice(0, 60) : "";
+    const man = (() => {
+      try {
+        return typeof chrome.runtime.getManifest === "function" ? chrome.runtime.getManifest() : null;
+      } catch {
+        return null;
+      }
+    })();
+    const version = man && man.version ? String(man.version) : "";
+    const bill =
+      billingSignedIn === null ? "checking" : billingSignedIn ? `signed_in${billingEmail ? `_${billingEmail}` : ""}` : "signed_out";
+    const fields = (() => {
+      const p = lastPayload && typeof lastPayload === "object" ? lastPayload : null;
+      if (!p) return "";
+      const hasT = !!(p.title && String(p.title).trim());
+      const hasD = !!(p.description && String(p.description).trim());
+      const hasP = !!(p.price && String(p.price).trim());
+      const hasI = !!(p.image_url && String(p.image_url).trim());
+      return `${hasT ? "T" : "-"}${hasD ? "D" : "-"}${hasP ? "P" : "-"}${hasI ? "I" : "-"}`;
+    })();
+    const originSrc = await storageGet([STORAGE_ORIGIN_MANUAL, STORAGE_ORIGIN_AUTO]).then((o) => {
+      const manual = o && o[STORAGE_ORIGIN_MANUAL] != null ? String(o[STORAGE_ORIGIN_MANUAL]).trim() : "";
+      const auto = o && o[STORAGE_ORIGIN_AUTO] != null ? String(o[STORAGE_ORIGIN_AUTO]).trim() : "";
+      return manual ? "manual" : auto ? "auto" : "default";
+    });
+    const drafts = await readDraftLibrary().then((l) => (Array.isArray(l) ? String(l.length) : "0"));
     const cfg =
       diagLastConfig && typeof diagLastConfig.configured === "boolean"
         ? String(diagLastConfig.configured)
@@ -462,8 +1017,18 @@ async function copySettingsDiagnostics() {
     const text = [
       "SyncLyst diagnostics",
       `origin=${origin || "—"}`,
+      `origin_source=${originSrc || "—"}`,
       `session_id=${sid || "—"}`,
+      `view=${view || "—"}`,
+      `platform=${platform || "—"}`,
+      `extension_version=${version || "—"}`,
       `snap_pair_configured=${cfg}`,
+      `billing=${bill || "—"}`,
+      `realtime=${rt || "—"}`,
+      `extraction=${extracting || "—"}`,
+      `listing_stamp=${stamp || "—"}`,
+      `listing_fields=${fields || "—"}`,
+      `drafts=${drafts || "—"}`,
       `last_poll=${pollT} (${pollS})${pollE ? ` ${pollE}` : ""}`,
     ].join("\n");
     await navigator.clipboard.writeText(text);
@@ -959,14 +1524,6 @@ function wireBillingSettings() {
   document.getElementById("btn-open-terms")?.addEventListener("click", () => loadLegalDocIntoModal("terms"));
   document.getElementById("btn-open-privacy")?.addEventListener("click", () => loadLegalDocIntoModal("privacy"));
 
-  try {
-    const man = typeof chrome.runtime.getManifest === "function" ? chrome.runtime.getManifest() : null;
-    const verEl = document.getElementById("settings-extension-version");
-    if (verEl && man && man.version) verEl.textContent = `Extension version ${man.version}`;
-  } catch {
-    /* ignore */
-  }
-
   const planGrid = document.getElementById("settings-plan-grid");
   planGrid?.addEventListener("click", (e) => {
     const locked = billingSignedIn === false;
@@ -1060,10 +1617,22 @@ function wireBillingSettings() {
   });
 }
 
+/** Bold primary step index (`2.`, `3.`, …) inside `.label-step`; remainder keeps muted styling. */
+function setLabelStepHtml(el, text) {
+  if (!el) return;
+  const s = String(text || "").trim();
+  const m = s.match(/^(\d+\.)\s*(.*)$/);
+  if (m) {
+    el.innerHTML = `<span class="label-step-num">${m[1]}</span> ${m[2]}`;
+  } else {
+    el.textContent = s;
+  }
+}
+
 /** Per-platform copy for the review step (labels + hints). */
 const PLATFORM_REVIEW_TEMPLATES = {
   shopify: {
-    stepLabel: "3. Review for Shopify",
+    stepLabel: "3. Review content for Shopify",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Shopify instantly.",
     title: "Product title",
     description: "Description",
@@ -1072,7 +1641,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "Shopify Admin",
   },
   ebay: {
-    stepLabel: "3. Review for eBay",
+    stepLabel: "3. Review content for eBay",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in eBay instantly.",
     title: "Title",
     description: "Item description",
@@ -1081,7 +1650,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "eBay listing",
   },
   etsy: {
-    stepLabel: "3. Review for Etsy",
+    stepLabel: "3. Review content for Etsy",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Etsy instantly.",
     title: "Listing title",
     description: "Description",
@@ -1090,7 +1659,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "Etsy listing editor",
   },
   shopee: {
-    stepLabel: "3. Review for Shopee",
+    stepLabel: "3. Review content for Shopee",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Shopee instantly.",
     title: "Product name",
     description: "Description",
@@ -1099,7 +1668,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "Shopee Seller Centre",
   },
   depop: {
-    stepLabel: "3. Confirm your listing",
+    stepLabel: "3. Review content for Depop",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Depop instantly.",
     title: "Title",
     description: "Description",
@@ -1108,7 +1677,7 @@ const PLATFORM_REVIEW_TEMPLATES = {
     tabHint: "Depop listing",
   },
   vinted: {
-    stepLabel: "3. Review for Vinted",
+    stepLabel: "3. Review content for Vinted",
     sub: "Double-check the key fields here. Magic Fill uses them to create your product in Vinted instantly.",
     title: "Title",
     description: "Description",
@@ -1164,13 +1733,19 @@ function applyPlatformReviewTemplate(id) {
   const priceInput = document.getElementById("review-price");
   const hintEl = document.getElementById("magic-tab-hint");
   const postHintEl = document.getElementById("magic-post-hint");
-  if (stepEl) stepEl.textContent = t.stepLabel;
+  if (stepEl) setLabelStepHtml(stepEl, t.stepLabel);
   if (subEl) subEl.textContent = t.sub;
   if (lt) lt.textContent = t.title;
   if (ld) ld.textContent = t.description;
   if (lp) lp.textContent = t.price;
   if (priceInput) priceInput.placeholder = t.pricePlaceholder;
   if (hintEl) hintEl.textContent = t.tabHint;
+  const readyHintEl = document.getElementById("platform-ready-hint");
+  if (readyHintEl) {
+    const surface = t.tabHint || "your marketplace";
+    readyHintEl.innerHTML =
+      `Open <strong>${surface}</strong> in a browser tab and go to the product or listing page you’ll publish from.`;
+  }
   if (postHintEl) {
     const safeHint = t.tabHint || "listing";
     postHintEl.innerHTML =
@@ -1285,6 +1860,35 @@ function setStatus(text) {
   el.setAttribute("data-kind", kind);
 }
 
+let toastTimer = null;
+function showToast(text, kind = "success", ms = 1500) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  const msg = String(text || "").trim();
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+  if (!msg) {
+    el.textContent = "";
+    el.classList.add("hidden");
+    el.removeAttribute("data-kind");
+    return;
+  }
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  if (kind) el.setAttribute("data-kind", String(kind));
+  toastTimer = setTimeout(() => {
+    try {
+      el.textContent = "";
+      el.classList.add("hidden");
+      el.removeAttribute("data-kind");
+    } catch {
+      /* ignore */
+    }
+  }, Math.max(450, Number(ms) || 0));
+}
+
 const PAIR_COPY_HINT_DEFAULT = "";
 
 async function copySnapPairUrl() {
@@ -1293,30 +1897,12 @@ async function copySnapPairUrl() {
   const hintEl = document.getElementById("pair-copy-hint");
   try {
     await navigator.clipboard.writeText(code);
-    if (hintEl) hintEl.textContent = "Copied!";
+    if (hintEl) hintEl.textContent = "Code copied!";
     setTimeout(() => {
       if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
     }, 1600);
   } catch {
     if (hintEl) hintEl.textContent = "Couldn’t copy — select the code";
-    setTimeout(() => {
-      if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
-    }, 2400);
-  }
-}
-
-async function copySnapPairLink(pairUrl) {
-  const u = String(pairUrl || "").trim();
-  if (!u) return;
-  const hintEl = document.getElementById("pair-copy-hint");
-  try {
-    await navigator.clipboard.writeText(u);
-    if (hintEl) hintEl.textContent = "Link copied!";
-    setTimeout(() => {
-      if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
-    }, 1600);
-  } catch {
-    if (hintEl) hintEl.textContent = "Couldn’t copy link";
     setTimeout(() => {
       if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
     }, 2400);
@@ -1341,23 +1927,45 @@ function openSnapPairLink(pairUrl) {
 
 /**
  * Popup init is async (session, origin, QR, poll, Supabase…). Listeners were previously registered
- * at the *end* of init, so rapid clicks on “Use this computer to upload” did nothing until loading finished.
+ * at the *end* of init, so rapid clicks on “Upload from Computer” did nothing until loading finished.
  * Wire snap / copy CTAs as soon as we have session + origin (see init()).
  */
 let snapPairCtaWired = false;
 function wireSnapPairCtaButtons() {
   if (snapPairCtaWired) return;
   snapPairCtaWired = true;
+  const beginNewUploadFlow = () => {
+    try {
+      // Reset local UI so the user understands we're waiting for a *new* scan.
+      listingHydrated = false;
+      lastPayload = null;
+      lastAppliedListingStamp = null;
+      lastAppliedImageUrl = null;
+      setReviewLoadingState(true, "Waiting for upload");
+      continueToListing();
+      // If the user takes a while to upload, this still keeps polling for a bit.
+      burstPollUntilListing(snapPairSessionId, {
+        stepMs: 350,
+        maxAttempts: 240,
+        onTimeoutMessage: "Still waiting — upload a photo, then reopen this popup.",
+      });
+    } catch {
+      /* ignore */
+    }
+  };
   const onOpen = (e) => {
     e.preventDefault();
+    beginNewUploadFlow();
     openSnapPairLink(getCurrentPairUrl());
   };
   const onCopy = (e) => {
     e.preventDefault();
-    void copySnapPairLink(getCurrentPairUrl());
+    void copySnapPairUrl();
   };
   document.getElementById("btn-open-snap-on-this-computer")?.addEventListener("click", onOpen);
   document.getElementById("btn-copy-snap-link")?.addEventListener("click", onCopy);
+  // Same actions on the "loaded" (step 2+) screen so users can start a fresh scan without refreshing.
+  document.getElementById("btn-upload-new-photo")?.addEventListener("click", onOpen);
 }
 
 function getCurrentPairUrl() {
@@ -1420,6 +2028,26 @@ const QR_CTA_INJECT_STYLE =
  * A stale "Load unpacked" copy may still serve an old popup.html (QR → session only). Recreate the current controls in DOM.
  * Prefer appending the CTA *inside* `.qr-card` (same as current markup) so it stays inside the visible dashed box.
  */
+function appendQrOrDividerDom(qr) {
+  const hint = qr.querySelector(".qr-hint");
+  if (!hint || qr.querySelector(".qr-or-divider")) return;
+  const div = document.createElement("div");
+  div.className = "qr-or-divider";
+  div.setAttribute("role", "separator");
+  div.setAttribute("aria-label", "Option 2");
+  div.innerHTML =
+    '<span class="qr-or-divider__line" aria-hidden="true"></span><span class="qr-or-divider__text">or</span><span class="qr-or-divider__line" aria-hidden="true"></span>';
+  hint.insertAdjacentElement("afterend", div);
+}
+
+/** Stale markup: QR hint immediately followed by desktop button — insert “or” divider between. */
+function patchQrOrDividerIfStale(qr) {
+  const hint = qr.querySelector(".qr-hint");
+  const btn = document.getElementById("btn-open-snap-on-this-computer");
+  if (!hint || !btn || qr.querySelector(".qr-or-divider")) return;
+  if (hint.nextElementSibling === btn) appendQrOrDividerDom(qr);
+}
+
 function ensurePairingStepControls() {
   const root = document.getElementById("state-empty");
   const qr = root && root.querySelector(".qr-card");
@@ -1429,43 +2057,29 @@ function ensurePairingStepControls() {
   try {
     const hintEl = qr.querySelector(".qr-hint");
     if (hintEl) {
-      hintEl.innerHTML =
-        "Scan the QR to pair your phone with this session.<br>" +
-        "Then upload a photo from your phone or from this computer.";
+      hintEl.textContent = "Scan QR, upload from PC or Phone.";
     }
   } catch {
     /* ignore */
   }
 
   if (!document.getElementById("btn-open-snap-on-this-computer")) {
+    appendQrOrDividerDom(qr);
     const b = document.createElement("button");
     b.type = "button";
     b.className = "btn-magic qr-snap-cta";
     b.id = "btn-open-snap-on-this-computer";
-    b.textContent = "Use this computer to upload";
+    b.textContent = "Upload from Computer";
     b.style.cssText = QR_CTA_INJECT_STYLE;
-    const hint = qr.querySelector(".qr-hint");
-    if (hint) {
-      hint.insertAdjacentElement("afterend", b);
+    const anchor = qr.querySelector(".qr-or-divider") || qr.querySelector(".qr-hint");
+    if (anchor) {
+      anchor.insertAdjacentElement("afterend", b);
     } else {
       qr.appendChild(b);
     }
-
-    const h = document.createElement("p");
-    h.className = "qr-desktop-hint";
-    h.style.marginTop = "8px";
-    h.textContent = "Opens Snap in a new tab on this computer";
-    b.insertAdjacentElement("afterend", h);
-  } else if (!root.querySelector(".qr-desktop-hint")) {
-    const b = document.getElementById("btn-open-snap-on-this-computer");
-    if (b) {
-      const h = document.createElement("p");
-      h.className = "qr-desktop-hint";
-      h.style.marginTop = "8px";
-      h.textContent = "Opens Snap in a new tab on this computer";
-      b.insertAdjacentElement("afterend", h);
-    }
   }
+
+  patchQrOrDividerIfStale(qr);
 
   // In current UI `btn-copy-snap-link` is the whole session card; older UIs may still need a button.
   if (!document.getElementById("btn-copy-snap-link")) {
@@ -1473,7 +2087,7 @@ function ensurePairingStepControls() {
     snap.type = "button";
     snap.className = "btn-ghost";
     snap.id = "btn-copy-snap-link";
-    snap.textContent = "Copy upload link";
+    snap.textContent = "Copy session code";
     const anchor = document.getElementById("btn-new-pairing-session");
     if (anchor && anchor.parentNode === root) {
       root.insertBefore(snap, anchor);
@@ -1631,6 +2245,15 @@ async function setQrSrc(imgEl, pairUrl) {
   const u = String(pairUrl || "").trim();
   if (!imgEl || !u) return;
   revokePrevQrObjectUrl(imgEl);
+  const loader = document.getElementById("qr-loader");
+  loader?.classList.remove("hidden");
+  const emptyState = document.getElementById("state-empty");
+  emptyState?.classList.add("is-qr-loading");
+  try {
+    imgEl.classList.add("is-loading");
+  } catch {
+    /* ignore */
+  }
 
   const applyBlobSrc = (blob) => {
     const u = URL.createObjectURL(blob);
@@ -1651,12 +2274,18 @@ async function setQrSrc(imgEl, pairUrl) {
         if (mGif && mGif[1]) {
           imgEl.removeAttribute("data-synclyst-qr-blob");
           imgEl.src = mGif[1];
+          loader?.classList.add("hidden");
+          imgEl.classList.remove("is-loading");
+          emptyState?.classList.remove("is-qr-loading");
           return;
         }
         const svg = qr.createSvgTag(4, 8);
         if (svg && String(svg).indexOf("<svg") !== -1) {
           const blob = new Blob([String(svg)], { type: "image/svg+xml;charset=utf-8" });
           applyBlobSrc(blob);
+          loader?.classList.add("hidden");
+          imgEl.classList.remove("is-loading");
+          emptyState?.classList.remove("is-qr-loading");
           return;
         }
       } catch {
@@ -1668,6 +2297,7 @@ async function setQrSrc(imgEl, pairUrl) {
   // If the vendor QR library fails to load for any reason, keep the popup usable.
   imgEl.removeAttribute("data-synclyst-qr-blob");
   imgEl.src = "";
+  // Keep loader visible so the QR area doesn't look broken.
 }
 
 async function registerSession(sessionId) {
@@ -1747,11 +2377,21 @@ let snapBurstGen = 0;
 function burstPollUntilListing(sessionId, opts) {
   const stepMs = opts && opts.stepMs != null ? opts.stepMs : 350;
   const maxAttempts = opts && opts.maxAttempts != null ? opts.maxAttempts : 220;
+  const onTimeoutMessage = opts && typeof opts.onTimeoutMessage === "string" ? opts.onTimeoutMessage : "";
   const my = ++snapBurstGen;
   let attempt = 0;
   async function step() {
     if (my !== snapBurstGen) return;
-    if (attempt++ >= maxAttempts) return;
+    if (attempt++ >= maxAttempts) {
+      if (onTimeoutMessage) {
+        try {
+          setReviewLoadingState(false, onTimeoutMessage);
+        } catch {
+          /* ignore */
+        }
+      }
+      return;
+    }
     if (extractionPending && attempt === 1) updateExtractionStage("Upload received");
     const j = await pollSession(sessionId);
     if (my !== snapBurstGen) return;
@@ -1775,9 +2415,12 @@ function updatePairingHeaderLabel(mode) {
   const el = document.getElementById("pairing-header-step-label");
   if (!el) return;
   if (mode === "qr") {
-    el.textContent = "1. Scan to pair phone";
+    setLabelStepHtml(el, "1. Scan to pair phone");
+    el.classList.remove("hidden");
   } else {
-    el.textContent = "2. Choose platform";
+    /* Listing: `#state-empty` (which contains this label) is hidden — clear for consistency. */
+    el.textContent = "";
+    el.classList.add("hidden");
   }
 }
 
@@ -1900,6 +2543,8 @@ function formatListingPrice(v) {
   if (v === undefined || v === null || v === "") return "";
   return String(v);
 }
+
+const DEFAULT_ESTIMATED_PRICE = "0.00";
 
 function pickStr(v) {
   return typeof v === "string" && v.trim() ? v.trim() : "";
@@ -2123,7 +2768,8 @@ function applyListing(row) {
     row.updated_at != null && String(row.updated_at).trim() !== ""
       ? String(row.updated_at)
       : `fallback:${snapPairSessionId || ""}:${pickStr(row.title)}\t${(row.description || "").length}`;
-  const priceStr = formatListingPrice(row.price);
+  const rawPriceStr = formatListingPrice(row.price);
+  const priceStr = rawPriceStr && rawPriceStr.trim() ? rawPriceStr : DEFAULT_ESTIMATED_PRICE;
   const coercedImg = pickFirstListingImageUrl(row);
   const resolvedDesc = resolveListingDescription(row);
   lastPayload = {
@@ -2133,6 +2779,36 @@ function applyListing(row) {
     ...(coercedImg ? { image_url: coercedImg } : {}),
     ...(row.listing_extra != null ? { listing_extra: row.listing_extra } : {}),
   };
+
+  // Save to Settings → Library (saved scans & drafts) so the user can reopen and post again later.
+  try {
+    const sid = snapPairSessionId;
+    if (sid) {
+      const rawStamp =
+        row.updated_at != null && String(row.updated_at).trim() !== ""
+          ? String(row.updated_at).trim()
+          : `fallback:${sid}:${pickStr(row.title)}\t${resolvedDesc.length}`;
+      let ms = Date.now();
+      try {
+        const parsed = Date.parse(String(row.updated_at || ""));
+        if (Number.isFinite(parsed)) ms = parsed;
+      } catch {
+        /* ignore */
+      }
+      void (async () => {
+        const thumb = await tryMakeThumbnailDataUrl(coercedImg);
+        void upsertDraftLibraryItem({
+          sessionId: String(sid),
+          title: row.title == null ? "" : String(row.title).trim(),
+          updatedAtMs: ms,
+          stamp: rawStamp,
+          imageUrl: thumb,
+        });
+      })();
+    }
+  } catch {
+    /* ignore */
+  }
   const thumb = document.getElementById("preview-thumb");
   const showThumb = !!coercedImg;
   if (showThumb) {
@@ -2173,6 +2849,7 @@ function applyListing(row) {
     stateEmptyEl?.classList.add("hidden");
     document.getElementById("state-loaded")?.classList.remove("hidden");
     chrome.storage.local.set({ [STORAGE_PREFERS_QR_HOME]: false });
+    updatePairingHeaderLabel("listing");
   }
 
   const newImg = coercedImg || "";
@@ -2710,6 +3387,10 @@ window.addEventListener("beforeunload", () => {
 
 (async function init() {
   try {
+    // Boot: show only a simple spinner while we resolve session/origin/QR.
+    const bootLoader = document.getElementById("boot-loader");
+    bootLoader?.classList.remove("hidden");
+
     chrome.action.setBadgeText({ text: "" });
     const name = chrome.runtime.getManifest && chrome.runtime.getManifest().name;
     chrome.action.setTitle({ title: name || "SyncLyst" });
@@ -2726,6 +3407,7 @@ window.addEventListener("beforeunload", () => {
 
   try {
     wireBillingSettings();
+    wireLibraryOverlay();
     const sessionId = await getSessionId();
     snapPairSessionId = sessionId;
     if (!sessionId) {
@@ -2748,12 +3430,18 @@ window.addEventListener("beforeunload", () => {
 
     ensurePairingStepControls();
     wireSnapPairCtaButtons();
+    void readDraftLibrary().then((list) => updateLibraryBarUI(list));
     const codeEl0 = document.getElementById("pair-session-code");
     if (codeEl0) codeEl0.textContent = sessionId;
     const pairUrlForQr = getPhoneQrUrl();
     const qrEl = document.getElementById("qr-img");
     if (qrEl && pairUrlForQr) {
       await setQrSrc(qrEl, pairUrlForQr);
+    }
+    try {
+      document.getElementById("boot-loader")?.classList.add("hidden");
+    } catch {
+      /* ignore */
     }
 
     await registerSession(sessionId);

@@ -240,20 +240,26 @@
         max-width: 36rem;
       }
       .session-panel {
-        border: 1px solid #e5e7eb;
+        border: 1px solid #e8eaef;
         border-radius: var(--radius-session-card);
-        padding: 0.75rem 0.85rem 0.75rem;
-        margin-bottom: 1rem;
-        background: #fafafa;
+        padding: 0.55rem 0.6rem 0.6rem;
+        margin-top: clamp(0.85rem, 2vw, 1.25rem);
+        margin-bottom: 0;
+        background: #f4f4f5;
       }
-      .session-panel .session-label {
+      .pair-copy .session-label {
         font-size: 0.625rem;
         font-weight: 600;
-        letter-spacing: 0.07em;
-        color: #9ca3af;
+        letter-spacing: 0.08em;
+        color: #64748b;
         text-transform: uppercase;
-        margin: 0 0 0.45rem;
-        text-align: center;
+        margin: 0;
+        flex: 0 0 auto;
+        align-self: center;
+        text-align: left;
+        line-height: 1.25;
+        white-space: nowrap;
+        padding: 0.55rem 0.65rem 0.55rem 0.75rem;
       }
       .session-row {
         display: flex;
@@ -274,26 +280,33 @@
         min-width: 0;
         flex: 1;
       }
-      /* Match extension popup: big tap-to-copy session control. */
+      /* Single-line tap-to-copy: one surface; code area separated by hairlines only. */
       .pair-copy {
         width: 100%;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.2rem;
-        text-align: center;
-        padding: 0.7rem 1rem;
-        border-radius: 14px;
-        border: 1px solid #d1d5db;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        justify-content: space-between;
+        gap: 0;
+        text-align: left;
+        min-height: 2.85rem;
+        padding: 0;
+        border-radius: var(--radius-btn-outline);
+        border: 1px solid #e2e8f0;
         background: #ffffff;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
         cursor: pointer;
+        overflow: hidden;
         transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.1s;
       }
       .pair-copy:hover {
-        border-color: #8b5cf6;
+        border-color: #c4b5fd;
         background: #faf5ff;
-        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+        box-shadow: 0 2px 6px rgba(139, 92, 246, 0.1);
+      }
+      .pair-copy:hover .session-label {
+        color: #475569;
       }
       .pair-copy:active {
         transform: scale(0.99);
@@ -303,18 +316,47 @@
         outline-offset: 2px;
       }
       .pair-copy-code {
-        font-size: 0.75rem;
+        font-size: 0.8125rem;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-weight: 600;
-        color: #111827;
+        color: #0f172a;
         letter-spacing: 0.02em;
-        word-break: break-all;
-        line-height: 1.3;
+        line-height: 1.35;
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 0.5rem 0.65rem;
+        margin: 0;
+        background: transparent;
+        border: none;
+        border-left: 1px solid #e8ecf1;
+        border-right: 1px solid #e8ecf1;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .pair-copy:hover .pair-copy-code {
+        border-left-color: #ddd6fe;
+        border-right-color: #ddd6fe;
+        color: #1e1b4b;
       }
       .pair-copy-hint {
         font-size: 0.6875rem;
-        font-weight: 500;
-        color: #9ca3af;
+        font-weight: 600;
+        color: #64748b;
+        flex: 0 0 auto;
+        white-space: nowrap;
+        letter-spacing: 0.01em;
+        align-self: center;
+        padding: 0.55rem 0.8rem 0.55rem 0.65rem;
+        transition: color 0.15s;
+      }
+      .pair-copy:hover .pair-copy-hint {
+        color: #5b21b6;
       }
       .session-hint {
         font-size: clamp(0.55rem, 2.4vw, 0.625rem);
@@ -327,10 +369,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0.35rem;
-        margin-top: 0.65rem;
-        padding-top: 0.65rem;
-        border-top: 1px solid #e5e7eb;
+        gap: 0.4rem;
+        margin-top: 0.6rem;
+        padding-top: 0.55rem;
+        border-top: 1px solid rgba(226, 232, 240, 0.9);
         font-size: 0.6875rem;
         color: #9ca3af;
         line-height: 1.4;
@@ -395,26 +437,35 @@
         cursor: pointer;
         transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
       }
+      .photo-btn--upload,
+      .photo-btn--camera {
+        min-height: 2.8rem;
+        padding: 0.72rem 1.2rem;
+      }
+      /* Was outline; now dark — primary upload. */
       .photo-btn--upload {
+        border: 1px solid #0f172a;
+        background: #111827;
+        color: #fff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+      }
+      .photo-btn--upload:hover {
+        background: #000;
+        border-color: #000;
+        color: #fff;
+      }
+      /* Was dark; now outline — secondary emphasis for phone camera. */
+      .photo-btn--camera {
         border: 1px solid #d1d5db;
         background: #ffffff;
         color: #374151;
         box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
       }
-      .photo-btn--upload:hover {
+      .photo-btn--camera:hover {
         border-color: #8b5cf6;
         background: #faf5ff;
         color: #5b21b6;
         box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
-      }
-      .photo-btn--camera {
-        border: 1px solid #0f172a;
-        background: #111827;
-        color: #fff;
-      }
-      .photo-btn--camera:hover {
-        background: #000;
-        border-color: #000;
       }
       .photo-btn:active {
         transform: scale(0.99);
@@ -514,22 +565,24 @@
         .sub {
           margin-bottom: 0.85rem;
         }
-        .session-panel {
-          margin-bottom: 0.85rem;
-        }
         .photo-actions {
           gap: 0.75rem;
           margin-top: 0.65rem;
         }
-        .photo-btn {
-          min-height: 3.15rem;
+        .session-panel {
+          margin-top: 0.85rem;
+          margin-bottom: 0;
+        }
+        .photo-btn--upload,
+        .photo-btn--camera {
+          min-height: 3rem;
           font-size: 0.9375rem;
-          padding: 0.95rem 1.15rem;
+          padding: 0.82rem 1.05rem;
         }
         .photo-btn--secondary {
-          min-height: 2.7rem;
+          min-height: 2.55rem;
           font-size: 0.8125rem;
-          padding: 0.7rem 1rem;
+          padding: 0.62rem 1rem;
         }
         .snap-page-foot {
           position: static;
@@ -622,30 +675,51 @@
         left: 50%;
         width: min(48vw, 180px);
         height: min(48vw, 180px);
-        transform: translate(-50%, -52%);
+        transform: translate(-50%, -50%);
         border: 1px dashed rgba(255, 255, 255, 0.45);
         border-radius: 16px;
         pointer-events: none;
         z-index: 2;
+        box-sizing: border-box;
+        background: transparent;
+        box-shadow: none;
       }
-      .scan-frame-guide::before,
-      .scan-frame-guide::after {
-        content: "";
+      /* Four symmetric corners — same treatment top & bottom (no bottom gradient overlay). */
+      .scan-frame-guide__corner {
         position: absolute;
-        width: 30px;
-        height: 30px;
-        border: 2px solid rgba(255, 255, 255, 0.75);
-        border-right: 0;
-        border-bottom: 0;
+        width: 28px;
+        height: 28px;
+        border: 0 solid rgba(255, 255, 255, 0.82);
+        pointer-events: none;
+        box-sizing: border-box;
       }
-      .scan-frame-guide::before {
-        top: 12px;
-        left: 12px;
+      .scan-frame-guide__corner--tl {
+        top: 11px;
+        left: 11px;
+        border-top-width: 2px;
+        border-left-width: 2px;
+        border-top-left-radius: 4px;
       }
-      .scan-frame-guide::after {
-        top: 12px;
-        right: 12px;
-        transform: scaleX(-1);
+      .scan-frame-guide__corner--tr {
+        top: 11px;
+        right: 11px;
+        border-top-width: 2px;
+        border-right-width: 2px;
+        border-top-right-radius: 4px;
+      }
+      .scan-frame-guide__corner--br {
+        bottom: 11px;
+        right: 11px;
+        border-bottom-width: 2px;
+        border-right-width: 2px;
+        border-bottom-right-radius: 4px;
+      }
+      .scan-frame-guide__corner--bl {
+        bottom: 11px;
+        left: 11px;
+        border-bottom-width: 2px;
+        border-left-width: 2px;
+        border-bottom-left-radius: 4px;
       }
       .snap-m-scan-err {
         display: none;
@@ -825,14 +899,16 @@
         box-shadow: none;
         border-radius: 16px;
         text-align: left;
-        padding: 0.65rem 0.85rem 0.75rem;
+        padding: 1.15rem 0.85rem 0.75rem;
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr;
         grid-template-areas:
-          "bar bar"
-          "label actions"
-          "eta eta";
+          "bar"
+          "label"
+          "eta"
+          "steps";
         align-items: center;
+        position: relative;
       }
       body:not(.snap--mobile-min) .snap-float__bar {
         margin-bottom: 0.4rem;
@@ -852,10 +928,17 @@
         justify-self: center;
         text-align: center;
       }
+      body:not(.snap--mobile-min) .snap-float__steps {
+        grid-area: steps;
+        justify-self: center;
+        text-align: center;
+      }
       body:not(.snap--mobile-min) .snap-float__row-actions {
-        grid-area: actions;
-        justify-content: flex-end;
+        position: absolute;
+        right: 0.7rem;
+        top: 2.25rem;
         margin-top: 0;
+        justify-content: flex-end;
       }
       body:not(.snap--mobile-min) .snap-float__cancel {
         padding: 0.28rem 0.6rem;
@@ -909,6 +992,8 @@
       }
       .snap-float__line {
         margin: 0;
+        width: 100%;
+        text-align: center;
         font-size: 0.8125rem;
         font-weight: 600;
         color: #0f172a;
@@ -936,6 +1021,38 @@
         color: #64748b;
         line-height: 1.3;
         font-variant-numeric: tabular-nums;
+      }
+      .snap-float__steps {
+        margin: 0.25rem 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.15rem 0.6rem;
+        font-size: 0.625rem;
+        color: #64748b;
+        line-height: 1.2;
+      }
+      .snap-float__step {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        min-width: 0;
+        white-space: nowrap;
+      }
+      .snap-float__step::before {
+        content: "•";
+        color: rgba(124, 58, 237, 0.95);
+        font-weight: 900;
+      }
+      .snap-float__step.is-done {
+        color: rgba(6, 95, 70, 0.95);
+      }
+      .snap-float__step.is-done::before {
+        content: "✓";
+        color: rgba(6, 95, 70, 0.95);
       }
       .snap-float__row-actions {
         margin-top: 0.65rem;
@@ -1201,7 +1318,7 @@
             '<p class="sub sub--pair-invalid">Paste the pairing code from your extension popup to continue.</p>' +
             '<div class="photo-actions" style="margin-top:0.9rem;gap:0.55rem">' +
             '<input type="text" id="pair-code" class="pair-input" inputmode="text" autocomplete="one-time-code" placeholder="e.g. 4f8a... (12-32 chars)" />' +
-            '<button type="button" class="photo-btn photo-btn--camera" id="btn-go-pair" aria-label="Open Snap upload">' +
+            '<button type="button" class="photo-btn photo-btn--upload" id="btn-go-pair" aria-label="Open Snap upload">' +
             "Open Snap upload" +
             "</button>" +
             "</div>" +
@@ -1252,17 +1369,7 @@
           '<p class="brand-meta">Your listing workflow on autopilot</p>' +
           "</div></div>" +
           '<h1>Pair with desktop</h1>' +
-          '<div class="session-panel">' +
-          '<p class="session-label">Session</p>' +
-          '<button type="button" class="pair-copy" id="btn-copy-session" title="Copy session code">' +
-          '<span class="pair-copy-code" id="session-display"></span>' +
-          '<span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite">Tap to copy</span>' +
-          "</button>" +
-          '<div class="session-foot">' +
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M3.5 10.5h17"/></svg>' +
-          "<span>Photo updates your desktop extension in real time.</span>" +
-          "</div></div>" +
-          '<p class="sub">Upload from your computer or use your phone camera in the same session.<br />We extract and send it to your extension.</p>' +
+          '<p class="sub">Pick photos from your computer or take them on your phone.<br />After extraction completes, your draft appears in the SyncLyst extension popup.</p>' +
           '<div class="photo-actions">' +
           '<input type="file" id="file-upload" accept="image/jpeg,image/png,image/webp,image/heic,.heic" multiple />' +
           '<input type="file" id="file-camera" accept="image/*" capture="environment" />' +
@@ -1279,12 +1386,27 @@
           "Open on desktop" +
           "</button>" +
           "</div>" +
+          '<div class="session-panel">' +
+          '<button type="button" class="pair-copy" id="btn-copy-session" title="Copy session code">' +
+          '<span class="session-label">Session code</span>' +
+          '<span class="pair-copy-code" id="session-display"></span>' +
+          '<span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite">Tap to copy</span>' +
+          "</button>" +
+          '<div class="session-foot">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M3.5 10.5h17"/></svg>' +
+          "<span>Photo updates your desktop extension in real time.</span>" +
+          "</div></div>" +
           "</div>" +
           '<div class="snap-m-scan" id="snap-m-scan" role="main" aria-label="Scan or upload">' +
           '<div class="snap-m-step-camera" id="snap-m-step-camera">' +
           '<div class="scan-camera-viewport">' +
           '<video id="snap-m-video" playsinline muted autoplay></video>' +
-          '<div class="scan-frame-guide" aria-hidden="true"></div>' +
+          '<div class="scan-frame-guide" aria-hidden="true">' +
+          '<span class="scan-frame-guide__corner scan-frame-guide__corner--tl"></span>' +
+          '<span class="scan-frame-guide__corner scan-frame-guide__corner--tr"></span>' +
+          '<span class="scan-frame-guide__corner scan-frame-guide__corner--br"></span>' +
+          '<span class="scan-frame-guide__corner scan-frame-guide__corner--bl"></span>' +
+          "</div>" +
           "</div>" +
           '<p id="snap-m-camera-error" class="snap-m-scan-err" role="status" aria-live="polite"></p>' +
           '<div class="scan-control-bar">' +
@@ -1307,8 +1429,14 @@
           '<div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track">' +
           '<div class="progress-fill" id="progress-fill"></div>' +
           "</div></div>" +
-          '<p class="snap-float__line" id="progress-label">Extracting listing…</p>' +
+          '<p class="snap-float__line" id="progress-label">Extracting listing</p>' +
           '<p class="snap-float__eta" id="progress-eta" aria-hidden="true"></p>' +
+          '<ul class="snap-float__steps" id="progress-steps" aria-label="Extraction steps">' +
+          '<li class="snap-float__step" id="progress-step-1">Upload received</li>' +
+          '<li class="snap-float__step" id="progress-step-2">Processing image</li>' +
+          '<li class="snap-float__step" id="progress-step-3">Drafting details</li>' +
+          '<li class="snap-float__step" id="progress-step-4">Finalizing</li>' +
+          "</ul>" +
           '<div class="snap-float__row-actions" id="snap-float-actions" hidden>' +
           '<button type="button" class="snap-float__cancel" id="snap-float-cancel" aria-label="Cancel upload">Cancel</button>' +
           "</div>" +
@@ -1348,6 +1476,12 @@
         var progressEta = document.getElementById("progress-eta");
         var progressLabel = document.getElementById("progress-label");
         var progressTrack = document.getElementById("progress-track");
+        var progressSteps = [
+          document.getElementById("progress-step-1"),
+          document.getElementById("progress-step-2"),
+          document.getElementById("progress-step-3"),
+          document.getElementById("progress-step-4"),
+        ];
         var copySessionBtn = document.getElementById("btn-copy-session");
         var sessionDisplay = document.getElementById("session-display");
         var pairHint = document.getElementById("pair-copy-hint");
@@ -1444,8 +1578,11 @@
             progressEta.textContent = "";
             progressEta.setAttribute("aria-hidden", "true");
           }
-          var successLine =
-            "Photo received. Extraction is on the server; open the SyncLyst extension on this computer to load it (puzzle icon). Local dev: use the same app host on phone and PC, or the extension can poll the wrong place.";
+          var mobileFlow =
+            isLikelyMobile() && document.body.classList.contains("snap--mobile-min");
+          var successLine = mobileFlow
+            ? "Phone extracted successfully. Open the SyncLyst extension to view your draft."
+            : "Photo extracted successfully. Open the SyncLyst extension on this computer to view your draft.";
           if (progressLabel) progressLabel.textContent = successLine;
           progressWrap.className = "snap-float snap-float--success";
           progressWrap.removeAttribute("hidden");
@@ -1536,9 +1673,12 @@
           if (snapFloatActions) snapFloatActions.hidden = false;
           if (snapFloatBar) snapFloatBar.hidden = false;
           progressFill.style.width = "0%";
-          if (progressLabel) progressLabel.textContent = "Extracting listing…";
+          if (progressLabel) progressLabel.textContent = "Extracting listing";
           progressTrack.setAttribute("aria-valuenow", "0");
           if (progressEta) progressEta.setAttribute("aria-hidden", "false");
+          for (var i = 0; i < progressSteps.length; i++) {
+            if (progressSteps[i]) progressSteps[i].classList.remove("is-done");
+          }
           progressStart = Date.now();
           progressTimer = setInterval(function () {
             var elapsed = (Date.now() - progressStart) / 1000;
@@ -1554,7 +1694,20 @@
             }
             progressFill.style.width = pct + "%";
             progressTrack.setAttribute("aria-valuenow", String(Math.round(pct)));
-            if (progressEta) progressEta.textContent = etaText;
+            var stepIdx = Math.max(1, Math.min(4, Math.floor((elapsed / Math.max(1, ESTIMATE_SEC)) * 4) + 1));
+            for (var i = 0; i < progressSteps.length; i++) {
+              if (progressSteps[i]) progressSteps[i].classList.toggle("is-done", i + 1 < stepIdx);
+            }
+            var phase =
+              stepIdx >= 4
+                ? "Finalizing"
+                : stepIdx === 3
+                ? "Drafting"
+                : stepIdx === 2
+                ? "Processing"
+                : "Uploading";
+            var etaClean = String(etaText || "").replace(/^~\s*/, "");
+            if (progressEta) progressEta.textContent = "Step " + stepIdx + "/4 - " + etaClean + " left · " + phase;
           }, 200);
         }
 
@@ -1582,7 +1735,7 @@
             progressEta.setAttribute("aria-hidden", "true");
           }
           progressTrack.setAttribute("aria-valuenow", "0");
-          if (progressLabel) progressLabel.textContent = "Extracting listing…";
+          if (progressLabel) progressLabel.textContent = "Extracting listing";
           if (snapFloatActions) snapFloatActions.hidden = true;
           if (msgEl) {
             msgEl.setAttribute("hidden", "");

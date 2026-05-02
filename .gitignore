@@ -13,3 +13,6 @@ config.js
 .next
 **/__pycache__
 .vercel
+
+# Packaged Chrome extension output (regenerate with npm run extension:package)
+dist/
