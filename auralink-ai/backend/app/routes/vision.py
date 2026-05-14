@@ -292,7 +292,19 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
         ) from None
     except VisionServiceError as e:
         logger.warning("Vision extraction upstream error: %s", e)
-        raise HTTPException(status_code=503, detail=str(e)) from None
+        err_msg = str(e) if e is not None else ""
+        lower_err = err_msg.lower()
+        # Graceful fallback: never block the user on rate limits / quota.
+        # Return a safe extraction so the user can edit manually in flow-3.
+        if "429" in err_msg or "quota" in lower_err or "resource exhausted" in lower_err or "rate limit" in lower_err:
+            from app.services.vision_service import get_fallback_extraction
+            fallback = get_fallback_extraction()
+            fallback.extraction_copy.seo_title = "Item from photo"
+            fallback.extraction_copy.description = "AI is temporarily unavailable (rate limited). Please review and edit this draft before publishing."
+            fallback.confidence_score = 0.2
+            fallback.sources = {**(fallback.sources or {}), "fallback": "quota"}
+            return fallback.model_dump()
+        raise HTTPException(status_code=503, detail=err_msg) from None
     except Exception as e:
         logger.exception("Vision extraction failed")
         from app.config import get_settings
@@ -320,8 +332,14 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
                 status_code=503,
                 detail="Gemini API key invalid or restricted. Check GEMINI_API_KEY in backend .env and ensure the Generative Language API is enabled in Google Cloud / AI Studio.",
             )
-        if "429" in err_msg or "quota" in err_msg.lower() or "resource exhausted" in err_msg.lower():
-            raise HTTPException(status_code=503, detail="Gemini quota exceeded. Try again later or check your Google Cloud quota.")
+        if "429" in err_msg or "quota" in lower_err or "resource exhausted" in lower_err or "rate limit" in lower_err:
+            from app.services.vision_service import get_fallback_extraction
+            fallback = get_fallback_extraction()
+            fallback.extraction_copy.seo_title = "Item from photo"
+            fallback.extraction_copy.description = "AI is temporarily unavailable (rate limited). Please review and edit this draft before publishing."
+            fallback.confidence_score = 0.2
+            fallback.sources = {**(fallback.sources or {}), "fallback": "quota"}
+            return fallback.model_dump()
         raise HTTPException(status_code=500, detail=f"Extraction failed: {err_msg}")
 
     # Enrich material/brand from OCR (material phrases, brands_db) if not already set

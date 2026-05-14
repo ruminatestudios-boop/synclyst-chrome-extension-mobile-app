@@ -139,7 +139,7 @@
       var token = getToken();
       (token ? Promise.resolve(token) : fetchToken()).then(function(t) {
         if (!t) {
-          try { window.location.href = '/sign-in?redirect_url=' + encodeURIComponent('/listings-all.html'); } catch (e) {}
+          try { window.location.href = '/sign-up?redirect_url=' + encodeURIComponent('/listings-all.html'); } catch (e) {}
           return;
         }
         var base = getPublishingUrl();

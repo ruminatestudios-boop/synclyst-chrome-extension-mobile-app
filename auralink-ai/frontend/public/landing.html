@@ -1763,7 +1763,7 @@
                   var code = err && err.code ? err.code : '';
                   if (code === 'NO_TOKEN') {
                     persistDraftForShopifyFromLanding();
-                    window.location.href = window.synclystAppUrl('/sign-in?redirect_url=' + encodeURIComponent(SCAN_RETURN_PATH));
+                    window.location.href = window.synclystAppUrl('/sign-up?redirect_url=' + encodeURIComponent(SCAN_RETURN_PATH));
                     return;
                   }
                   if (code === 'SHOPIFY_NOT_CONNECTED') {

@@ -2450,7 +2450,7 @@
             if (nextBtn) { nextBtn.disabled = false; var lbl = nextBtn.querySelector('#review-next-btn-label'); if (lbl) lbl.textContent = 'Publish to Shopify'; nextBtn.style.pointerEvents = ''; nextBtn.style.opacity = ''; }
             var msg = (err && err.message) ? String(err.message) : 'Publish failed. Try again.';
             if (msg === 'unauthorized') {
-              try { window.location.href = '/sign-in?redirect_url=' + encodeURIComponent('/review'); } catch (e) {}
+              try { window.location.href = '/sign-up?redirect_url=' + encodeURIComponent('/review'); } catch (e) {}
               return;
             }
             if (err && err.name === 'AbortError') {

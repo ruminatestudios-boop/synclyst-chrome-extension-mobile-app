@@ -107,9 +107,11 @@ export async function GET(request: NextRequest) {
     resume.searchParams.set("shop", shopNorm);
     resume.searchParams.set("return_to", returnTo);
     resume.searchParams.delete("return");
-    const signIn = new URL("/sign-in", origin);
-    signIn.searchParams.set("redirect_url", resume.pathname + resume.search);
-    return NextResponse.redirect(signIn);
+    // New merchants hit this path first; Sign-in + unknown email shows "Couldn't find your account".
+    // Sign-up preserves the same redirect so OAuth runs after account creation.
+    const signUp = new URL("/sign-up", origin);
+    signUp.searchParams.set("redirect_url", resume.pathname + resume.search);
+    return NextResponse.redirect(signUp);
   }
 
   const secret = getPublishingJwtSecret();

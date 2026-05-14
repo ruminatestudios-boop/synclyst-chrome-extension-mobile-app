@@ -1,10 +1,11 @@
 "use client";
 
-import { SignedIn, SignedOut, RedirectToSignIn, useAuth } from "@clerk/nextjs";
+import { SignedIn, SignedOut, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { RedirectToAppSignUp } from "@/components/RedirectToAppSignUp";
 
 const CLERK_JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE?.trim();
 
@@ -138,7 +139,7 @@ function BillingCheckoutInner() {
   return (
     <>
       <SignedOut>
-        <RedirectToSignIn redirectUrl={redirectAfterSignIn} />
+        <RedirectToAppSignUp redirectUrl={redirectAfterSignIn} />
       </SignedOut>
       <SignedIn>
         <div

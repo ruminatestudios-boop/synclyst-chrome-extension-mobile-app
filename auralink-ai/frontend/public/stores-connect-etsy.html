@@ -136,7 +136,7 @@
             .catch(function(err) {
               clearTimeout(timeoutId);
               if (err && String(err.message || '') === 'unauthorized') {
-                try { window.location.href = '/sign-in?redirect_url=' + encodeURIComponent('/stores-connect-etsy.html'); } catch (e) {}
+                try { window.location.href = '/sign-up?redirect_url=' + encodeURIComponent('/stores-connect-etsy.html'); } catch (e) {}
                 return;
               }
               var msg = err.name === 'AbortError'

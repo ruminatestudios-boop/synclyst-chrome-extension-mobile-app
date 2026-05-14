@@ -164,37 +164,46 @@ export function SignInForm({
   }
 
   return (
-    <div style={{ position: "relative", minHeight: 300 }}>
-      {isLoaded && !isSignedIn ? (
-        <SignIn
-          forceRedirectUrl={forceRedirectUrl}
-          afterSignInUrl={forceRedirectUrl}
-          redirectUrl={forceRedirectUrl}
-          signUpUrl={signUpUrl}
-          appearance={embeddedAppearance}
-        />
-      ) : null}
+    <>
+      <p className="mb-3 text-center text-xs text-zinc-500 max-w-sm mx-auto">
+        New to SyncLyst?{" "}
+        <a href={signUpUrl} className="font-semibold text-zinc-800 underline">
+          Create an account
+        </a>{" "}
+        first. Sign-in below is for returning users.
+      </p>
+      <div style={{ position: "relative", minHeight: 300 }}>
+        {isLoaded && !isSignedIn ? (
+          <SignIn
+            forceRedirectUrl={forceRedirectUrl}
+            afterSignInUrl={forceRedirectUrl}
+            redirectUrl={forceRedirectUrl}
+            signUpUrl={signUpUrl}
+            appearance={embeddedAppearance}
+          />
+        ) : null}
 
-      {showLoader ? (
-        <div
-          style={
-            isLoaded
-              ? {
-                  position: "absolute",
-                  inset: 0,
-                  zIndex: 10,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(255,255,255,0.97)",
-                  borderRadius: "inherit",
-                }
-              : { width: "100%" }
-          }
-        >
-          <SignInLoadingBlock />
-        </div>
-      ) : null}
-    </div>
+        {showLoader ? (
+          <div
+            style={
+              isLoaded
+                ? {
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "rgba(255,255,255,0.97)",
+                    borderRadius: "inherit",
+                  }
+                : { width: "100%" }
+            }
+          >
+            <SignInLoadingBlock />
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }

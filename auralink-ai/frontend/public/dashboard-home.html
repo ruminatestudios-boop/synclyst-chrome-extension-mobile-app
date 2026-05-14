@@ -399,8 +399,8 @@
 
       /**
        * After OAuth, the Clerk session cookie can land a beat before /api/publishing/token succeeds.
-       * The old "no token => redirect to /sign-in" path caused a signed-in ↔ dashboard redirect loop
-       * (flicker). We retry, then use user-summary: only send anonymous users to sign-in.
+       * The old "no token => redirect" path caused a signed-in ↔ dashboard redirect loop (flicker).
+       * We retry, then use user-summary: only send anonymous users to sign-up (new merchants).
        */
       function fetchTokenWithRetries(maxAttempts) {
         var i = 0;
@@ -443,7 +443,7 @@
               return;
             }
             try {
-              window.location.href = '/sign-in?redirect_url=' + encodeURIComponent('/dashboard/home');
+              window.location.href = '/sign-up?redirect_url=' + encodeURIComponent('/dashboard/home');
             } catch (e) {}
             var el2 = document.getElementById('dashboard-listed-count');
             if (el2) el2.textContent = '—';
