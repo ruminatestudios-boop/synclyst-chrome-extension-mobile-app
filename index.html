@@ -33,8 +33,17 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.05);
         }
         .features-benefits-section .feature-benefit-card.vercel-card:hover {
-            border-color: #eaeaea;
-            box-shadow: none;
+            border-color: #d4d4d8;
+            box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-3px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .features-benefits-section .feature-benefit-card {
+                transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+            }
+            .features-benefits-section .feature-benefit-card.vercel-card:hover {
+                transform: none;
+            }
         }
         .pricing-card--inactive {
             opacity: 0.65;
@@ -99,7 +108,10 @@
         .vercel-section-alt .vercel-card { background: #fff; }
         /* Benefits & key features: highlighted block */
         .features-benefits-section {
-            background: linear-gradient(180deg, #f5f5f5 0%, #fafafa 50%, #f5f5f5 100%);
+            background:
+                radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.038) 1px, transparent 0),
+                linear-gradient(180deg, #f3f3f4 0%, #fafafa 45%, #f4f4f5 100%);
+            background-size: 22px 22px, 100% 100%;
             border-top: 1px solid #eee;
             border-bottom: 1px solid #eee;
         }
@@ -109,33 +121,39 @@
             border-radius: 1rem;
             position: relative;
             overflow: hidden;
-        }
-        .features-benefits-section .feature-benefit-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #111 0%, #333 100%);
-            opacity: 0;
-        }
-        /* No hover highlight — keep cards visually static */
-        .features-benefits-section .feature-benefit-card:hover {
-            border-color: #eaeaea;
-            box-shadow: none;
-        }
-        .features-benefits-section .feature-benefit-card:hover::before {
-            opacity: 0;
+            transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
         }
         .features-benefits-section .feature-benefit-card .icon-wrap {
-            background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
-            border: 1px solid #eee;
+            background: #fff;
+            border: 1px solid #eaeaea;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .features-benefits-section .feature-benefit-card:hover .icon-wrap {
+            border-color: #d4d4d8;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
         }
         .features-steps-list {
             list-style: none;
             padding: 0;
             margin: 0;
+        }
+        @media (min-width: 1024px) {
+            .features-steps-list > li:not(:last-child) {
+                position: relative;
+            }
+            .features-steps-list > li:not(:last-child)::after {
+                content: '';
+                position: absolute;
+                top: 2.75rem;
+                left: 100%;
+                width: 1.5rem;
+                height: 2px;
+                background: linear-gradient(90deg, #cbd5e1, #e2e8f0);
+                border-radius: 9999px;
+                pointer-events: none;
+                z-index: 2;
+            }
         }
         .scan-hero-btn:hover { background-color: #1a1a1a !important; border-color: #1a1a1a; }
         /* Live integration icon: subtle pulse */
@@ -160,6 +178,30 @@
         }
         .comparison-shopify-sync .comparison-sync-bar {
             animation: comparison-sync-pulse 2s ease-in-out infinite;
+        }
+        .synciq-grid-card {
+            position: relative;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        .synciq-grid-card::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 3px;
+            border-radius: 1rem 1rem 0 0;
+            background: linear-gradient(90deg, #0a0a0a 0%, #3f3f46 50%, #71717a 100%);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+        .synciq-grid-card:hover {
+            border-color: #d4d4d8;
+            box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.12);
+            transform: translateY(-3px);
+        }
+        .synciq-grid-card:hover::before { opacity: 1; }
+        @media (prefers-reduced-motion: reduce) {
+            .synciq-grid-card { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+            .synciq-grid-card:hover { transform: none; }
         }
     </style>
 </head>
@@ -306,7 +348,9 @@
             <a href="/landing.html" class="flex items-center gap-2 flex-shrink-0 absolute left-1/2 -translate-x-1/2 no-underline">
                 <span class="text-lg font-semibold tracking-tight text-[#111]">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span>
             </a>
-            <div class="hidden md:flex items-center gap-4 flex-1 justify-end min-w-0">
+            <div class="hidden md:flex items-center gap-5 flex-1 justify-end min-w-0">
+                <a href="#chrome-extension" onclick="handleNavigate(event, 'chrome-extension')" class="text-sm text-[#555] hover:text-[#111] transition-colors whitespace-nowrap">Chrome Extension</a>
+                <a href="#synciq" onclick="handleNavigate(event, 'synciq')" class="text-sm text-[#555] hover:text-[#111] transition-colors whitespace-nowrap">SyncIQ</a>
                 <a href="/sign-in?redirect_url=/dashboard" class="text-sm text-[#555] hover:text-[#111] transition-colors">Login</a>
                 <a href="/sign-up?redirect_url=/dashboard" class="bg-black text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-all no-underline">
                     Sign up
@@ -320,39 +364,65 @@
         <!-- Hero -->
         <section class="relative pt-32 pb-20 px-6 overflow-hidden bg-white">
             <div class="max-w-5xl mx-auto text-center">
-                <div class="inline-flex items-center gap-2 p-1.5 md:p-2 mb-8 bg-white border border-[#eaeaea] rounded-lg md:rounded-xl mx-auto text-left">
-                    <div class="flex-shrink-0 w-6 h-6 md:w-7 md:h-7 rounded-md bg-zinc-100 flex items-center justify-center">
-                        <i data-lucide="sparkles" class="w-3 h-3 md:w-4 md:h-4 text-zinc-600"></i>
-                    </div>
-                    <p class="text-[10px] md:text-xs text-[#555] leading-tight vercel-body text-left whitespace-nowrap max-[380px]:whitespace-normal max-[380px]:text-[9px]">
-                        <span class="font-semibold text-[#111]">Smart Suggest:</span> The more you use it, the smarter it gets
-                    </p>
-                </div>
                 <h1 class="text-3xl md:text-5xl font-bold tracking-tight leading-tight mb-8 text-[#000]">
-                    Stop listing manually
+                    The complete toolkit for resellers
                 </h1>
                 <p class="text-lg md:text-xl text-[#555] max-w-2xl mx-auto mb-10 text-balance leading-relaxed vercel-body">
-                    What used to take 20 minutes now takes one tap.<br>
-                    Everything you need to sell — title, description, price &amp; tags — done for you instantly.
+                    List in seconds from the mobile app or Chrome extension.<br />Scan anything <span class="text-orange-600 font-semibold">FREE</span> with SyncIQ to see if it's worth buying.
                 </p>
-                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <a href="/home.html?mode=scan" class="scan-hero-btn text-white px-8 py-3.5 rounded-xl font-semibold border border-black transition-all flex items-center gap-2.5 group inline-flex bg-black">
+                <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
+                    <a href="/home.html?mode=scan" class="scan-hero-btn text-white px-8 py-3.5 rounded-xl font-semibold border border-black transition-all flex items-center justify-center gap-2.5 group inline-flex bg-black sm:flex-1 sm:min-w-[200px]">
                         <div class="relative flex items-center justify-center w-5 h-5 overflow-hidden">
                             <i data-lucide="camera" class="w-5 h-5 relative z-10"></i>
                             <div class="absolute left-0 right-0 h-[2px] bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] animate-scan-sweep z-20"></div>
                         </div>
                         Scan Your First Item
                     </a>
-                    <a href="/flow-batch-upload.html" class="bg-white text-[#111] px-8 py-3.5 rounded-xl font-semibold border border-[#eaeaea] hover:bg-zinc-50 transition-all inline-flex items-center gap-2">
+                    <a href="/flow-batch-upload.html" class="hidden bg-white text-[#111] px-8 py-3.5 rounded-xl font-semibold border border-[#eaeaea] hover:bg-zinc-50 transition-all inline-flex items-center justify-center gap-2 sm:flex-1 sm:min-w-[200px]" aria-hidden="true" tabindex="-1">
                         <i data-lucide="layers" class="w-5 h-5"></i>
                         Batch Upload
                         <span class="text-[10px] font-semibold text-amber-600 uppercase">Premium</span>
+                    </a>
+                    <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="bg-white text-[#111] px-8 py-3.5 rounded-xl font-semibold border border-[#eaeaea] hover:bg-zinc-50 hover:border-[#111] transition-all inline-flex items-center justify-center gap-2 sm:flex-1 sm:min-w-[200px]">
+                        <i data-lucide="puzzle" class="w-5 h-5"></i>
+                        Install Chrome Extension
                     </a>
                 </div>
             </div>
             <div class="mt-20 max-w-6xl mx-auto">
                 <div class="relative rounded-xl border border-[#eaeaea] bg-white shadow-[0_0_80px_rgba(0,0,0,0.05)] overflow-hidden">
                     <video src="https://cdn.shopify.com/videos/c/o/v/a1339d2915174ff39f33e43a26d6925c.mp4" class="rounded-xl w-full h-auto object-cover" muted loop playsinline autoplay></video>
+                </div>
+            </div>
+        </section>
+
+        <!-- Two ways to list -->
+        <section id="how-to-list" class="py-20 md:py-24 px-6 bg-white border-b border-[#eaeaea]">
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-12 md:mb-14">
+                    <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 vercel-headline">Two tools. One goal. List faster.</h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-5">
+                    <div class="vercel-card p-8 md:p-9 rounded-2xl flex flex-col h-full border border-[#eaeaea]">
+                        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                            <h3 class="text-xl font-bold text-[#111]">📱 Mobile App</h3>
+                            <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">Live Now</span>
+                        </div>
+                        <p class="text-sm text-[#555] leading-relaxed vercel-body flex-1 mb-8">Open SyncLyst on your phone. Point your camera at any product — AI extracts the title, description, price and tags, then pushes it straight to your Shopify product page.</p>
+                        <a href="/home.html?mode=scan" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all text-center no-underline">
+                            Scan Your First Item
+                        </a>
+                    </div>
+                    <div id="chrome-extension" class="vercel-card p-8 md:p-9 rounded-2xl flex flex-col h-full border border-[#eaeaea] scroll-mt-24">
+                        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                            <h3 class="text-xl font-bold text-[#111]">🧩 Chrome Extension</h3>
+                            <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border border-zinc-200 bg-zinc-100 text-zinc-700">New</span>
+                        </div>
+                        <p class="text-sm text-[#555] leading-relaxed vercel-body flex-1 mb-8">Already on your Shopify, eBay, Etsy, Amazon or TikTok Shop listing page? Install the extension, pair your phone once, scan a product — and watch every field fill itself.</p>
+                        <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all text-center no-underline">
+                            Add to Chrome — Free
+                        </a>
+                    </div>
                 </div>
             </div>
         </section>
@@ -372,39 +442,63 @@
         </section>
 
         <!-- Features: How it works (step process) -->
-        <section id="features" class="py-24 px-6 vercel-section-alt features-benefits-section">
-            <div class="max-w-7xl mx-auto">
-                <div class="text-center mb-10 md:mb-12">
-                    <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 vercel-headline">From photo to live listing in 4 steps</h2>
-                    <p class="text-[#555] text-lg max-w-xl mx-auto vercel-body">Do this to get your products on your stores—no typing required.</p>
+        <section id="features" class="py-24 md:py-28 px-6 vercel-section-alt features-benefits-section">
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-10 md:mb-14 max-w-2xl mx-auto">
+                    <p class="inline-flex items-center gap-2 rounded-full border border-[#eaeaea] bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-[#444] shadow-sm mb-5 vercel-body tracking-tight">
+                        <span class="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]" aria-hidden="true"></span>
+                        Four steps · one workflow
+                    </p>
+                    <h2 class="text-3xl md:text-4xl font-bold tracking-tight vercel-headline">How it works</h2>
+                    <p class="text-base md:text-lg text-[#444] mt-3 font-medium tracking-tight vercel-body">Photo in. Listing out.</p>
                 </div>
-                <ol class="features-steps-list grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5">
+                <ol class="features-steps-list grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <li class="h-full">
-                        <div class="feature-benefit-card vercel-card p-7 md:p-8 rounded-2xl h-full flex flex-col">
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-3 relative z-10">Step 1 of 4</p>
-                            <h3 class="text-lg font-semibold text-[#111] leading-snug mb-3 relative z-10">Snap or upload a photo</h3>
-                            <p class="text-sm text-[#555] leading-relaxed vercel-body mt-auto relative z-10 min-h-[6.5rem] lg:min-h-[7rem]">Point your camera at the product or choose a photo from your device. One clear image is enough—we build your draft from that single shot.</p>
+                        <div class="feature-benefit-card vercel-card p-6 rounded-2xl h-full flex flex-col border border-[#eaeaea] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div class="icon-wrap flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" aria-hidden="true">
+                                    <i data-lucide="camera" class="h-5 w-5 text-[#111]"></i>
+                                </div>
+                                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-bold text-white shadow-sm">1</span>
+                            </div>
+                            <h3 class="text-[17px] font-semibold text-[#111] leading-snug mb-2">Snap a photo</h3>
+                            <p class="text-sm text-[#555] leading-relaxed vercel-body mt-auto">One clear image—we draft your listing.</p>
                         </div>
                     </li>
                     <li class="h-full">
-                        <div class="feature-benefit-card vercel-card p-7 md:p-8 rounded-2xl h-full flex flex-col">
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-3 relative z-10">Step 2 of 4</p>
-                            <h3 class="text-lg font-semibold text-[#111] leading-snug mb-3 relative z-10">Review your draft listing</h3>
-                            <p class="text-sm text-[#555] leading-relaxed vercel-body mt-auto relative z-10 min-h-[6.5rem] lg:min-h-[7rem]">We draft title, description, category, and tags from your photo. Review the listing, adjust any field you like, and continue only when it feels right.</p>
+                        <div class="feature-benefit-card vercel-card p-6 rounded-2xl h-full flex flex-col border border-[#eaeaea] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div class="icon-wrap flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" aria-hidden="true">
+                                    <i data-lucide="clipboard-list" class="h-5 w-5 text-[#111]"></i>
+                                </div>
+                                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-bold text-white shadow-sm">2</span>
+                            </div>
+                            <h3 class="text-[17px] font-semibold text-[#111] leading-snug mb-2">Review</h3>
+                            <p class="text-sm text-[#555] leading-relaxed vercel-body mt-auto">Tweak title, description, or tags if you want.</p>
                         </div>
                     </li>
                     <li class="h-full">
-                        <div class="feature-benefit-card vercel-card p-7 md:p-8 rounded-2xl h-full flex flex-col">
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-3 relative z-10">Step 3 of 4</p>
-                            <h3 class="text-lg font-semibold text-[#111] leading-snug mb-3 relative z-10">Push to your store as draft</h3>
-                            <p class="text-sm text-[#555] leading-relaxed vercel-body mt-auto relative z-10 min-h-[6.5rem] lg:min-h-[7rem]">Send the draft to Shopify, Etsy, eBay, TikTok Shop, or Amazon—saved as a draft in your store. Nothing appears on your storefront until you publish from your admin.</p>
+                        <div class="feature-benefit-card vercel-card p-6 rounded-2xl h-full flex flex-col border border-[#eaeaea] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div class="icon-wrap flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" aria-hidden="true">
+                                    <i data-lucide="cloud-upload" class="h-5 w-5 text-[#111]"></i>
+                                </div>
+                                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-bold text-white shadow-sm">3</span>
+                            </div>
+                            <h3 class="text-[17px] font-semibold text-[#111] leading-snug mb-2">Push to store</h3>
+                            <p class="text-sm text-[#555] leading-relaxed vercel-body mt-auto">One-tap Shopify draft—or Magic Fill on other sites.</p>
                         </div>
                     </li>
                     <li class="h-full">
-                        <div class="feature-benefit-card vercel-card p-7 md:p-8 rounded-2xl h-full flex flex-col ring-1 ring-zinc-900/5">
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-3 relative z-10">Step 4 of 4</p>
-                            <h3 class="text-lg font-semibold text-[#111] leading-snug mb-3 relative z-10">Publish when you’re ready</h3>
-                            <p class="text-sm text-[#555] leading-relaxed vercel-body mt-auto relative z-10 min-h-[6.5rem] lg:min-h-[7rem]">Open your store admin when you’re ready. Polish the draft, tweak details if needed, then hit Publish. Your product goes live to buyers as soon as you confirm.</p>
+                        <div class="feature-benefit-card vercel-card p-6 rounded-2xl h-full flex flex-col border border-[#eaeaea] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div class="icon-wrap flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" aria-hidden="true">
+                                    <i data-lucide="circle-check" class="h-5 w-5 text-emerald-600"></i>
+                                </div>
+                                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-bold text-white shadow-sm">4</span>
+                            </div>
+                            <h3 class="text-[17px] font-semibold text-[#111] leading-snug mb-2">Publish</h3>
+                            <p class="text-sm text-[#555] leading-relaxed vercel-body mt-auto">Go live from your store admin when you’re ready.</p>
                         </div>
                     </li>
                 </ol>
@@ -465,6 +559,10 @@
                                 </div>
                             </div>
                             <p class="text-sm text-zinc-400 mb-1">Instant photo scan · AI-powered extraction · Live sync to Shopify, Etsy, eBay, TikTok</p>
+                            <ul class="space-y-2 mb-3 text-sm text-zinc-300">
+                                <li class="flex items-start gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i><span>Chrome Extension auto-fill on any marketplace</span></li>
+                                <li class="flex items-start gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i><span>SyncIQ: know if it's worth buying before you list</span></li>
+                            </ul>
                             <p class="text-xs text-zinc-500 mb-4">Photo scan 1s · AI extraction 1.5s · Store sync <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Live</span> 0.5s</p>
                             <div class="flex items-baseline justify-between">
                                 <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Total time</span>
@@ -647,6 +745,69 @@
             </div>
         </section>
 
+        <!-- SyncIQ -->
+        <section id="synciq" class="py-20 md:py-24 px-6 vercel-section-alt border-y border-[#eaeaea] scroll-mt-24">
+            <div class="max-w-3xl mx-auto text-center mb-8">
+                <p class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-4">FREE TOOL</p>
+                <h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-4 vercel-headline">Hunt grails on the go—all in SyncLyst.</h2>
+                <p class="text-[#555] vercel-body text-lg leading-relaxed max-w-2xl mx-auto">For resellers sourcing on the go: snap a find and get live market signals plus a fast buy-or-pass read—without bouncing between sold comps, calculators, and other apps. It runs inside the same SyncLyst ecosystem you use to list.</p>
+            </div>
+            <div class="max-w-4xl mx-auto">
+                <p class="text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-3">How SyncIQ fits your day</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-left mb-8">
+                    <article class="synciq-grid-card group rounded-xl border border-[#eaeaea] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-hidden">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#eaeaea] bg-gradient-to-br from-zinc-50 to-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] group-hover:border-zinc-300 transition-colors">
+                                <i data-lucide="camera" class="w-4 h-4 text-[#111]" aria-hidden="true"></i>
+                            </span>
+                            <span class="text-[10px] font-bold tabular-nums text-zinc-300 tracking-tight" aria-hidden="true">01</span>
+                        </div>
+                        <h3 class="font-semibold text-[#111] text-sm md:text-base mb-1 tracking-tight">Snap anywhere</h3>
+                        <p class="text-[13px] text-[#555] leading-snug vercel-body">Racks, bins, thrift aisles; no barcode needed.</p>
+                    </article>
+                    <article class="synciq-grid-card group rounded-xl border border-[#eaeaea] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-hidden">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#eaeaea] bg-gradient-to-br from-zinc-50 to-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] group-hover:border-zinc-300 transition-colors">
+                                <i data-lucide="chart-column" class="w-4 h-4 text-[#111]" aria-hidden="true"></i>
+                            </span>
+                            <span class="text-[10px] font-bold tabular-nums text-zinc-300 tracking-tight" aria-hidden="true">02</span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1.5 mb-1">
+                            <h3 class="font-semibold text-[#111] text-sm md:text-base tracking-tight">Real comps</h3>
+                            <span class="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0 rounded bg-zinc-100 text-zinc-600 border border-zinc-200/80">eBay data</span>
+                        </div>
+                        <p class="text-[13px] text-[#555] leading-snug vercel-body">Live sell-side data and demand signals (eBay-backed).</p>
+                    </article>
+                    <article class="synciq-grid-card group rounded-xl border border-[#eaeaea] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-hidden ring-1 ring-emerald-500/10">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] group-hover:border-emerald-300 transition-colors">
+                                <i data-lucide="circle-check" class="w-4 h-4 text-emerald-600" aria-hidden="true"></i>
+                            </span>
+                            <span class="text-[10px] font-bold tabular-nums text-zinc-300 tracking-tight" aria-hidden="true">03</span>
+                        </div>
+                        <h3 class="font-semibold text-[#111] text-sm md:text-base mb-1 tracking-tight">Buy or pass</h3>
+                        <p class="text-[13px] text-[#555] leading-snug vercel-body">Decide before you leave the shelf or the lot.</p>
+                    </article>
+                    <article class="synciq-grid-card group rounded-xl border border-[#eaeaea] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-hidden">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#eaeaea] bg-gradient-to-br from-zinc-50 to-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] group-hover:border-zinc-300 transition-colors">
+                                <i data-lucide="link-2" class="w-4 h-4 text-[#111]" aria-hidden="true"></i>
+                            </span>
+                            <span class="text-[10px] font-bold tabular-nums text-zinc-300 tracking-tight" aria-hidden="true">04</span>
+                        </div>
+                        <h3 class="font-semibold text-[#111] text-sm md:text-base mb-1 tracking-tight">One workflow</h3>
+                        <p class="text-[13px] text-[#555] leading-snug vercel-body">Research with SyncIQ, list with SyncLyst; no app switching.</p>
+                    </article>
+                </div>
+            </div>
+            <div class="max-w-3xl mx-auto text-center">
+                <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-8 py-3.5 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all no-underline">
+                    Try SyncIQ — 10 free scans/day
+                </a>
+                <p class="text-xs text-zinc-500 mt-4 vercel-body">No account needed · Same SyncLyst ecosystem · Paid limits coming later</p>
+            </div>
+        </section>
+
         <!-- FAQ -->
         <section id="faq" class="py-24 px-6">
             <div class="max-w-3xl mx-auto">
@@ -678,6 +839,8 @@
                     <ul class="space-y-3 text-sm text-[#555]">
                         <li><a href="/home.html?mode=scan" class="hover:text-[#111] transition-colors">Scan your first item</a></li>
                         <li><a href="/flow-batch-upload.html" class="hover:text-[#111] transition-colors">Batch Upload <span class="text-[10px] font-semibold text-amber-600 uppercase">Premium</span></a></li>
+                        <li><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors">Chrome Extension</a></li>
+                        <li><a href="#synciq" onclick="handleNavigate(event, 'synciq')" class="hover:text-[#111] transition-colors">SyncIQ — Free Buy Scanner</a></li>
                         <li><a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="hover:text-[#111] transition-colors">Pricing</a></li>
                     </ul>
                 </div>
@@ -969,12 +1132,13 @@
 
         // Roadmap Voting
         const votes = { etsy: 1, ebay: 6, tiktok: 0, amazon: 0, depop: 0, vinted: 4, lazada: 0, walmart: 0, shopee: 0, poshmark: 0, facebook: 0 };
+        const AMAZON_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/240px-Amazon_logo.svg.png';
         const connectors = [
             { id: 'shopify', name: 'Shopify', status: 'Active', icon: 'shopify.com' },
             { id: 'etsy', name: 'Etsy', status: 'Coming Soon', icon: 'etsy.com' },
             { id: 'ebay', name: 'eBay', status: 'Coming Soon', icon: 'ebay.com', logoUrl: '/assets/ebay-logo.png' },
             { id: 'tiktok', name: 'TikTok Shop', status: 'Coming Soon', icon: 'tiktok.com' },
-            { id: 'amazon', name: 'Amazon SP-API', status: 'Coming Soon', icon: 'amazon.com' },
+            { id: 'amazon', name: 'Amazon SP-API', status: 'Coming Soon', icon: 'amazon.com', logoUrl: AMAZON_LOGO_URL },
             { id: 'depop', name: 'Depop', status: 'Coming Soon', icon: 'depop.com' },
             { id: 'vinted', name: 'Vinted', status: 'Coming Soon', icon: 'vinted.com' },
             { id: 'lazada', name: 'Lazada', status: 'Coming Soon', icon: 'lazada.com' },
@@ -1028,6 +1192,7 @@
 
         // FAQ
         const faqs = [
+            { q: "What's the difference between the mobile app and Chrome Extension?", a: "The mobile app is for listing — snap a photo and it pushes a full product draft to Shopify. The Chrome Extension does the same thing but auto-fills the listing form while you're already on the marketplace page (Shopify, eBay, Etsy, Amazon, TikTok Shop)." },
             { q: "How does the scanning process actually work?", a: "Take a photo of any product on your phone.<br>Synclyst's AI reads the image and instantly writes the title, description, price, category and SEO tags.<br>You review, approve and it goes live on Shopify in one tap." },
             { q: "Can I use it on my phone or do I need a desktop?", a: "Designed for your phone first.<br>Scan products anywhere — a market, a storage unit, your living room floor. No desktop needed." },
             { q: "Does it work for any product category?", a: "Yes. Clothing, electronics, shoes, bags,<br>books, toys, homeware — if you can photograph it, Synclyst can list it." },
@@ -1039,7 +1204,9 @@
             { q: "Can I cancel my subscription anytime?", a: "Yes. No contracts, no cancellation fees.<br>Cancel from your account settings<br>and you keep access until the end of your billing period." },
             { q: "Do unused scans roll over to next month?", a: "No, scans reset monthly.<br>If you regularly hit your limit early<br>it's a sign the next plan up will save you more time and money." },
             { q: "Is there a limit to how many products I can scan?", a: "Starter includes 3 free scans per month; Pro includes 100; Growth includes 500; Scale includes unlimited scans. When you hit your limit, we'll prompt you to upgrade or join the waitlist." },
-            { q: "Is my store data and product imagery secure?", a: "Security is our priority. We use enterprise-grade encryption and never share your product data or images with third parties. Your data is used only to generate your specific listings." }
+            { q: "Is my store data and product imagery secure?", a: "Security is our priority. We use enterprise-grade encryption and never share your product data or images with third parties. Your data is used only to generate your specific listings." },
+            { q: "What is SyncIQ?", a: "SyncIQ is a free scan inside the SyncLyst ecosystem for resellers on the move. Snap a grail—or any flip—and get live, eBay-backed market signals plus a quick buy-or-pass read, without bouncing between sold comps and other apps. 10 free scans per day, no account needed." },
+            { q: "Is SyncIQ part of my SyncLyst plan?", a: "It sits next to SyncLyst listing in the same ecosystem: hunt with SyncIQ, list with SyncLyst—no app switching. Free now at 10 scans/day; paid plans with higher limits are coming soon." },
         ];
         const faqContainer = document.getElementById('faq-container');
         faqs.forEach(faq => {

@@ -32,9 +32,15 @@ export function SignInForm({
   }
 
   return (
-    <SignIn
-      forceRedirectUrl={forceRedirectUrl}
-      signUpUrl={signUpUrl}
-    />
+    <>
+      <p className="mb-3 text-center text-xs text-zinc-500 max-w-sm mx-auto">
+        New to SyncLyst?{" "}
+        <a href={signUpUrl} className="font-semibold text-zinc-800 underline">
+          Create an account
+        </a>{" "}
+        first. Sign-in below is for returning users.
+      </p>
+      <SignIn forceRedirectUrl={forceRedirectUrl} signUpUrl={signUpUrl} />
+    </>
   );
 }

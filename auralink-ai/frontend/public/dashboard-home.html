@@ -380,7 +380,7 @@
       var token = getToken();
       (token ? Promise.resolve(token) : fetchToken()).then(function(t) {
         if (!t) {
-          try { window.location.href = '/sign-in?redirect_url=' + encodeURIComponent('/dashboard/home'); } catch (e) {}
+          try { window.location.href = '/sign-up?redirect_url=' + encodeURIComponent('/dashboard/home'); } catch (e) {}
           var el = document.getElementById('dashboard-listed-count');
           if (el) el.textContent = '—';
           if (typeof lucide !== 'undefined') lucide.createIcons();

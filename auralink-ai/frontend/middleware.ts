@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import type { NextFetchEvent } from "next/server";
 import type { NextRequest } from "next/server";
 
+/** Without both keys, skip Clerk so local dev works without .env.local. */
+const clerkConfigured = Boolean(
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() && process.env.CLERK_SECRET_KEY?.trim()
+);
+
 const clerk = clerkMiddleware();
 
 /**
@@ -10,6 +15,9 @@ const clerk = clerkMiddleware();
  * Relying on `matcher` negative lookahead is unreliable with Next’s path matching on Vercel.
  */
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
+  if (!clerkConfigured) {
+    return NextResponse.next();
+  }
   const p = request.nextUrl.pathname;
   if (p === "/shopify/launch" || p === "/shopify/launch/") {
     return NextResponse.next();
