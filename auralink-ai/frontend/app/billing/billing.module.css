@@ -1,0 +1,250 @@
+.page {
+  min-height: 100vh;
+  background: #f0ebf9;
+  color: #111827;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(1.25rem, 4vh, 2.5rem) clamp(1rem, 4vw, 2.5rem)
+    max(2.85rem, calc(1.25rem + env(safe-area-inset-bottom, 0px)));
+}
+
+.topBar {
+  width: 100%;
+  max-width: min(44rem, calc(100vw - 2rem));
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.brand {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #111827;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.brand sup {
+  font-size: 0.55em;
+  font-weight: 400;
+  opacity: 0.85;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.topLink {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.topLink:hover {
+  color: #111827;
+}
+
+.card {
+  width: 100%;
+  max-width: min(44rem, calc(100vw - 2rem));
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 4px 36px rgba(15, 23, 42, 0.08);
+  padding: clamp(1.35rem, 2.5vw, 2.1rem) clamp(1.25rem, 3.5vw, 2.25rem);
+}
+
+.title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-align: center;
+}
+
+.sub {
+  margin: 0.5rem auto 1.25rem;
+  color: #6b7280;
+  text-align: center;
+  line-height: 1.45;
+  max-width: 36rem;
+  font-size: 0.95rem;
+}
+
+.notice {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+  color: #374151;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.noticeWarn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.noticeErr {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.signedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0 0 1rem;
+}
+
+.signedEmail {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.signedEmail strong {
+  color: #111827;
+  font-weight: 700;
+}
+
+.btnSecondary {
+  appearance: none;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 12px;
+  padding: 0.55rem 0.85rem;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.btnSecondary:hover {
+  background: #fafafa;
+}
+
+.btnPrimary {
+  appearance: none;
+  border: none;
+  background: #111827;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font-weight: 750;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btnPrimary:hover {
+  background: #000000;
+}
+
+.btnDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.plans {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.planRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.planRowCurrent {
+  border-color: #111827;
+  box-shadow: 0 0 0 1px #111827;
+  background: #ffffff;
+}
+
+.planMeta {
+  min-width: 0;
+}
+
+.planName {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.badgeCurrent {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #16a34a;
+}
+
+.planLine {
+  margin: 0.2rem 0 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.planBtn {
+  flex-shrink: 0;
+  min-width: 9rem;
+  text-align: center;
+}
+
+.footnote {
+  margin: 1.25rem 0 0;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.signinPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.signinPanel p {
+  margin: 0;
+  color: #374151;
+  font-size: 0.9rem;
+}
+

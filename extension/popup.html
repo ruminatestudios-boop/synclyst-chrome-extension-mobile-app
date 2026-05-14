@@ -1,0 +1,2607 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SyncLyst®</title>
+    <!-- No external fonts: avoids blank/hung popup when the network blocks Google Fonts. -->
+    <!-- QR must load before Supabase so pairing never depends on another bundle. -->
+    <script src="vendor/qrcode-generator.js"></script>
+    <script src="vendor/qrcode-expose.js"></script>
+    <!-- Must stay local: use vendor/supabase.js (bundled). Do not load @supabase/supabase-js from a CDN — CSP blocks it unless manifest allows the host. -->
+    <script src="vendor/supabase.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      :root {
+        --space-1: 0.375rem;
+        --space-2: 0.5rem;
+        --space-3: 0.75rem;
+        --space-4: 1rem;
+        --space-5: 1.25rem;
+        --space-6: 1.5rem;
+        --space-7: 1.75rem;
+        --section-gap: var(--space-5);
+        --in-card-pad: var(--space-4);
+        /* Match auralink-ai/frontend/public/snap.html pairing UI */
+        --bg-page: #f0ebf9;
+        --card: #ffffff;
+        --text: #111827;
+        --text-muted: #6b7280;
+        --text-subtle: #9ca3af;
+        --border: #e5e7eb;
+        --border-strong: #d1d5db;
+        --accent: #8b5cf6;
+        --accent-hover: #7c3aed;
+        --accent-soft: rgba(139, 92, 246, 0.12);
+        --primary-fill: #111827;
+        --primary-border: #0f172a;
+        --radius-panel: 26px;
+        --radius-card: 16px;
+        --radius-control: 12px;
+        --shadow-panel: 0 2px 24px rgba(15, 23, 42, 0.06);
+        /* Keep popup header + Settings header aligned */
+        --header-pad-top: 1.2rem;
+        --header-pad-x: 1.35rem;
+        --header-pad-bottom: 1rem;
+      }
+      @property --full-review-border-angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+      }
+      .boot-error {
+        margin: 0;
+        padding: 0.65rem 1.35rem;
+        font-size: 0.75rem;
+        line-height: 1.4;
+        color: #991b1b;
+        background: #fef2f2;
+        border-bottom: 1px solid #fecaca;
+      }
+      .toast {
+        margin: 0;
+        padding: 0.6rem 1.35rem;
+        font-size: 0.75rem;
+        line-height: 1.4;
+        color: #065f46;
+        background: #ecfdf5;
+        border-bottom: 1px solid #a7f3d0;
+      }
+      .toast[data-kind="error"] {
+        color: #991b1b;
+        background: #fef2f2;
+        border-bottom-color: #fecaca;
+      }
+      .toast[data-kind="warn"] {
+        color: #92400e;
+        background: #fffbeb;
+        border-bottom-color: #fde68a;
+      }
+      .boot-loader {
+        position: absolute;
+        inset: 0;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--card);
+      }
+      .boot-loader.hidden {
+        display: none !important;
+      }
+      .boot-loader-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 1rem 1.25rem;
+      }
+      .boot-loader-spinner {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        border: 4px solid rgba(139, 92, 246, 0.18);
+        border-top-color: rgba(139, 92, 246, 0.95);
+        animation: bootSpin 0.9s linear infinite;
+      }
+      .boot-loader-text {
+        margin: 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        letter-spacing: 0.01em;
+      }
+      @keyframes bootSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      body {
+        margin: 0;
+        /* Padding (not margin on .panel) so Chrome keeps equal lavender inset top + bottom; outer margins are often clipped at the popup bottom. */
+        padding: 14px;
+        width: 384px;
+        /* Avoid forcing a tall popup: keep height content-driven with a sane cap. */
+        min-height: 0;
+        max-height: 560px;
+        overflow-y: auto;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        background: var(--bg-page);
+        color: var(--text);
+      }
+      .panel {
+        margin: 0;
+        position: relative;
+        border-radius: var(--radius-panel);
+        background: var(--card);
+        box-shadow: var(--shadow-panel);
+        overflow: hidden;
+      }
+      .popup-header {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--header-pad-top) var(--header-pad-x) var(--header-pad-bottom);
+        border-bottom: 1px solid var(--border);
+      }
+      .popup-header-tools {
+        position: absolute;
+        right: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .header-help-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+      }
+      .header-help-link:hover {
+        background: rgba(15, 23, 42, 0.06);
+        color: var(--text);
+      }
+      .header-help-link:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      button.header-help-link {
+        border: none;
+        background: transparent;
+        padding: 0;
+        cursor: pointer;
+        font: inherit;
+      }
+      .settings-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        /* Keep overlay full-height, but avoid a big white "floor" below content. */
+        background: var(--bg-page);
+        border-radius: inherit;
+        overflow: hidden;
+      }
+      /* Settings should scroll as a single surface (avoid double-scroll with body). */
+      .settings-overlay {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .settings-overlay.hidden {
+        display: none !important;
+      }
+      .library-bar {
+        padding: 0.65rem 1.35rem 0;
+      }
+      .library-bar.hidden {
+        display: none !important;
+      }
+      .library-bar-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.55rem 0.7rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #fff;
+        cursor: pointer;
+        font: inherit;
+        transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+      }
+      .library-bar-btn:hover {
+        border-color: #c4c9d4;
+        background: #f9fafb;
+      }
+      .library-bar-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .library-bar-left {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+      }
+      .library-bar-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(124, 58, 237, 0.08);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #7c3aed;
+        font-weight: 900;
+        flex: 0 0 auto;
+        overflow: hidden;
+      }
+      .library-bar-thumb {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .library-bar-fallback {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+      }
+      .library-bar-title {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+      }
+      .library-bar-title strong {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1.15;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .library-bar-title span {
+        font-size: 0.625rem;
+        color: var(--text-muted);
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .library-bar-chip {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.22rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.04);
+        color: var(--text-muted);
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+      }
+      .settings-top {
+        position: sticky;
+        top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--header-pad-top) var(--header-pad-x) var(--header-pad-bottom);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        background: var(--card);
+        z-index: 1;
+      }
+      .settings-back {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 1;
+        font: inherit;
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0.35rem 0.5rem;
+        border-radius: 8px;
+      }
+      .settings-back:hover {
+        background: rgba(15, 23, 42, 0.06);
+        color: var(--text);
+      }
+      .settings-title {
+        margin: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .settings-scroll {
+        /* Let the overlay own scrolling so we don't get "extra blank space" from flex:1 scroll panes. */
+        flex: 0 0 auto;
+        overflow: visible;
+        background: var(--card);
+        padding: 0.9rem 1.15rem 0.6rem;
+        -webkit-overflow-scrolling: touch;
+      }
+      .settings-scroll.hidden {
+        display: none !important;
+      }
+      .legal-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.9rem 1.15rem 0.6rem;
+        -webkit-overflow-scrolling: touch;
+      }
+      .legal-scroll.hidden {
+        display: none !important;
+      }
+      .legal-loading {
+        margin: 0;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: rgba(124, 58, 237, 0.06);
+        color: var(--text);
+        font-size: 0.8125rem;
+        line-height: 1.45;
+      }
+      .legal-text {
+        margin: 0.85rem 0 0;
+        padding: 0.85rem 0.9rem;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #fafafa;
+        color: var(--text);
+        font-size: 0.75rem;
+        line-height: 1.65;
+        white-space: pre-line;
+        word-break: break-word;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      }
+      .legal-actions {
+        margin-top: 0.75rem;
+        display: flex;
+        justify-content: center;
+      }
+      .legal-open-external {
+        font: inherit;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 0.4rem 0.65rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .legal-open-external:hover {
+        border-color: #111827;
+      }
+      .settings-section-title {
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text-subtle);
+        margin: 0 0 0.5rem;
+      }
+      .settings-section-title--spaced {
+        margin-top: 1rem;
+      }
+      .settings-trust-copy {
+        margin: 0 0 0.55rem;
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        line-height: 1.45;
+      }
+      .settings-trust-copy strong {
+        color: var(--text);
+      }
+      .settings-inline-link {
+        color: var(--accent-hover);
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .settings-inline-link:hover {
+        color: var(--accent);
+      }
+      .settings-inline-link:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      .settings-version {
+        margin: 0.65rem 0 0;
+        font-size: 0.5625rem;
+        color: var(--text-subtle);
+        text-align: center;
+        line-height: 1.35;
+      }
+      .settings-plan-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      /* Signed-out: plans are read-only (only "Sign in" is clickable). */
+      .settings-plan-grid.is-locked .settings-plan-row {
+        opacity: 0.55;
+        filter: grayscale(1);
+        cursor: not-allowed;
+      }
+      .settings-plan-grid.is-locked .settings-plan-row:hover {
+        border-color: var(--border);
+        background: #fafafa;
+        box-shadow: none;
+      }
+      .settings-plan-grid.is-locked .settings-plan-row:focus-visible {
+        outline: none;
+      }
+      .settings-plan-grid.is-locked .settings-plan-open {
+        pointer-events: none;
+      }
+      .settings-plan-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        background: #fafafa;
+        cursor: pointer;
+        flex-wrap: wrap;
+        transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+      }
+      .settings-plan-row:hover {
+        border-color: #c4c9d4;
+        background: #f4f4f5;
+      }
+      .settings-plan-row:focus {
+        outline: none;
+      }
+      .settings-plan-row:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .settings-plan-row.is-selected {
+        border-color: #111827;
+        box-shadow: 0 0 0 1px #111827;
+        background: #fff;
+      }
+      .settings-plan-details {
+        width: 100%;
+        display: none;
+        margin-top: 0.35rem;
+        padding-top: 0.45rem;
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+        font-size: 0.6875rem;
+        line-height: 1.45;
+        color: var(--text-muted);
+      }
+      .settings-plan-row.is-expanded .settings-plan-details {
+        display: block;
+      }
+      .settings-plan-details p {
+        margin: 0;
+      }
+      .settings-plan-meta {
+        min-width: 0;
+      }
+      .settings-plan-name {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.35rem;
+      }
+      .settings-plan-current-badge {
+        font-size: 0.5625rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #059669;
+        display: none;
+      }
+      .settings-plan-row.is-current .settings-plan-current-badge {
+        display: inline;
+      }
+      .settings-plan-price {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+      }
+      .settings-plan-open {
+        flex-shrink: 0;
+        font: inherit;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 0.4rem 0.65rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .settings-plan-open:hover {
+        border-color: #111827;
+        background: #fff;
+      }
+      .settings-plan-open--primary {
+        background: #5d56e1;
+        border-color: #5d56e1;
+        color: #fff;
+      }
+      .settings-plan-open--primary:hover {
+        background: #4a43c9;
+        border-color: #4a43c9;
+      }
+      .settings-plan-open.is-disabled,
+      .settings-plan-open:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        filter: grayscale(1);
+      }
+      .settings-plan-open.is-disabled:hover,
+      .settings-plan-open:disabled:hover {
+        border-color: var(--border);
+        background: #fff;
+      }
+      .settings-plan-open--primary.is-disabled:hover,
+      .settings-plan-open--primary:disabled:hover {
+        background: #5d56e1;
+        border-color: #5d56e1;
+      }
+      .settings-auth {
+        margin: 0 0 0.9rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.03);
+      }
+      .settings-auth.hidden {
+        display: none;
+      }
+      .settings-auth-title {
+        margin: 0;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        color: var(--text);
+        font-size: 0.875rem;
+        text-align: center;
+      }
+      .settings-auth-sub {
+        margin: 0.25rem 0 0.65rem;
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+      .settings-auth-actions {
+        display: flex;
+        align-items: stretch;
+        justify-content: stretch;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+      }
+      .settings-auth-pill {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+      .settings-auth-actions .settings-auth-pill {
+        width: 100%;
+        text-align: center;
+      }
+      .settings-auth-btn {
+        width: 100%;
+        border: 1px solid rgba(99, 102, 241, 0.55);
+        background: rgba(99, 102, 241, 0.12);
+        color: rgba(99, 102, 241, 0.95);
+        font-weight: 800;
+        border-radius: 12px;
+        padding: 0.45rem 0.7rem;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      }
+      .settings-auth-btn:hover {
+        background: rgba(99, 102, 241, 0.18);
+        border-color: rgba(99, 102, 241, 0.8);
+      }
+      .settings-auth-btn:active {
+        transform: scale(0.99);
+      }
+      .settings-auth-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .settings-footnote {
+        margin: 1rem 0 0;
+        font-size: 0.65rem;
+        color: var(--text-subtle);
+        line-height: 1.4;
+      }
+      .settings-diagnostics {
+        margin-top: 0.85rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #fafafa;
+      }
+      .settings-library {
+        margin-top: 0.85rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #fafafa;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .settings-library-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+      }
+      .settings-library-title {
+        margin: 0;
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--text);
+      }
+      .settings-library-clear {
+        font: inherit;
+        font-size: 0.625rem;
+        font-weight: 700;
+        padding: 0.35rem 0.55rem;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text-muted);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .settings-library-clear:hover {
+        border-color: #111827;
+        color: var(--text);
+      }
+      .settings-library-empty {
+        margin: 0;
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        line-height: 1.45;
+      }
+      .settings-library-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-height: 260px;
+        overflow-y: auto;
+        padding-right: 2px;
+      }
+      .settings-library-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+        padding: 0.55rem 0.6rem;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+      .settings-library-item-meta {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+      }
+      .settings-library-thumb {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #f3f4f6;
+        object-fit: cover;
+        flex: 0 0 auto;
+      }
+      .settings-library-thumb--placeholder {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        font-weight: 800;
+        color: #9ca3af;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(15, 23, 42, 0.04));
+      }
+      .settings-library-lines {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .settings-library-name {
+        margin: 0;
+        font-size: 0.6875rem;
+        font-weight: 750;
+        color: var(--text);
+        line-height: 1.25;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 210px;
+      }
+      .settings-library-sub {
+        margin: 0;
+        font-size: 0.625rem;
+        color: var(--text-subtle);
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 210px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      .settings-library-open {
+        flex: 0 0 auto;
+        font: inherit;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        padding: 0.42rem 0.6rem;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .settings-library-open:hover {
+        border-color: #111827;
+      }
+      .settings-diagnostics-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.3rem 0;
+        font-size: 0.6875rem;
+        line-height: 1.35;
+        color: var(--text-muted);
+      }
+      .settings-diagnostics-key {
+        flex: 0 0 auto;
+        color: var(--text-subtle);
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        font-size: 0.56rem;
+      }
+      .settings-diagnostics-val {
+        flex: 1;
+        min-width: 0;
+        text-align: right;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+          monospace;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .settings-diagnostics-actions {
+        margin-top: 0.55rem;
+        display: flex;
+        justify-content: center;
+      }
+      .settings-divider {
+        margin: 1rem 0 0.9rem;
+        height: 1px;
+        width: 100%;
+        background: linear-gradient(
+          90deg,
+          rgba(139, 92, 246, 0),
+          rgba(139, 92, 246, 0.55),
+          rgba(139, 92, 246, 0)
+        );
+      }
+      .settings-help {
+        margin-top: 0.85rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #fafafa;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .settings-help-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+      }
+      .settings-help-title {
+        margin: 0;
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--text);
+      }
+      .settings-help-steps {
+        margin: 0;
+        padding-left: 1.15rem;
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        line-height: 1.55;
+      }
+      .settings-help-steps li {
+        margin: 0.18rem 0;
+      }
+      .settings-diagnostics-copy {
+        font: inherit;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        padding: 0.45rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        color: var(--text);
+        cursor: pointer;
+      }
+      .settings-diagnostics-copy:hover {
+        border-color: #111827;
+      }
+      .settings-legal {
+        margin: 0.9rem 0 0;
+        padding-top: 0.85rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        font-size: 0.65rem;
+        color: var(--text-subtle);
+      }
+      .settings-legal-link {
+        appearance: none;
+        border: none;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: var(--accent-hover);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+      }
+      .settings-legal-link:hover {
+        color: var(--accent);
+      }
+      .settings-legal-link:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+      .settings-legal-dot {
+        opacity: 0.7;
+      }
+      .brand-text {
+        min-width: 0;
+        text-align: center;
+      }
+      .brand-text .brand-name {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        margin: 0;
+      }
+      .brand-text .brand-name sup {
+        font-size: 0.55em;
+        font-weight: 400;
+        opacity: 0.85;
+        vertical-align: super;
+        line-height: 0;
+      }
+      .brand-tap {
+        font: inherit;
+        border: none;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        cursor: pointer;
+        text-align: center;
+        color: inherit;
+        border-radius: 8px;
+      }
+      .brand-tap:hover .brand-name {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .brand-tap:focus-visible {
+        outline: 2px solid #8b5cf6;
+        outline-offset: 2px;
+      }
+      .live {
+        position: relative;
+        right: auto;
+        top: auto;
+        transform: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #10b981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      .live.is-error .dot {
+        background: #dc2626;
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+        animation: none;
+      }
+      .live.is-error {
+        color: #b91c1c;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.7;
+          transform: scale(0.92);
+        }
+      }
+      .section {
+        padding: 1.15rem 1.35rem;
+      }
+      .section--stack {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-5);
+      }
+      /* Step 1 (QR): keep items visually grouped/compact. */
+      #state-empty.section--stack {
+        gap: var(--space-3);
+      }
+      .section--stack .btn-ghost {
+        margin-top: 0;
+      }
+      .section--stack .btn-magic {
+        margin-top: 0;
+      }
+      #state-loaded {
+        display: flex;
+        flex-direction: column;
+        gap: var(--section-gap);
+      }
+      .loaded-hero {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        margin-bottom: var(--space-1);
+      }
+      .loaded-hero .ready-sub {
+        margin: 0;
+      }
+      .loaded-waiting {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-4);
+        padding: 1.1rem 1.05rem;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--border);
+        background: #fafafa;
+      }
+      .loaded-waiting-title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 750;
+        letter-spacing: -0.015em;
+        color: var(--text);
+        line-height: 1.25;
+      }
+      .loaded-waiting-sub {
+        margin: 0;
+        font-size: 0.75rem;
+        line-height: 1.35;
+        color: var(--text-muted);
+        display: block;
+        text-align: center;
+        white-space: nowrap;
+        letter-spacing: -0.01em;
+      }
+      .loaded-waiting-bullets {
+        margin: 0;
+        padding-left: 1.05rem;
+        color: var(--text-muted);
+        font-size: 0.78125rem;
+        line-height: 1.55;
+      }
+      .loaded-waiting-bullets li {
+        margin: 0.25rem 0;
+      }
+      .loaded-waiting-cta {
+        width: 100%;
+        margin-top: 0;
+      }
+      .label-step {
+        font-size: 0.625rem;
+        font-weight: 800;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text);
+        margin: 0 0 var(--space-3);
+      }
+      .label-step .label-step-num {
+        font-weight: 800;
+        color: var(--text);
+        letter-spacing: 0.07em;
+      }
+      .label-step-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+      }
+      .label-step-row .label-step {
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+      }
+      /* Step 1 label: only while #state-empty is visible (moved inside that block in HTML). */
+      .section--pairing-title {
+        padding: 0 0 0.35rem;
+        margin: 0;
+      }
+      .qr-card {
+        position: relative;
+        border-radius: var(--radius-card);
+        background: #fafafa;
+        border: 1px dashed var(--border-strong);
+        padding: 1.1rem 1rem 1rem;
+        text-align: center;
+        transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      }
+      .qr-card:hover {
+        border-color: var(--accent);
+        background: #faf5ff;
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .qr-card img {
+        border-radius: var(--radius-control);
+        background: #fff;
+        padding: 8px;
+        border: 1px solid var(--border);
+        object-fit: contain;
+        max-width: 100%;
+        height: auto;
+      }
+      .qr-card img.is-loading {
+        opacity: 0;
+      }
+      .qr-loader {
+        position: absolute;
+        left: 50%;
+        top: 1.1rem;
+        transform: translateX(-50%);
+        width: 196px;
+        height: 196px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-control);
+        background: transparent;
+        border: none;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+      }
+      .qr-loader.hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+      .qr-loader-spinner {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        border: 3px solid rgba(139, 92, 246, 0.22);
+        border-top-color: rgba(139, 92, 246, 0.9);
+        animation: qrSpin 0.9s linear infinite;
+      }
+      /* While QR is generating, show ONLY the purple spinner. */
+      #state-empty.is-qr-loading > :not(.qr-card) {
+        display: none !important;
+      }
+      #state-empty.is-qr-loading .qr-card > :not(.qr-loader) {
+        display: none !important;
+      }
+      #state-empty.is-qr-loading .qr-card {
+        padding: 2rem 1rem;
+        border-style: solid;
+        border-color: rgba(139, 92, 246, 0.25);
+        background: rgba(139, 92, 246, 0.06);
+      }
+      #state-empty.is-qr-loading .qr-loader {
+        position: static;
+        transform: none;
+        width: auto;
+        height: 88px;
+      }
+      @keyframes qrSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .qr-hint {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin: var(--space-4) 0 0;
+        line-height: 1.35;
+        display: block;
+        text-align: center;
+        white-space: nowrap;
+        letter-spacing: -0.01em;
+      }
+      .qr-or-divider {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin: 1rem 0 0;
+        width: 100%;
+      }
+      .qr-or-divider__line {
+        flex: 1;
+        min-width: 0;
+        height: 1px;
+        background: var(--border-strong);
+        opacity: 0.65;
+      }
+      .qr-or-divider__text {
+        flex-shrink: 0;
+        font-size: 0.6875rem;
+        font-weight: 650;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .pair-copy-bucket {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        margin-top: 0;
+        box-sizing: border-box;
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        background: #ffffff;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .pair-copy-left {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .pair-copy-bucket:hover {
+        border-color: #c4c9d1;
+        background: #f9fafb;
+      }
+      .pair-copy-bucket:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .pair-copy-bucket .pair-copy-code {
+        width: 100%;
+        font-size: 0.7rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pair-copy-bucket .pair-copy-hint {
+        margin: 0;
+        line-height: 1.2;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pair-copy-bucket .pair-copy-hint:empty {
+        display: none;
+      }
+      .pair-copy-chip {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.22rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.04);
+        color: var(--text-muted);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+      .pair-copy {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        text-align: center;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+      }
+      .section--stack .pair-copy-bucket {
+        margin-top: 0;
+      }
+      .pair-copy-code {
+        font-size: 0.75rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-weight: 600;
+        color: #1f2937;
+        letter-spacing: 0.02em;
+        word-break: break-all;
+        line-height: 1.3;
+      }
+      .pair-copy-hint {
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: #9ca3af;
+      }
+      .btn-ghost {
+        width: 100%;
+        margin-top: 0.85rem;
+        padding: 0.65rem 1.15rem;
+        min-height: 2.5rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #374151;
+        background: #ffffff;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        font-family: inherit;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      }
+      .btn-ghost:hover {
+        border-color: #c4c9d1;
+        background: #f9fafb;
+      }
+      .btn-ghost:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .btn-ghost:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .preview-row {
+        display: flex;
+        gap: var(--space-4);
+        align-items: center;
+        padding: var(--in-card-pad);
+        border-radius: var(--radius-card);
+        background: #fafafa;
+        border: 1px solid var(--border);
+        margin-top: var(--space-2);
+      }
+      .preview-row-fields {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+      }
+      .preview-row-fields .field-label {
+        margin-bottom: 0;
+      }
+      .preview-row img {
+        width: 64px;
+        height: 64px;
+        border-radius: 12px;
+        object-fit: cover;
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        flex-shrink: 0;
+      }
+      .extra-img-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: var(--space-2);
+      }
+      .extra-img-strip img {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #f3f4f6;
+        border: 1px solid var(--border);
+      }
+      .review-field--readonly input {
+        color: var(--text-muted);
+        background: #f9fafb;
+      }
+      .preview-title {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.3;
+        margin: 0;
+      }
+      .preview-price {
+        font-size: 13px;
+        font-weight: 500;
+        color: #4b5563;
+        margin: 6px 0 0;
+      }
+      .field-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #374151;
+        margin: 0 0 var(--space-2);
+        display: block;
+      }
+      .step-block > .field-label {
+        color: var(--text-muted);
+        font-weight: 600;
+        margin-bottom: var(--space-4);
+      }
+      .review-field {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        margin-top: var(--space-5);
+      }
+      .review-field .field-label {
+        margin: 0;
+      }
+      .field-label-hint {
+        font-weight: 500;
+        font-size: 0.6875rem;
+        color: #6b7280;
+        margin-left: 0.25rem;
+        letter-spacing: 0.01em;
+      }
+      #platform-review-section .review-template-sub + .preview-row {
+        margin-top: var(--space-1);
+      }
+      #platform-review-section .preview-row + .review-field {
+        margin-top: var(--space-6);
+      }
+      .review-actions {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        margin-top: var(--space-5);
+      }
+      .review-actions .btn-ghost {
+        margin-top: 0;
+      }
+      .review-actions .qr-hint {
+        margin-top: 0;
+        text-align: left;
+      }
+      /* Travelling border: continuous rotating gradient around the whole border. */
+      #btn-open-full-review:not(:disabled) {
+        --btn-surface: #ffffff;
+        --full-review-border-angle: 0deg;
+        border-radius: var(--radius-control);
+        border: 2px solid transparent;
+        background:
+          linear-gradient(var(--btn-surface), var(--btn-surface)) padding-box,
+          conic-gradient(
+            from var(--full-review-border-angle),
+            rgba(139, 92, 246, 0.35),
+            var(--accent),
+            var(--accent-hover),
+            var(--accent),
+            rgba(139, 92, 246, 0.35)
+          ) border-box;
+        background-origin: border-box;
+        background-clip: padding-box, border-box;
+        animation: full-review-border-sweep 2.4s linear infinite;
+      }
+      #btn-open-full-review:not(:disabled):hover {
+        --btn-surface: #f9fafb;
+      }
+      @keyframes full-review-border-sweep {
+        to {
+          --full-review-border-angle: 360deg;
+        }
+      }
+      #btn-open-full-review:disabled {
+        animation: none;
+        border-radius: var(--radius-control);
+        border: 1px solid var(--border-strong);
+        background: #ffffff;
+        background-clip: border-box;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #btn-open-full-review:not(:disabled) {
+          animation: none;
+          border-radius: var(--radius-control);
+          border: 1px solid var(--border-strong);
+          background: #ffffff;
+          background-clip: border-box;
+        }
+        #btn-open-full-review:not(:disabled):hover {
+          background: #f9fafb;
+        }
+      }
+      select {
+        width: 100%;
+        padding: 10px 12px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        border-radius: var(--radius-control);
+        border: 1px solid var(--border-strong);
+        background: #ffffff;
+        color: var(--text);
+        font-family: inherit;
+      }
+      .btn-magic {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        width: 100%;
+        min-height: 2.75rem;
+        box-sizing: border-box;
+        margin-top: var(--space-2);
+        padding: 0.62rem 1.1rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #fff;
+        border: 1px solid var(--primary-border);
+        border-radius: var(--radius-control);
+        cursor: pointer;
+        background: var(--primary-fill);
+        font-family: inherit;
+        transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      }
+      .btn-magic:hover:not(:disabled) {
+        background: #000;
+        border-color: #000;
+      }
+      .btn-magic:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .btn-magic:active:not(:disabled) {
+        transform: scale(0.99);
+      }
+      .btn-magic:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-magic.is-loading:disabled {
+        opacity: 1;
+        cursor: wait;
+      }
+      /* Spinner occupies the same 18×18 slot as the external-link icon — no width jump. */
+      .btn-magic-content {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        min-width: 0;
+      }
+      .btn-magic-lead {
+        position: relative;
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+      .btn-magic-lead-icon,
+      .btn-magic-lead-spinner {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 18px;
+        height: 18px;
+        display: block;
+        color: #fff;
+      }
+      .btn-magic-lead-spinner {
+        visibility: hidden;
+        pointer-events: none;
+        animation: btn-magic-spin 0.72s linear infinite;
+      }
+      .btn-magic.is-loading .btn-magic-lead-icon {
+        visibility: hidden;
+      }
+      .btn-magic.is-loading .btn-magic-lead-spinner {
+        visibility: visible;
+      }
+      .btn-magic-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+      @keyframes btn-magic-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      #status {
+        position: relative;
+        font-size: 0.8125rem;
+        line-height: 1.45;
+        margin: 0;
+        padding: 0.7rem 0.75rem 0.7rem 2.35rem;
+        border-radius: 14px;
+        border: none;
+        background: rgba(15, 23, 42, 0.04);
+        background-clip: padding-box;
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+      }
+      #status::before {
+        content: "ℹ︎";
+        position: absolute;
+        left: 0.8rem;
+        top: 0.72rem;
+        width: 1.15rem;
+        height: 1.15rem;
+        font-size: 0.95rem;
+        line-height: 1.15rem;
+        text-align: center;
+        color: var(--text-muted);
+        opacity: 0.95;
+      }
+      #status[data-kind="warn"] {
+        background: #fffbeb;
+        box-shadow: inset 0 0 0 1px #fde68a;
+        color: #92400e;
+      }
+      #status[data-kind="warn"]::before {
+        content: "!";
+        color: #b45309;
+      }
+      #status[data-kind="error"] {
+        background: #fef2f2;
+        box-shadow: inset 0 0 0 1px #fecaca;
+        color: #991b1b;
+      }
+      #status[data-kind="error"]::before {
+        content: "×";
+        color: #b91c1c;
+      }
+      #status[data-kind="success"] {
+        background: #ecfdf5;
+        box-shadow: inset 0 0 0 1px #a7f3d0;
+        color: #065f46;
+      }
+      #status[data-kind="success"]::before {
+        content: "✓";
+        color: #059669;
+      }
+      #status:empty {
+        min-height: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+      }
+      #status:not(:empty) {
+        margin-top: var(--space-4);
+        min-height: 2.5em;
+      }
+      .ready-sub {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        margin: 0;
+        line-height: 1.55;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .review-input,
+      .review-textarea {
+        width: 100%;
+        padding: 0.65rem 0.875rem;
+        font-size: 0.8125rem;
+        border-radius: var(--radius-control);
+        border: 1px solid var(--border-strong);
+        background: #ffffff;
+        color: var(--text);
+        font-family: inherit;
+      }
+      .review-textarea {
+        border-radius: var(--radius-card);
+      }
+      .review-textarea {
+        resize: vertical;
+        min-height: 72px;
+        line-height: 1.45;
+      }
+      .review-input:focus,
+      .review-textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .step-block {
+        margin-top: 0;
+        padding-top: var(--section-gap);
+        border-top: 1px solid var(--border);
+      }
+      .step-block:first-of-type {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+      }
+      #post-platform-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin-top: 0;
+      }
+      #post-platform-panel > .step-block:first-of-type {
+        padding-top: var(--section-gap);
+        margin-top: 0;
+        border-top: 1px solid var(--border);
+      }
+      #platform-ready-section {
+        margin-top: var(--space-6);
+      }
+      #platform-ready-section > .ready-sub {
+        margin: 0;
+        line-height: 1.55;
+      }
+      .platform-ready-must {
+        margin: var(--space-2) 0 0;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: var(--accent-hover);
+        line-height: 1.45;
+      }
+      #magic-send-section {
+        margin-top: var(--space-6);
+      }
+      #magic-send-section > .ready-sub {
+        margin: 0 0 var(--space-4);
+        line-height: 1.55;
+      }
+      .platform-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+        row-gap: var(--space-3);
+        margin-top: 0;
+        justify-items: stretch;
+      }
+      .platform-tile {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-2);
+        min-height: 72px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        background: #ffffff;
+        cursor: pointer;
+        color: var(--text);
+        font: inherit;
+        transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      }
+      .platform-tile:hover {
+        border-color: var(--accent);
+        background: #faf5ff;
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .platform-tile:hover .platform-icon:not(.platform-icon--depop):not(.platform-icon--vinted):not(.platform-icon--ebay):not(.platform-icon--shopee):not(.platform-icon--shopify):not(.platform-icon--etsy):not(.platform-icon--amazon):not(.platform-icon--tiktok-shop) {
+        color: var(--accent-hover);
+      }
+      .platform-tile.selected {
+        border-color: var(--primary-border);
+        background: #f9fafb;
+        box-shadow: 0 0 0 2px var(--primary-fill);
+      }
+      .platform-tile.selected .platform-icon:not(.platform-icon--depop):not(.platform-icon--vinted):not(.platform-icon--ebay):not(.platform-icon--shopee):not(.platform-icon--shopify):not(.platform-icon--etsy):not(.platform-icon--amazon):not(.platform-icon--tiktok-shop) {
+        color: var(--text);
+      }
+      .platform-tile:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .platform-tile--coming-soon:disabled {
+        opacity: 0.52;
+        cursor: not-allowed;
+        border-style: dashed;
+        border-color: var(--border);
+        background: #fafafa;
+        color: var(--text-muted);
+        box-shadow: none;
+      }
+      .platform-tile--coming-soon:disabled:hover {
+        border-color: var(--border);
+        background: #fafafa;
+        box-shadow: none;
+      }
+      .platform-name-sub {
+        display: block;
+        font-size: 0.5625rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-subtle);
+        margin-top: 0.1rem;
+        line-height: 1.2;
+      }
+      /**
+       * Marketplace row: one square slot per tile (Depop red square = baseline).
+       * All logos share the same box; non-square assets letterbox inside via object-fit.
+       */
+      :root {
+        --platform-logo-size: 40px;
+      }
+      .platform-icon {
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+        color: var(--text);
+        transition: color 0.15s;
+        transform-origin: 50% 50%;
+      }
+      .platform-icon--shopify,
+      .platform-icon--ebay,
+      .platform-icon--etsy,
+      .platform-icon--shopee,
+      .platform-icon--depop,
+      .platform-icon--vinted,
+      .platform-icon--amazon,
+      .platform-icon--tiktok-shop {
+        width: var(--platform-logo-size);
+        height: var(--platform-logo-size);
+        min-width: var(--platform-logo-size);
+        min-height: var(--platform-logo-size);
+        aspect-ratio: 1 / 1;
+        box-sizing: border-box;
+        display: block;
+        flex-shrink: 0;
+        color: transparent;
+        object-fit: contain;
+        object-position: center;
+      }
+      /* Wide wordmark reads small at equal side lengths — nudge scale to match square marks (Depop/Vinted). */
+      .platform-icon--ebay {
+        transform: scale(1.07);
+      }
+      .platform-name {
+        font-size: 0.625rem;
+        font-weight: 600;
+        color: #4b5563;
+        text-align: center;
+        line-height: 1.15;
+        max-width: 100%;
+      }
+      .sub-divider {
+        width: 100%;
+        height: 1px;
+        background: var(--border);
+        margin: var(--space-5) 0 var(--space-4);
+      }
+      .btn-new-session {
+        width: 100%;
+        margin-top: var(--space-2);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        cursor: pointer;
+        line-height: 1.35;
+      }
+      /* Step 1: rely on the stack gap so spacing stays uniform. */
+      #state-empty .btn-new-session {
+        margin-top: 0;
+      }
+      .btn-new-session:hover {
+        color: var(--text);
+        border-color: #c4c9d4;
+        background: rgba(15, 23, 42, 0.03);
+      }
+      #post-platform-panel .review-template-sub {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        margin: 0 0 var(--space-5);
+        line-height: 1.5;
+      }
+      .review-loading {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: rgba(124, 58, 237, 0.06);
+        color: var(--text);
+        font-size: 0.8125rem;
+        margin: var(--space-4) 0 0;
+        position: sticky;
+        bottom: 0.75rem;
+        z-index: 10;
+        backdrop-filter: blur(6px);
+      }
+      .review-loading-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .review-loading-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.6rem;
+      }
+      .review-loading-stage {
+        font-weight: 750;
+        letter-spacing: -0.01em;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .review-loading-meta {
+        flex: 0 0 auto;
+        font-size: 0.6875rem;
+        font-weight: 650;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .review-loading-eta {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        line-height: 1.3;
+      }
+      .review-loading-steps {
+        margin: 0.2rem 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.15rem 0.65rem;
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+      }
+      .review-loading-step {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        min-width: 0;
+      }
+      .review-loading-step::before {
+        content: "•";
+        color: rgba(124, 58, 237, 0.9);
+        font-weight: 900;
+      }
+      .review-loading-step.is-done {
+        color: rgba(6, 95, 70, 0.95);
+      }
+      .review-loading-step.is-done::before {
+        content: "✓";
+        color: rgba(6, 95, 70, 0.95);
+      }
+      .review-loading .spinner {
+        width: 18px;
+        height: 18px;
+        display: inline-block;
+        flex: 0 0 auto;
+        color: #7c3aed;
+        opacity: 0.95;
+        animation: reviewSpin 0.95s linear infinite;
+      }
+      @keyframes reviewSpin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel" id="panel">
+      <p id="boot-error" class="boot-error hidden" role="alert"></p>
+      <p id="toast" class="toast hidden" role="status" aria-live="polite"></p>
+      <div class="boot-loader" id="boot-loader" aria-hidden="true">
+        <div class="boot-loader-stack">
+          <div class="boot-loader-spinner" aria-hidden="true"></div>
+          <p class="boot-loader-text">Loading…</p>
+        </div>
+      </div>
+
+      <div id="settings-overlay" class="settings-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div class="settings-top">
+          <button type="button" class="settings-back" id="btn-settings-close" title="Back">
+            ← Back
+          </button>
+          <h2 class="settings-title" id="settings-title">Settings</h2>
+        </div>
+        <div class="settings-scroll" id="settings-scroll">
+          <p class="settings-section-title" id="payments-section-heading">Payments</p>
+          <div class="settings-auth" id="settings-auth">
+            <p class="settings-auth-title" id="settings-auth-title">Sign in to upgrade</p>
+            <p class="settings-auth-sub" id="settings-auth-sub">
+              Your plan is linked to your SyncLyst account. Sign in once, then upgrade in one click.
+            </p>
+            <div class="settings-auth-actions">
+              <span class="settings-auth-pill" id="settings-auth-pill">Signed out</span>
+              <button type="button" class="settings-auth-btn" id="btn-settings-signin">Sign in</button>
+            </div>
+          </div>
+          <p class="settings-footnote hidden" id="settings-billing-msg" role="status" aria-live="polite"></p>
+          <div
+            class="settings-plan-grid"
+            id="settings-plan-grid"
+            role="radiogroup"
+            aria-labelledby="payments-section-heading"
+          >
+            <div
+              class="settings-plan-row"
+              data-billing-tier="starter"
+              role="radio"
+              aria-checked="false"
+              tabindex="0"
+            >
+              <div class="settings-plan-meta">
+                <div class="settings-plan-name">
+                  Starter
+                  <span class="settings-plan-current-badge">Current</span>
+                </div>
+                <div class="settings-plan-price">£0/mo · 3 scans</div>
+              </div>
+              <button type="button" class="settings-plan-open" data-billing-tier="starter">Free signup</button>
+              <div class="settings-plan-details" aria-hidden="true">
+                <p>Try SyncLyst with light monthly usage. Pair your phone, scan items, and use Magic Fill to draft listings.</p>
+              </div>
+            </div>
+            <div
+              class="settings-plan-row"
+              data-billing-tier="pro"
+              role="radio"
+              aria-checked="false"
+              tabindex="0"
+            >
+              <div class="settings-plan-meta">
+                <div class="settings-plan-name">
+                  Pro
+                  <span class="settings-plan-current-badge">Current</span>
+                </div>
+                <div class="settings-plan-price">£9/mo · 100 scans</div>
+              </div>
+              <button type="button" class="settings-plan-open settings-plan-open--primary" data-billing-tier="pro">
+                Upgrade
+              </button>
+              <div class="settings-plan-details" aria-hidden="true">
+                <p>For regular sellers. More scans each month, plus a smoother workflow for drafting and pushing listings.</p>
+              </div>
+            </div>
+            <div
+              class="settings-plan-row"
+              data-billing-tier="growth"
+              role="radio"
+              aria-checked="false"
+              tabindex="0"
+            >
+              <div class="settings-plan-meta">
+                <div class="settings-plan-name">
+                  Growth
+                  <span class="settings-plan-current-badge">Current</span>
+                </div>
+                <div class="settings-plan-price">£29/mo · 500 scans</div>
+              </div>
+              <button type="button" class="settings-plan-open settings-plan-open--primary" data-billing-tier="growth">
+                Upgrade
+              </button>
+              <div class="settings-plan-details" aria-hidden="true">
+                <p>Built for high-volume weeks. Plenty of scans for frequent sourcing, batch uploads, and consistent publishing.</p>
+              </div>
+            </div>
+            <div
+              class="settings-plan-row"
+              data-billing-tier="scale"
+              role="radio"
+              aria-checked="false"
+              tabindex="0"
+            >
+              <div class="settings-plan-meta">
+                <div class="settings-plan-name">
+                  Scale
+                  <span class="settings-plan-current-badge">Current</span>
+                </div>
+                <div class="settings-plan-price">£79/mo · Unlimited</div>
+              </div>
+              <button type="button" class="settings-plan-open settings-plan-open--primary" data-billing-tier="scale">
+                Upgrade
+              </button>
+              <div class="settings-plan-details" aria-hidden="true">
+                <p>Best for heavy usage. Unlimited scans for nonstop listing, teams, or large catalogs.</p>
+              </div>
+            </div>
+          </div>
+          <p class="settings-footnote">
+            After checkout, Stripe bills your Clerk account. Open any <strong>synclyst.app</strong> tab (or this popup
+            again) to refresh your plan label.
+          </p>
+          <div class="settings-divider" aria-hidden="true"></div>
+          <p class="settings-section-title settings-section-title--spaced">How to post</p>
+          <div class="settings-help" aria-label="How to post a listing">
+            <div class="settings-help-top">
+              <p class="settings-help-title">How to post a listing</p>
+            </div>
+            <ol class="settings-help-steps">
+              <li><strong>Upload</strong> a photo (phone or this computer)</li>
+              <li><strong>Pick a marketplace</strong> in SyncLyst</li>
+              <li><strong>Open the marketplace editor tab</strong> (Add product / New listing)</li>
+              <li>Come back here and tap <strong>Fill listing</strong></li>
+              <li>Review then <strong>Save/Publish</strong> on the marketplace page</li>
+            </ol>
+            <p style="margin: 0; color: var(--text-muted); font-size: 0.6875rem; line-height: 1.5">
+              SyncLyst can only fill forms on the marketplace editor tab you have open. If nothing happens, make sure
+              you’re on the <strong>Add product</strong> / <strong>New listing</strong> page, refresh that tab, and try
+              again. Keep the editor tab in the same Chrome window.
+            </p>
+          </div>
+          <div class="settings-divider" aria-hidden="true"></div>
+
+          <p class="settings-section-title settings-section-title--spaced">Diagnostics</p>
+          <div class="settings-diagnostics" aria-label="Diagnostics">
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Origin</span>
+              <span class="settings-diagnostics-val" id="diag-origin">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Origin src</span>
+              <span class="settings-diagnostics-val" id="diag-origin-src">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Session</span>
+              <span class="settings-diagnostics-val" id="diag-session">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">View</span>
+              <span class="settings-diagnostics-val" id="diag-view">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Platform</span>
+              <span class="settings-diagnostics-val" id="diag-platform">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Ext version</span>
+              <span class="settings-diagnostics-val" id="diag-version">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Snap config</span>
+              <span class="settings-diagnostics-val" id="diag-config">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Billing</span>
+              <span class="settings-diagnostics-val" id="diag-billing">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Realtime</span>
+              <span class="settings-diagnostics-val" id="diag-realtime">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Extraction</span>
+              <span class="settings-diagnostics-val" id="diag-extraction">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Listing stamp</span>
+              <span class="settings-diagnostics-val" id="diag-stamp">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Listing fields</span>
+              <span class="settings-diagnostics-val" id="diag-fields">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Drafts</span>
+              <span class="settings-diagnostics-val" id="diag-drafts">—</span>
+            </div>
+            <div class="settings-diagnostics-row">
+              <span class="settings-diagnostics-key">Last poll</span>
+              <span class="settings-diagnostics-val" id="diag-poll">—</span>
+            </div>
+            <div class="settings-diagnostics-actions">
+              <button type="button" class="settings-diagnostics-copy" id="btn-copy-diagnostics">
+                Copy diagnostics
+              </button>
+            </div>
+          </div>
+          <div class="settings-divider" aria-hidden="true"></div>
+
+          <p class="settings-section-title settings-section-title--spaced" id="support-section-heading">
+            Support &amp; data
+          </p>
+          <p class="settings-trust-copy">
+            SyncLyst works with <strong>synclyst.app</strong> for pairing and billing. Magic Fill only runs when you
+            tap it, on the marketplace tab you have open. We do not sell your personal data — details are in the
+            Privacy Policy below.
+          </p>
+          <p class="settings-trust-copy">
+            Contact:
+            <a class="settings-inline-link" href="mailto:synclyst@gmail.com">synclyst@gmail.com</a>
+          </p>
+          <div class="settings-legal" aria-label="Legal">
+            <button type="button" class="settings-legal-link" id="btn-open-terms">Terms &amp; Conditions</button>
+            <span class="settings-legal-dot" aria-hidden="true">·</span>
+            <button type="button" class="settings-legal-link" id="btn-open-privacy">Privacy Policy</button>
+          </div>
+        </div>
+        <div class="legal-scroll hidden" id="legal-scroll" aria-live="polite">
+          <p class="legal-loading" id="legal-loading">Loading…</p>
+          <div class="legal-text hidden" id="legal-text"></div>
+          <div class="legal-actions">
+            <button type="button" class="legal-open-external hidden" id="btn-legal-open-external">
+              Open in browser
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="library-overlay" class="settings-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="library-title">
+        <div class="settings-top">
+          <button type="button" class="settings-back" id="btn-library-close" title="Back">
+            ← Back
+          </button>
+          <h2 class="settings-title" id="library-title">Your saved scans &amp; drafts</h2>
+        </div>
+        <div class="settings-scroll" id="library-scroll">
+          <div class="settings-library" aria-label="Your saved scans and drafts">
+            <div class="settings-library-top">
+              <p class="settings-library-title">Your drafts</p>
+              <button type="button" class="settings-library-clear hidden" id="btn-library-clear-overlay">
+                Clear drafts
+              </button>
+            </div>
+            <p class="settings-library-empty" id="library-overlay-empty">
+              Your recent scans will show up here. Open one to post it again to any marketplace.
+            </p>
+            <div class="settings-library-list" id="library-overlay-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <header class="popup-header">
+        <button type="button" class="brand-tap" id="btn-brand-home" title="Back to pairing QR">
+          <div class="brand-text">
+            <p class="brand-name">SyncLyst<sup>®</sup></p>
+          </div>
+        </button>
+        <div class="popup-header-tools">
+          <div class="live" id="live-status">
+            <span class="dot" aria-hidden="true"></span>
+            <span id="live-label">Live</span>
+          </div>
+          <button
+            type="button"
+            class="header-help-link"
+            id="btn-open-settings"
+            title="Settings & payments"
+            aria-label="Open settings and payments"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path
+                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+              />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="library-bar hidden" id="library-bar">
+        <button type="button" class="library-bar-btn" id="btn-open-library" aria-label="Open saved scans and drafts">
+          <span class="library-bar-left">
+            <span class="library-bar-icon" aria-hidden="true">
+              <img class="library-bar-thumb hidden" id="library-bar-thumb" alt="" decoding="async" />
+              <span class="library-bar-fallback" id="library-bar-fallback">⟲</span>
+            </span>
+            <span class="library-bar-title">
+              <strong>Saved scans &amp; drafts</strong>
+              <span id="library-bar-sub">Reopen a scan and post again</span>
+            </span>
+          </span>
+          <span class="library-bar-chip" id="library-bar-count">0</span>
+        </button>
+      </div>
+
+      <div id="state-empty" class="section section--stack">
+        <div class="section--pairing-title">
+          <p class="label-step" id="pairing-header-step-label">
+            <span class="label-step-num">1.</span> Scan to pair phone
+          </p>
+        </div>
+        <div class="qr-card">
+          <div class="qr-loader" id="qr-loader" aria-hidden="true">
+            <div class="qr-loader-spinner"></div>
+          </div>
+          <img id="qr-img" alt="Pairing QR" width="180" height="180" />
+          <p class="qr-hint">Scan QR, upload from PC or Phone.</p>
+          <div class="qr-or-divider" role="separator" aria-label="Option 2">
+            <span class="qr-or-divider__line" aria-hidden="true"></span>
+            <span class="qr-or-divider__text">or</span>
+            <span class="qr-or-divider__line" aria-hidden="true"></span>
+          </div>
+          <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
+          <button
+            type="button"
+            class="btn-magic qr-snap-cta"
+            id="btn-open-snap-on-this-computer"
+            style="
+              display: block;
+              width: 100%;
+              box-sizing: border-box;
+              margin-top: 12px;
+              padding: 10px 14px;
+              min-height: 44px;
+              font-size: 13px;
+              font-weight: 600;
+              line-height: 1.2;
+              color: #fff;
+              background: #111827;
+              border: 1px solid #0f172a;
+              border-radius: 12px;
+              cursor: pointer;
+              font-family: inherit;
+            "
+          >
+            Upload from Computer
+          </button>
+        </div>
+        <button
+          type="button"
+          class="pair-copy-bucket"
+          id="btn-copy-snap-link"
+          title="Copy session code only (not the full URL)"
+          aria-label="Copy session code for pairing"
+        >
+          <span class="pair-copy-left">
+            <span id="pair-session-code" class="pair-copy-code"></span>
+            <span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite"></span>
+          </span>
+          <span class="pair-copy-chip" aria-hidden="true">Copy session code</span>
+        </button>
+        <button
+          type="button"
+          class="btn-new-session"
+          id="btn-new-pairing-session"
+          title="Creates a new session ID for your next upload. Use after finishing a scan or to avoid mixing photos."
+        >
+          Generate code for new upload session
+        </button>
+        <button type="button" class="btn-ghost hidden" id="btn-continue-listing">
+          Continue to listing
+        </button>
+      </div>
+
+      <div id="state-loaded" class="section hidden">
+        <div class="loaded-hero">
+          <p class="ready-sub" id="loaded-intro">
+            Choose a marketplace to start Magic Fill instantly<br />in your open tab and publish faster
+          </p>
+        </div>
+
+        <div id="loaded-waiting" class="loaded-waiting hidden" role="status" aria-live="polite">
+          <p class="loaded-waiting-title">Waiting for your scan</p>
+          <p class="loaded-waiting-sub">Scan QR, upload from PC or Phone.</p>
+          <ul class="loaded-waiting-bullets">
+            <li>Keep this popup open (or reopen it after uploading).</li>
+            <li>If you don’t see updates, reload the extension and try again.</li>
+          </ul>
+          <button type="button" class="btn-ghost loaded-waiting-cta" id="btn-waiting-back-to-qr">
+            Back to QR pairing
+          </button>
+        </div>
+
+        <div id="loaded-main">
+          <div class="step-block">
+            <p class="label-step"><span class="label-step-num">2.</span> Choose platform</p>
+            <span class="field-label">Where do you want to list?</span>
+            <div class="platform-grid" id="platform-grid" role="radiogroup" aria-label="Marketplace">
+  <button type="button" class="platform-tile" data-platform="shopify" title="Shopify" aria-pressed="false">
+    <img
+      class="platform-icon platform-icon--shopify"
+      src="icons/shopify-logo.png"
+      width="40"
+      height="40"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+    />
+    <span class="platform-name">Shopify</span>
+  </button>
+  <button type="button" class="platform-tile" data-platform="ebay" title="eBay" aria-pressed="false">
+    <img
+      class="platform-icon platform-icon--ebay"
+      src="icons/ebay-wordmark.png"
+      width="40"
+      height="40"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+    />
+    <span class="platform-name">eBay</span>
+  </button>
+  <button type="button" class="platform-tile" data-platform="etsy" title="Etsy" aria-pressed="false">
+    <img
+      class="platform-icon platform-icon--etsy"
+      src="icons/etsy-logo.png"
+      width="40"
+      height="40"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+    />
+    <span class="platform-name">Etsy</span>
+  </button>
+  <button type="button" class="platform-tile" data-platform="shopee" title="Shopee" aria-pressed="false">
+    <img
+      class="platform-icon platform-icon--shopee"
+      src="icons/shopee-logo.png"
+      width="40"
+      height="40"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+    />
+    <span class="platform-name">Shopee</span>
+  </button>
+  <button type="button" class="platform-tile" data-platform="depop" title="Depop" aria-pressed="false">
+    <img
+      class="platform-icon platform-icon--depop"
+      src="icons/depop-logo.png"
+      width="40"
+      height="40"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+    />
+    <span class="platform-name">Depop</span>
+  </button>
+  <button type="button" class="platform-tile" data-platform="vinted" title="Vinted" aria-pressed="false">
+    <img
+      class="platform-icon platform-icon--vinted"
+      src="icons/vinted-logo.png"
+      width="40"
+      height="40"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+    />
+    <span class="platform-name">Vinted</span>
+  </button>
+  <button
+    type="button"
+    class="platform-tile platform-tile--coming-soon"
+    disabled
+    aria-disabled="true"
+    tabindex="-1"
+    data-platform="amazon"
+    title="Amazon — coming soon"
+  >
+    <img
+      class="platform-icon platform-icon--amazon"
+      src="icons/amazon-logo.png"
+      width="40"
+      height="40"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+    />
+    <span class="platform-name">Amazon</span>
+    <span class="platform-name-sub">Coming soon</span>
+  </button>
+  <button
+    type="button"
+    class="platform-tile platform-tile--coming-soon"
+    disabled
+    aria-disabled="true"
+    tabindex="-1"
+    data-platform="tiktok_shop"
+    title="TikTok Shop — coming soon"
+  >
+    <img
+      class="platform-icon platform-icon--tiktok-shop"
+      src="icons/tiktok-shop-logo.png"
+      width="40"
+      height="40"
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+    />
+    <span class="platform-name">TikTok Shop</span>
+    <span class="platform-name-sub">Coming soon</span>
+  </button>
+</div>
+          </div>
+
+          <div id="post-platform-panel" class="hidden">
+            <div class="step-block" id="platform-review-section">
+              <p class="label-step" id="review-step-label"><span class="label-step-num">3.</span> Review content</p>
+              <p class="review-template-sub" id="review-template-sub"></p>
+              <div id="review-loading" class="review-loading hidden" role="status" aria-live="polite">
+                <svg class="spinner" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.5" opacity="0.25" />
+                  <path
+                    d="M21 12a9 9 0 0 0-9-9"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                <div class="review-loading-body">
+                  <div class="review-loading-head">
+                    <span class="review-loading-stage" id="review-loading-text">Extracting your listing</span>
+                    <span class="review-loading-meta" id="review-loading-meta">Step 1/4 · 0s</span>
+                  </div>
+                  <div class="review-loading-eta" id="review-loading-eta">What’s left: Processing image, drafting details, estimating price, finalizing.</div>
+                  <ul class="review-loading-steps" aria-label="Extraction steps remaining">
+                    <li class="review-loading-step" id="extract-step-upload">Upload received</li>
+                    <li class="review-loading-step" id="extract-step-process">Processing image</li>
+                    <li class="review-loading-step" id="extract-step-draft">Drafting details</li>
+                    <li class="review-loading-step" id="extract-step-finalize">Finalizing</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="preview-row">
+                <img id="preview-thumb" width="64" height="64" alt="" />
+                <div class="preview-row-fields">
+                  <span class="field-label" id="label-review-title">Title</span>
+                  <input type="text" class="review-input" id="review-title" autocomplete="off" />
+                </div>
+              </div>
+              <div id="review-extra-images" class="extra-img-strip hidden" aria-label="More product images"></div>
+              <label class="review-field">
+                <span class="field-label" id="label-review-description">Description</span>
+                <textarea
+                  class="review-textarea"
+                  id="review-description"
+                  rows="4"
+                  placeholder="Description from your scan"
+                ></textarea>
+              </label>
+              <label class="review-field">
+                <span class="field-label" id="label-review-price">
+                  <span id="label-review-price-text">Price</span>
+                  <span class="field-label-hint">estimated</span>
+                </span>
+                <input type="text" class="review-input" id="review-price" autocomplete="off" placeholder="0.00" />
+              </label>
+              <label class="review-field review-field--readonly hidden" id="review-category-row">
+                <span class="field-label">Category</span>
+                <input type="text" class="review-input" id="review-category" readonly tabindex="-1" />
+              </label>
+              <div class="sub-divider" aria-hidden="true"></div>
+              <div class="review-actions">
+                <button type="button" class="btn-ghost" id="btn-open-full-review" disabled>
+                  Open full review in browser
+                </button>
+              </div>
+            </div>
+
+            <div class="step-block" id="platform-ready-section">
+              <p class="label-step" id="platform-ready-step-label">
+                <span class="label-step-num">4.</span> Open marketplace &amp; product page
+              </p>
+              <p class="ready-sub" id="platform-ready-hint"></p>
+              <p class="platform-ready-must">Must do this step or extraction will fail.</p>
+            </div>
+
+          <div class="step-block" id="magic-send-section">
+            <p class="label-step"><span class="label-step-num">5.</span> Post to the marketplace</p>
+            <p class="ready-sub">
+              <span id="magic-post-hint">
+                Keep your <strong id="magic-tab-hint">listing</strong> open. Start from <strong>Products</strong> list;
+                we’ll add, fill form, and save.
+              </span>
+            </p>
+            <button type="button" class="btn-magic" id="magic-fill" aria-busy="false">
+              <span class="btn-magic-content">
+                <span class="btn-magic-lead" aria-hidden="true">
+                  <svg
+                    class="btn-magic-lead-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <path d="M15 3h6v6" />
+                    <path d="M10 14 21 3" />
+                  </svg>
+                  <svg class="btn-magic-lead-spinner" viewBox="0 0 24 24" focusable="false">
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.25"
+                      stroke-linecap="round"
+                      stroke-dasharray="42"
+                      stroke-dashoffset="12"
+                      opacity="0.92"
+                    />
+                  </svg>
+                </span>
+                <span class="btn-magic-label">Fill listing in <span id="magic-platform-label">—</span></span>
+              </span>
+            </button>
+            <p id="status" role="status" aria-live="polite"></p>
+            <button type="button" class="btn-ghost" id="btn-upload-new-photo">
+              Upload new photo
+            </button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -5,3 +5,4 @@
 # Next.js build output (should never be committed)
 .next/
 out/
+.vercel
