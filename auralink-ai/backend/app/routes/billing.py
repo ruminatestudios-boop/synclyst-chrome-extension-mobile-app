@@ -3,7 +3,7 @@ Stripe billing: Checkout + webhooks to persist user tier.
 
 Assumes Supabase tables exist:
   - user_billing (clerk_user_id PK, tier, status, stripe_customer_id, stripe_subscription_id, current_period_end, updated_at)
-  - user_scan_usage_monthly (clerk_user_id, month_key, scans_used, updated_at) with unique (clerk_user_id, month_key)
+  - user_scan_usage_monthly (clerk_user_id, month_key, scans_used, updated_at): month_key holds YYYY-MM (monthly) or YYYY-MM-DD (daily) per STARTER_SCAN_QUOTA_WINDOW.
 """
 
 from contextlib import contextmanager
@@ -16,7 +16,7 @@ import httpx
 
 from app.auth import verify_clerk
 from app.config import get_settings
-from app.db import get_supabase, upsert_user_billing
+from app.db import add_bonus_credits, get_supabase, is_valid_anon_uuid, upsert_user_billing
 
 router = APIRouter()
 
@@ -200,6 +200,57 @@ def _fetch_checkout_session_direct(
     return body
 
 
+@router.post("/guest-checkout")
+async def create_guest_scan_pack_checkout(payload: dict):
+    """
+    One-time Stripe Checkout for guest scan credits (no Clerk).
+    Body: { anon_id, success_url?, cancel_url? } — anon_id must match X-SyncLyst-Anon-Id on scans.
+    """
+    settings = get_settings()
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=503, detail="Stripe not configured")
+    price_id = (settings.stripe_price_scan_pack or "").strip()
+    if not price_id:
+        raise HTTPException(status_code=503, detail="Scan pack price not configured (STRIPE_PRICE_SCAN_PACK)")
+    anon_id = (payload.get("anon_id") or "").strip()
+    if not is_valid_anon_uuid(anon_id):
+        raise HTTPException(status_code=400, detail="Invalid or missing anon_id (expected UUID)")
+    try:
+        pack_credits = max(1, min(1_000_000, int(settings.guest_scan_pack_credits)))
+    except (TypeError, ValueError):
+        pack_credits = 50
+
+    success_url = (payload.get("success_url") or "").strip() or f"{settings.frontend_url}/?scan_credits=success"
+    if "session_id=" not in success_url:
+        success_url = f"{success_url}{'&' if '?' in success_url else '?'}session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = (payload.get("cancel_url") or "").strip() or f"{settings.frontend_url}/?scan_credits=cancel"
+
+    data = {
+        "mode": "payment",
+        "line_items[0][price]": price_id,
+        "line_items[0][quantity]": "1",
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata[guest_anon_id]": anon_id,
+        "metadata[credits]": str(pack_credits),
+        "metadata[kind]": "guest_scan_pack",
+    }
+
+    resp = _stripe_http_request(
+        method="POST",
+        url="https://api.stripe.com/v1/checkout/sessions",
+        stripe_secret_key=settings.stripe_secret_key,
+        data=data,
+    )
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Stripe error: {resp.text}")
+    body = resp.json()
+    url = body.get("url")
+    if not isinstance(url, str) or not url:
+        raise HTTPException(status_code=502, detail="Stripe error: missing checkout URL")
+    return {"url": url, "credits": pack_credits}
+
+
 @router.post("/checkout-session")
 async def create_checkout_session(payload: dict, _auth: dict = Depends(verify_clerk)):
     """
@@ -354,8 +405,17 @@ async def stripe_webhook(request: Request):
 
     try:
         if etype == "checkout.session.completed":
-            # Session contains customer + subscription IDs
             md = obj.get("metadata") or {}
+            if (md.get("kind") or "").strip() == "guest_scan_pack":
+                guest_anon = (md.get("guest_anon_id") or "").strip()
+                if guest_anon and is_valid_anon_uuid(guest_anon):
+                    try:
+                        n = int(md.get("credits") or settings.guest_scan_pack_credits)
+                    except (TypeError, ValueError):
+                        n = settings.guest_scan_pack_credits
+                    n = max(1, min(1_000_000, int(n)))
+                    add_bonus_credits(supabase, f"anon:{guest_anon}", n)
+            # Session contains customer + subscription IDs
             clerk_user_id = (md.get("clerk_user_id") or "").strip()
             tier = (md.get("tier") or "").strip().lower() or "starter"
             customer_id = obj.get("customer")

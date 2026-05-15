@@ -2,6 +2,7 @@
 Supabase/PostgreSQL: Universal_Products and Channel_Adapters.
 """
 import os
+import re
 from urllib.parse import urlparse
 from typing import Optional, Any
 from uuid import uuid4
@@ -467,7 +468,7 @@ TIER_LIMITS = {
 
 
 def starter_monthly_limit() -> int:
-    """Effective starter scan cap (env STARTER_SCAN_LIMIT); clamped for safety."""
+    """Effective starter scan cap (STARTER_SCAN_LIMIT) per STARTER_SCAN_QUOTA_WINDOW bucket; clamped for safety."""
     from app.config import get_settings
 
     try:
@@ -477,11 +478,14 @@ def starter_monthly_limit() -> int:
     return max(1, min(10_000, n))
 
 
-def _month_key() -> str:
-    """YYYY-MM in UTC for monthly quotas."""
+def _quota_period_key() -> str:
+    """Bucket label for streak scan counts: daily (YYYY-MM-DD) or monthly (YYYY-MM UTC), matching starter_scan_quota_window."""
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
+    w = (get_settings().starter_scan_quota_window or "daily").strip().lower()
+    if w == "daily":
+        return f"{now.year:04d}-{now.month:02d}-{now.day:02d}"
     return f"{now.year:04d}-{now.month:02d}"
 
 
@@ -545,7 +549,7 @@ def upsert_user_billing(
 
 
 def get_scan_usage(supabase, clerk_user_id: str) -> dict:
-    """Return { tier, scans_used, scans_limit, can_scan } for the user (monthly quota)."""
+    """Return { tier, scans_used, scans_limit, can_scan, quota_window } for the user (daily or monthly bucket)."""
     tier = get_user_tier(supabase, clerk_user_id) if supabase else "starter"
     if tier == "starter":
         limit = starter_monthly_limit()
@@ -557,27 +561,31 @@ def get_scan_usage(supabase, clerk_user_id: str) -> dict:
             supabase.table("user_scan_usage_monthly")
             .select("scans_used")
             .eq("clerk_user_id", clerk_user_id)
-            .eq("month_key", _month_key())
+            .eq("month_key", _quota_period_key())
             .limit(1)
             .execute()
         )
         used = r.data[0]["scans_used"] if r.data and len(r.data) > 0 else 0
     except Exception:
         used = 0
+    qwin = (get_settings().starter_scan_quota_window or "daily").strip().lower()
+    if qwin not in ("daily", "monthly"):
+        qwin = "daily"
     return {
         "tier": tier,
         "scans_used": used,
         "scans_limit": limit,
         "can_scan": used < limit,
+        "quota_window": qwin,
     }
 
 
 def increment_scan(supabase, clerk_user_id: str) -> dict:
-    """Increment scans_used for this month; upsert row if missing."""
+    """Increment scans_used for the current quota bucket; upsert row if missing."""
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc).isoformat()
-    key = _month_key()
+    key = _quota_period_key()
     try:
         r = (
             supabase.table("user_scan_usage_monthly")
@@ -604,4 +612,93 @@ def increment_scan(supabase, clerk_user_id: str) -> dict:
     usage["scans_used"] = max(usage.get("scans_used", 0), new_count)
     usage["can_scan"] = usage["scans_used"] < usage["scans_limit"]
     return usage
+
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.I,
+)
+
+
+def is_valid_anon_uuid(value: Optional[str]) -> bool:
+    return bool(value and _UUID_RE.match(str(value).strip()))
+
+
+def get_bonus_credits(supabase, quota_key: str) -> int:
+    if not supabase or not quota_key.startswith("anon:"):
+        return 0
+    aid = quota_key[5:]
+    try:
+        r = supabase.table("anonymous_scan_credits").select("credits").eq("anon_id", aid).limit(1).execute()
+        if r.data and len(r.data) > 0:
+            return int(r.data[0].get("credits") or 0)
+    except Exception:
+        pass
+    return 0
+
+
+def add_bonus_credits(supabase, quota_key: str, delta: int) -> int:
+    from datetime import datetime, timezone
+
+    if not supabase or not quota_key.startswith("anon:"):
+        return 0
+    aid = quota_key[5:]
+    now = datetime.now(timezone.utc).isoformat()
+    cur = get_bonus_credits(supabase, quota_key)
+    new_val = max(0, cur + int(delta))
+    try:
+        supabase.table("anonymous_scan_credits").upsert(
+            {"anon_id": aid, "credits": new_val, "updated_at": now},
+            on_conflict="anon_id",
+        ).execute()
+    except Exception:
+        pass
+    return new_val
+
+
+def get_scan_usage_unified(supabase, quota_key: Optional[str]) -> dict:
+    """Starter limits + optional purchased credits for guest anon:* keys."""
+    qwin = (get_settings().starter_scan_quota_window or "daily").strip().lower()
+    if qwin not in ("daily", "monthly"):
+        qwin = "daily"
+    if not quota_key or not supabase:
+        return {
+            "tier": "starter",
+            "scans_used": 0,
+            "scans_limit": starter_monthly_limit(),
+            "bonus_credits": 0,
+            "can_scan": True,
+            "quota_window": qwin,
+        }
+    if quota_key.startswith("anon:"):
+        base = get_scan_usage(supabase, quota_key)
+        bonus = get_bonus_credits(supabase, quota_key)
+        used = int(base.get("scans_used") or 0)
+        lim = int(base.get("scans_limit") or starter_monthly_limit())
+        can = (used < lim) or (bonus > 0)
+        return {
+            **base,
+            "bonus_credits": bonus,
+            "can_scan": can,
+            "quota_window": base.get("quota_window") or qwin,
+        }
+    base = get_scan_usage(supabase, quota_key)
+    base["bonus_credits"] = 0
+    return base
+
+
+def consume_one_scan(supabase, quota_key: str) -> None:
+    if not supabase or not quota_key:
+        return
+    u = get_scan_usage_unified(supabase, quota_key)
+    if not u.get("can_scan", True):
+        return
+    used = int(u.get("scans_used") or 0)
+    lim = int(u.get("scans_limit") or starter_monthly_limit())
+    bonus = int(u.get("bonus_credits") or 0)
+    if used < lim:
+        increment_scan(supabase, quota_key)
+        return
+    if quota_key.startswith("anon:") and bonus > 0:
+        add_bonus_credits(supabase, quota_key, -1)
 

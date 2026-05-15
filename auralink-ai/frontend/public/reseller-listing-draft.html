@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="synclyst-chrome-extension-url" content="https://chromewebstore.google.com/detail/SyncLyst:%20Listing%20autopilot%20for%20resellers/copjkijolfpmhjgiggafngmdeibnmfnm" />
+  <title>SyncIQ® · Listing overview | Synclyst</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    .vercel-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .rld-field { border: 1px solid #e5e5e5; border-radius: 12px; padding: 0.65rem 0.75rem; font-size: 14px; width: 100%; }
+    .rld-field:focus { outline: none; box-shadow: 0 0 0 3px rgba(10,10,10,0.08); border-color: #c4c4c4; }
+    .rld-label { display: block; font-size: 12px; font-weight: 600; color: #18181b; margin-bottom: 0.35rem; }
+    .rld-hint { font-size: 11px; color: #71717a; margin-top: 0.25rem; line-height: 1.35; }
+    details.rld-disclosure > summary { cursor: pointer; list-style: none; }
+    details.rld-disclosure > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="min-h-screen bg-[#f5f5f5] text-[#0a0a0a]">
+  <div class="max-w-2xl mx-auto flex flex-col bg-white shadow-sm">
+    <header class="shrink-0 border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 h-14 flex items-center justify-center">
+      <a
+        href="http://localhost:3000/reseller-results"
+        class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a]/20 focus-visible:rounded-sm py-2"
+        title="SyncIQ® — scan results"
+        aria-label="SyncIQ — open scan results"
+      >SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></a>
+    </header>
+
+    <main class="px-5 sm:px-6 pt-5 pb-8 overflow-auto">
+      <!-- Chrome extension CTA -->
+      <div class="vercel-card p-4 mb-5 border-violet-200 bg-gradient-to-b from-violet-50/80 to-white">
+        <p class="text-center text-[11px] font-bold uppercase tracking-[0.12em] text-violet-800 mb-1">Cross-list to more Marketplaces</p>
+        <p class="text-left text-[13px] text-zinc-700 leading-snug mb-3">
+          Review and edit the fields below. When you’re ready, use the <strong>SyncLyst Chrome extension</strong> to create drafts or publish to connected marketplaces (e.g. eBay, Shopify).
+        </p>
+        <div class="flex justify-center">
+          <a
+            id="rld-ext-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex w-full sm:w-auto items-center justify-center rounded-2xl bg-violet-700 text-white text-[13px] font-semibold px-4 py-3 shadow-sm hover:bg-violet-800 transition-colors no-underline"
+          >
+            Cross-list to more Marketplaces
+          </a>
+        </div>
+      </div>
+
+      <form id="rld-form" class="space-y-4">
+        <!-- Media + core -->
+        <div class="vercel-card p-4">
+          <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 mb-3">Product</p>
+          <div class="flex flex-col sm:flex-row gap-4">
+            <div class="w-full sm:w-36 shrink-0 aspect-square max-h-40 rounded-xl bg-zinc-100 overflow-hidden border border-[#e5e5e5] mx-auto sm:mx-0">
+              <img id="rld-thumb" alt="Product photo" class="w-full h-full object-cover hidden" />
+              <div id="rld-no-img" class="w-full h-full flex items-center justify-center text-[11px] text-zinc-400 p-2 text-center">No photo</div>
+            </div>
+            <div class="flex-1 space-y-3 min-w-0">
+              <div>
+                <label class="rld-label" for="fld-title">Title</label>
+                <input id="fld-title" name="title" type="text" required class="rld-field" maxlength="200" autocomplete="off" />
+              </div>
+              <div>
+                <label class="rld-label" for="fld-description">Description</label>
+                <textarea id="fld-description" name="description" rows="8" class="rld-field resize-y min-h-[160px]" placeholder="Description"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reseller snapshot (read-only) -->
+        <div class="vercel-card p-4 bg-zinc-50/80">
+          <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 mb-2">Reseller scan snapshot</p>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[13px]">
+            <div><dt class="text-zinc-500 text-[11px]">eBay comps query</dt><dd id="rld-snap-query" class="font-medium text-zinc-900 break-words">—</dd></div>
+            <div><dt class="text-zinc-500 text-[11px]">Sold / active (sample)</dt><dd id="rld-snap-counts" class="font-medium text-zinc-900">—</dd></div>
+          </dl>
+        </div>
+
+        <details class="rld-disclosure vercel-card p-4 open" open>
+          <summary class="text-[13px] font-semibold text-[#111] flex items-center justify-between gap-2">
+            Product information
+          </summary>
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-zinc-100">
+            <div class="sm:col-span-1">
+              <label class="rld-label" for="fld-vendor">Vendor / brand</label>
+              <input id="fld-vendor" type="text" class="rld-field" placeholder="e.g. Nike" autocomplete="off" />
+            </div>
+            <div class="sm:col-span-1">
+              <label class="rld-label" for="fld-product-type">Product type</label>
+              <input id="fld-product-type" type="text" class="rld-field" placeholder="e.g. T-Shirt" autocomplete="off" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="rld-label" for="fld-category">Category / collection hint</label>
+              <input id="fld-category" type="text" class="rld-field" placeholder="What kind of item is this?" autocomplete="off" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="rld-label" for="fld-tags">Tags</label>
+              <input id="fld-tags" type="text" class="rld-field" placeholder="Comma-separated, e.g. vintage, cotton, streetwear" autocomplete="off" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="rld-label" for="fld-model">Model / style name</label>
+              <input id="fld-model" type="text" class="rld-field" placeholder="Exact model if known" autocomplete="off" />
+            </div>
+          </div>
+        </details>
+
+        <details class="rld-disclosure vercel-card p-4" open>
+          <summary class="text-[13px] font-semibold text-[#111]">Pricing</summary>
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-zinc-100">
+            <div class="sm:col-span-2">
+              <label class="rld-label" for="fld-price">Price</label>
+              <input id="fld-price" inputmode="decimal" class="rld-field" placeholder="0.00" autocomplete="off" />
+            </div>
+          </div>
+        </details>
+
+        <details class="rld-disclosure vercel-card p-4" open>
+          <summary class="text-[13px] font-semibold text-[#111]">Inventory</summary>
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-zinc-100">
+            <div>
+              <label class="rld-label" for="fld-sku">SKU number</label>
+              <input id="fld-sku" type="text" class="rld-field" placeholder="e.g. BRAND-ITEM-A1B2" autocomplete="off" />
+            </div>
+            <div>
+              <label class="rld-label" for="fld-qty">Quantity</label>
+              <div class="inline-flex items-stretch rounded-xl border border-violet-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden ring-1 ring-violet-950/[0.04]">
+                <button
+                  type="button"
+                  id="rld-qty-minus"
+                  class="shrink-0 px-3 py-2.5 text-violet-700 hover:bg-violet-100 active:bg-violet-200/80 transition-colors disabled:opacity-35 disabled:pointer-events-none font-semibold text-lg leading-none min-w-[2.75rem]"
+                  aria-label="Decrease quantity"
+                >
+                  −
+                </button>
+                <input
+                  id="fld-qty"
+                  name="quantity"
+                  type="number"
+                  min="1"
+                  max="99999"
+                  step="1"
+                  inputmode="numeric"
+                  value="1"
+                  class="w-[4.25rem] shrink-0 border-x border-violet-100 bg-violet-50/60 py-2.5 text-center text-[15px] font-semibold tabular-nums text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-inset focus:ring-violet-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  id="rld-qty-plus"
+                  class="shrink-0 px-3 py-2.5 text-violet-700 hover:bg-violet-100 active:bg-violet-200/80 transition-colors font-semibold text-lg leading-none min-w-[2.75rem]"
+                  aria-label="Increase quantity"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="rld-label" for="fld-sku-details">SKU details <span class="text-zinc-400 font-normal text-[12px]">(optional)</span></label>
+              <textarea id="fld-sku-details" name="sku_details" rows="2" class="rld-field resize-y min-h-[72px]" placeholder="Supplier ref, barcode, variant notes, or other internal details"></textarea>
+            </div>
+          </div>
+        </details>
+
+        <details class="rld-disclosure vercel-card p-4" open>
+          <summary class="text-[13px] font-semibold text-[#111]">Shipping &amp; product details</summary>
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-zinc-100">
+            <div>
+              <label class="rld-label" for="fld-weight">Weight (kg)</label>
+              <input id="fld-weight" inputmode="decimal" class="rld-field" placeholder="e.g. 0.35" autocomplete="off" />
+            </div>
+            <div>
+              <label class="rld-label" for="fld-condition">Condition</label>
+              <select id="fld-condition" class="rld-field bg-white">
+                <option value="new">New</option>
+                <option value="used">Used</option>
+                <option value="refurbished">Refurbished</option>
+              </select>
+            </div>
+            <div class="sm:col-span-1">
+              <label class="rld-label" for="fld-material">Material</label>
+              <input id="fld-material" type="text" class="rld-field" placeholder="Fabric, metal, etc." autocomplete="off" />
+            </div>
+            <div class="sm:col-span-1">
+              <label class="rld-label" for="fld-color">Color</label>
+              <input id="fld-color" type="text" class="rld-field" placeholder="Primary color" autocomplete="off" />
+            </div>
+          </div>
+        </details>
+
+        <details class="rld-disclosure vercel-card p-4">
+          <summary class="text-[13px] font-semibold text-[#111]">Search engine listing (SEO)</summary>
+          <div class="mt-4 pt-1 border-t border-zinc-100">
+            <label class="rld-label" for="fld-meta">Meta description</label>
+            <textarea id="fld-meta" rows="3" maxlength="320" class="rld-field resize-y" placeholder="Short summary for search results"></textarea>
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-1.5">
+              <p class="rld-hint !mt-0 flex-1 min-w-0">Optional. If empty, we’ll derive from your description in the next step.</p>
+              <span
+                id="rld-meta-count"
+                class="shrink-0 inline-flex items-center rounded-full border border-violet-200/90 bg-violet-50/90 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-violet-800 shadow-[0_1px_1px_rgba(0,0,0,0.03)]"
+                aria-live="polite"
+              >
+                <span id="rld-meta-used">0</span><span class="text-violet-500 font-medium mx-0.5">/</span><span class="text-violet-600">320</span>
+              </span>
+            </div>
+          </div>
+        </details>
+
+        <div class="flex flex-col gap-3 pt-2">
+          <a
+            id="rld-ext-link-2"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex w-full items-center justify-center rounded-2xl bg-violet-700 text-white text-sm font-semibold px-4 py-3 shadow-sm no-underline hover:bg-violet-800 transition-colors"
+          >Cross-list to more Marketplaces</a>
+          <a href="http://localhost:3000/reseller-results" class="block w-full text-center text-[13px] font-semibold text-zinc-600 py-2 underline underline-offset-2 decoration-zinc-400">Back to reseller results</a>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      var RESULT_KEY = 'auralink_reseller_result';
+      var EXT_FALLBACK =
+        'https://chromewebstore.google.com/detail/SyncLyst:%20Listing%20autopilot%20for%20resellers/copjkijolfpmhjgiggafngmdeibnmfnm';
+
+      function redirectScan() {
+        window.location.href = '/scan?mode=reseller';
+      }
+
+      function clone(obj) {
+        try {
+          return JSON.parse(JSON.stringify(obj));
+        } catch (e) {
+          return {};
+        }
+      }
+
+      function defaultPrice(result, extraction) {
+        var ebay = result.ebay_market || {};
+        var profit = result.profit || {};
+        var att = extraction.attributes || {};
+        var v =
+          ebay.sold_avg != null
+            ? Number(ebay.sold_avg)
+            : ebay.sold_high != null
+              ? Number(ebay.sold_high)
+              : ebay.active_avg != null
+                ? Number(ebay.active_avg)
+                : profit.estimated_resale_price != null
+                  ? Number(profit.estimated_resale_price)
+                  : att.price_value != null
+                    ? Number(att.price_value)
+                    : null;
+        if (v == null || isNaN(v) || v <= 0) return '';
+        return String(Math.round(v * 100) / 100);
+      }
+
+      function defaultTitle(result, extraction) {
+        var copy = extraction.extraction_copy || extraction.copy || {};
+        var t = (result.clean_title || '').trim() || (copy.seo_title || '').trim();
+        return t || 'Listing from scan';
+      }
+
+      function defaultDescription(extraction) {
+        var copy = extraction.extraction_copy || extraction.copy || {};
+        var flat = (copy.description && String(copy.description).trim()) || '';
+        if (flat) return flat;
+        if (copy.bullet_points && Array.isArray(copy.bullet_points) && copy.bullet_points.length) {
+          return copy.bullet_points
+            .map(function (x) {
+              return '• ' + String(x || '').trim();
+            })
+            .filter(Boolean)
+            .join('\n');
+        }
+        return '';
+      }
+
+      function weightKgDefault(att) {
+        if (!att || att.weight_grams == null || typeof att.weight_grams !== 'number') return '';
+        if (att.weight_grams <= 0) return '';
+        return String(Math.round((att.weight_grams / 1000) * 1000) / 1000);
+      }
+
+      function materialFromExtraction(att) {
+        if (!att || typeof att !== 'object') return '';
+        var m = String(att.material || '').trim();
+        if (m) return m;
+        var comp = String(att.material_composition || '').trim();
+        if (comp) return comp;
+        var dm = att.detected_materials;
+        if (Array.isArray(dm) && dm.length) {
+          return dm
+            .map(function (x) {
+              return String(x || '').trim();
+            })
+            .filter(Boolean)
+            .slice(0, 6)
+            .join(', ');
+        }
+        return '';
+      }
+
+      function colorFromExtraction(att) {
+        if (!att || typeof att !== 'object') return '';
+        var c = String(att.color || '').trim();
+        if (c) return c;
+        var dc = att.detected_colors;
+        if (Array.isArray(dc) && dc.length) {
+          return dc
+            .map(function (x) {
+              return String(x || '').trim();
+            })
+            .filter(Boolean)
+            .slice(0, 6)
+            .join(', ');
+        }
+        return '';
+      }
+
+      function tagsJoin(tags) {
+        if (!tags || !Array.isArray(tags.search_keywords)) return '';
+        return tags.search_keywords
+          .map(function (x) {
+            return String(x || '').trim();
+          })
+          .filter(Boolean)
+          .join(', ');
+      }
+
+      function generateSkuFromProduct(title, vendor, category, productType, exactModel) {
+        var parts = [];
+        var v = (vendor || '').toString().trim();
+        if (v) {
+          parts.push(v.replace(/\s+/g, '').replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 6));
+        }
+        var pt = (productType || category || '').toString().trim().toLowerCase();
+        if (pt) {
+          if (/jacket|coat|outerwear/.test(pt)) parts.push('JKT');
+          else if (/hoodie|sweatshirt|sweater/.test(pt)) parts.push('HOD');
+          else if (/t-shirt|tee|shirt|top/.test(pt)) parts.push('TSH');
+          else if (/jeans|trousers|pants/.test(pt)) parts.push('PNT');
+          else if (/shoes|sneakers|footwear/.test(pt)) parts.push('SHO');
+          else if (/collar|pet/.test(pt)) parts.push('PET');
+          else if (/headphone|earphone|audio/.test(pt)) parts.push('AUD');
+          else parts.push(pt.replace(/\s+/g, '').replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 3));
+        }
+        var t = (title || '').toString().trim();
+        if (t && parts.length === 0) {
+          var firstWord = t.split(/\s+/)[0] || '';
+          parts.push(firstWord.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 4));
+        }
+        if (parts.length === 0) parts.push('SKU');
+        var suffix = (exactModel || '').toString().replace(/\s+/g, '').replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 4);
+        if (!suffix) suffix = Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(0, 4).toUpperCase() || String(Date.now()).slice(-4);
+        parts.push(suffix);
+        return parts.join('-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 32) || 'SKU-' + String(Date.now()).slice(-6);
+      }
+
+      var payload = null;
+      try {
+        payload = JSON.parse(sessionStorage.getItem(RESULT_KEY) || 'null');
+      } catch (e) {}
+      if (!payload || !payload.result) {
+        redirectScan();
+        return;
+      }
+
+      var result = payload.result || {};
+      var extraction = result.extraction || {};
+      var att = extraction.attributes || {};
+      var tags = extraction.tags || {};
+      var copy = extraction.extraction_copy || extraction.copy || {};
+
+      var extUrl =
+        (document.querySelector('meta[name="synclyst-chrome-extension-url"]') &&
+          document.querySelector('meta[name="synclyst-chrome-extension-url"]').getAttribute('content')) ||
+        EXT_FALLBACK;
+      ;['rld-ext-link', 'rld-ext-link-2'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.href = extUrl.trim();
+      });
+
+      var imgEl = document.getElementById('rld-thumb');
+      var noImg = document.getElementById('rld-no-img');
+      if (payload.imageDataUrl && imgEl) {
+        imgEl.src = payload.imageDataUrl;
+        imgEl.classList.remove('hidden');
+        if (noImg) noImg.classList.add('hidden');
+      }
+
+      document.getElementById('fld-title').value = defaultTitle(result, extraction);
+      document.getElementById('fld-description').value = defaultDescription(extraction);
+      document.getElementById('fld-price').value = defaultPrice(result, extraction);
+      document.getElementById('fld-vendor').value = (att.brand || '').trim();
+      document.getElementById('fld-product-type').value = (att.product_type || '').trim();
+      document.getElementById('fld-category').value =
+        (tags.category && String(tags.category).trim()) ||
+        (att.product_type && String(att.product_type).trim()) ||
+        '';
+
+      document.getElementById('fld-tags').value = tagsJoin(tags);
+      document.getElementById('fld-model').value = (att.exact_model || '').trim();
+      var categoryForSku =
+        (tags.category && String(tags.category).trim()) ||
+        (att.product_type && String(att.product_type).trim()) ||
+        '';
+      var titleForSku = defaultTitle(result, extraction);
+      var vendorForSku = (att.brand || '').trim();
+      var ptForSku = (att.product_type || '').trim();
+      var skuExisting = (att.sku && String(att.sku).trim()) || '';
+      document.getElementById('fld-sku').value =
+        skuExisting ||
+        generateSkuFromProduct(titleForSku, vendorForSku, categoryForSku, ptForSku, (att.exact_model || '').trim());
+      document.getElementById('fld-sku-details').value = (att.sku_notes && String(att.sku_notes).trim()) || '';
+      document.getElementById('fld-weight').value = weightKgDefault(att);
+      document.getElementById('fld-material').value = materialFromExtraction(att);
+      document.getElementById('fld-color').value = colorFromExtraction(att);
+      var cond = (att.condition || 'new').toLowerCase();
+      if (cond === 'used') document.getElementById('fld-condition').value = 'used';
+      else if (cond === 'refurbished') document.getElementById('fld-condition').value = 'refurbished';
+      else document.getElementById('fld-condition').value = 'new';
+
+      try {
+        var sq = document.getElementById('rld-snap-query');
+        if (sq)
+          sq.textContent =
+            (result.optimized_ebay_query ||
+              ((result.ebay_market || {}).query || '')).trim() || '—';
+        var ebay = result.ebay_market || {};
+        document.getElementById('rld-snap-counts').textContent =
+          (ebay.sold_count || 0) + ' sold sample · ' + (ebay.active_count || 0) + ' active sample';
+      } catch (eSnap) {}
+
+      var metaGuess = ((copy.description || '').trim().split(/\n+/)[0] || defaultTitle(result, extraction) || '').slice(0, 300);
+      document.getElementById('fld-meta').value = metaGuess || '';
+
+      (function bindMetaCharCount() {
+        var ta = document.getElementById('fld-meta');
+        var used = document.getElementById('rld-meta-used');
+        if (!ta || !used) return;
+        function tick() {
+          used.textContent = String(ta.value.length);
+        }
+        ta.addEventListener('input', tick);
+        tick();
+      })();
+
+      (function bindQtyStepper() {
+        var inp = document.getElementById('fld-qty');
+        var minus = document.getElementById('rld-qty-minus');
+        var plus = document.getElementById('rld-qty-plus');
+        if (!inp || !minus || !plus) return;
+        function syncMinusState() {
+          var n = parseInt(inp.value, 10);
+          if (isNaN(n) || n < 1) n = 1;
+          minus.disabled = n <= 1;
+        }
+        function clampQty() {
+          var n = parseInt(inp.value, 10);
+          if (isNaN(n) || n < 1) n = 1;
+          if (n > 99999) n = 99999;
+          inp.value = String(n);
+          syncMinusState();
+        }
+        minus.addEventListener('click', function () {
+          var n = parseInt(inp.value, 10) || 1;
+          inp.value = String(Math.max(1, n - 1));
+          syncMinusState();
+        });
+        plus.addEventListener('click', function () {
+          var n = parseInt(inp.value, 10) || 1;
+          inp.value = String(Math.min(99999, n + 1));
+          syncMinusState();
+        });
+        inp.addEventListener('input', function () {
+          syncMinusState();
+        });
+        inp.addEventListener('change', clampQty);
+        inp.addEventListener('blur', clampQty);
+        clampQty();
+      })();
+
+      function parseCommaTags(s) {
+        return String(s || '')
+          .split(/[,;\n]/g)
+          .map(function (x) {
+            return x.trim();
+          })
+          .filter(Boolean)
+          .slice(0, 50);
+      }
+
+      document.getElementById('rld-form').addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var title = document.getElementById('fld-title').value.trim();
+        var desc = document.getElementById('fld-description').value.trim();
+        var priceStr = document.getElementById('fld-price').value.trim().replace(/,/g, '');
+        var vendor = document.getElementById('fld-vendor').value.trim();
+        var productType = document.getElementById('fld-product-type').value.trim();
+        var categoryHint = document.getElementById('fld-category').value.trim();
+        var tagArr = parseCommaTags(document.getElementById('fld-tags').value);
+        var exactModel = document.getElementById('fld-model').value.trim();
+        var sku = document.getElementById('fld-sku').value.trim();
+        var skuDetails = document.getElementById('fld-sku-details').value.trim();
+        var qty = parseInt(document.getElementById('fld-qty').value, 10);
+        var wKg = parseFloat(document.getElementById('fld-weight').value.replace(/,/g, ''));
+        var material = document.getElementById('fld-material').value.trim();
+        var color = document.getElementById('fld-color').value.trim();
+        var condition = document.getElementById('fld-condition').value.trim() || 'new';
+        var metaDesc = document.getElementById('fld-meta').value.trim();
+
+        var extObj = clone(extraction);
+        extObj.extraction_copy = extObj.extraction_copy || {};
+        if (title) extObj.extraction_copy.seo_title = title;
+        if (desc) extObj.extraction_copy.description = desc;
+        extObj.copy = extObj.extraction_copy;
+        extObj.attributes = extObj.attributes || {};
+        if (vendor) extObj.attributes.brand = vendor;
+        if (productType) extObj.attributes.product_type = productType;
+        if (exactModel) extObj.attributes.exact_model = exactModel;
+        if (sku) extObj.attributes.sku = sku;
+        if (skuDetails) extObj.attributes.sku_notes = skuDetails;
+        if (material) extObj.attributes.material = material;
+        if (color) extObj.attributes.color = color;
+        extObj.attributes.condition = condition;
+        var pNum = parseFloat(priceStr);
+        if (!isNaN(pNum) && pNum > 0) {
+          extObj.attributes.price_value = Math.round(pNum * 100) / 100;
+          extObj.attributes.price_source = 'ai_suggested';
+        }
+        if (!isNaN(wKg) && wKg > 0) {
+          extObj.attributes.weight_grams = Math.round(wKg * 1000);
+          extObj.attributes.weight_source = extObj.attributes.weight_source || 'user';
+          extObj.attributes.weight = wKg + ' kg';
+        }
+        extObj.tags = extObj.tags || {};
+        if (categoryHint) extObj.tags.category = categoryHint;
+        if (tagArr.length) extObj.tags.search_keywords = tagArr;
+
+        extObj.scan_listing_prefs = {
+          sku: sku,
+          sku_details: skuDetails || undefined,
+          quantity: !isNaN(qty) && qty >= 1 ? qty : 1,
+          compare_at: '',
+          inventory_tracked: true,
+          charge_tax: true,
+          vendor: vendor || undefined,
+          product_type: productType || undefined,
+          meta_description: metaDesc || undefined,
+        };
+
+        try {
+          sessionStorage.removeItem('auralink_review_draft');
+        } catch (e2) {}
+        var suggestedNum = parseFloat(priceStr);
+        var draft = {
+          extraction: extObj,
+          imageDataUrl: payload.imageDataUrl || null,
+        };
+        if (!isNaN(suggestedNum) && suggestedNum > 0) draft.suggested_price = Math.round(suggestedNum * 100) / 100;
+        else {
+          var fb = parseFloat(defaultPrice(result, extraction));
+          if (!isNaN(fb) && fb > 0) draft.suggested_price = fb;
+        }
+        try {
+          sessionStorage.setItem('auralink_draft_listing', JSON.stringify(draft));
+        } catch (e3) {}
+        window.location.href = '/review';
+      });
+    })();
+  </script>
+</body>
+</html>

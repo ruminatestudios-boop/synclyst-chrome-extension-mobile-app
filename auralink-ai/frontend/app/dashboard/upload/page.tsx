@@ -17,6 +17,8 @@ export default function UploadPage() {
   const [waitlistStatus, setWaitlistStatus] = useState<{ type: "ok" | "err" | "warn"; text: string } | null>(null);
   /** Shown in modal; set from 402 JSON `scans_limit` (matches backend STARTER_SCAN_LIMIT). */
   const [waitlistScansLimit, setWaitlistScansLimit] = useState(3);
+  const [buyLoading, setBuyLoading] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
 
   const submitWaitlist = async () => {
     const email = waitlistEmail.trim();
@@ -39,6 +41,34 @@ export default function UploadPage() {
       setWaitlistStatus({ type: "err", text: "Could not join waitlist. Please try again." });
     } finally {
       setWaitlistSubmitting(false);
+    }
+  };
+
+  const handleBuyScans = async () => {
+    setBuyLoading(true);
+    setBuyError(null);
+    try {
+      const anonId =
+        (typeof window !== "undefined" && localStorage.getItem("synclyst_anon_id_v1")) || "";
+      const res = await fetch("/api/v1/billing/guest-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anon_id: anonId }),
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "Unknown error");
+        throw new Error(msg || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (err) {
+      setBuyError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBuyLoading(false);
     }
   };
 
@@ -252,8 +282,40 @@ export default function UploadPage() {
               </button>
             </div>
             <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: 0, marginBottom: "0.75rem" }}>
-              You have used all {waitlistScansLimit} free scan{waitlistScansLimit === 1 ? "" : "s"}. Join the waitlist and we will email you when paid plans open.
+              You&apos;ve used all {waitlistScansLimit} free scans today. Top up instantly — no subscription needed.
             </p>
+            <button
+              type="button"
+              onClick={handleBuyScans}
+              disabled={buyLoading}
+              style={{
+                width: "100%",
+                marginBottom: "0.75rem",
+                border: "none",
+                background: "#2563eb",
+                color: "#fff",
+                borderRadius: "8px",
+                padding: "0.7rem 0.9rem",
+                fontWeight: 700,
+                fontSize: "0.9375rem",
+                cursor: buyLoading ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+              }}
+            >
+              {buyLoading ? (
+                <span style={{ display: "inline-block", width: "1em", height: "1em", border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+              ) : null}
+              {buyLoading ? "Redirecting to checkout…" : "Get 20 extra scans — $1.99"}
+            </button>
+            {buyError && (
+              <p style={{ marginTop: "-0.5rem", marginBottom: "0.5rem", fontSize: "0.75rem", color: "#991b1b" }}>
+                {buyError}
+              </p>
+            )}
+            <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.5rem", textAlign: "center" }}>— or get notified when subscription plans launch —</p>
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <input
                 type="email"

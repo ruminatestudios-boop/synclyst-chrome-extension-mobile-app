@@ -38,7 +38,13 @@ class Settings(BaseSettings):
     web_page_fetch_timeout_sec: float = 12.0
     web_page_fetch_max_bytes: int = 2_000_000
 
-    @field_validator("gemini_api_key", "openai_api_key", mode="before")
+    @field_validator("starter_scan_quota_window", mode="before")
+    @classmethod
+    def normalize_starter_quota_window(cls, v):
+        s = str(v or "daily").strip().lower()
+        return s if s in ("daily", "monthly") else "daily"
+
+    @field_validator("gemini_api_key", "openai_api_key", "ebay_app_id", "upcitemdb_user_key", mode="before")
     @classmethod
     def strip_api_key(cls, v):
         if isinstance(v, str):
@@ -74,9 +80,26 @@ class Settings(BaseSettings):
     # Integrations: webhook secret for listing-published (optional)
     integrations_webhook_secret: str = ""
 
-    # Starter tier: monthly free product scans (env override for quick waitlist testing, e.g. 1).
-    # Production: omit or set to 3.
-    starter_scan_limit: int = 3
+    # Starter tier: free product scans before 402 — cap is per STARTER_SCAN_QUOTA_WINDOW ("daily" or "monthly").
+    # Defaults: 10/day. Set STARTER_SCAN_QUOTA_WINDOW=monthly and STARTER_SCAN_LIMIT=3 for legacy monthly behavior.
+    starter_scan_limit: int = 10
+    starter_scan_quota_window: str = "daily"
+
+    # eBay API credentials.
+    # EBAY_APP_ID  = Production App ID (Client ID) from developer.ebay.com/my/keys
+    # EBAY_CERT_ID = Production Cert ID (Client Secret) — used to auto-fetch OAuth tokens for Browse API
+    ebay_app_id: str = ""
+    ebay_cert_id: str = ""
+
+    # Barcode lookup (optional): UPCitemdb. If UP CITEMDB_USER_KEY is unset, backend uses the trial endpoint (rate limited).
+    upcitemdb_user_key: str = ""
+    upcitemdb_key_type: str = "user_key"
+
+    # Profit estimation defaults (fast heuristics; override per scan if needed)
+    reseller_fee_rate: float = 0.13
+    reseller_payment_rate: float = 0.029
+    reseller_payment_fixed: float = 0.30
+    reseller_shipping_default: float = 8.0
 
     # Stripe billing
     stripe_secret_key: str = ""
@@ -84,6 +107,10 @@ class Settings(BaseSettings):
     stripe_price_pro: str = ""
     stripe_price_growth: str = ""
     stripe_price_scale: str = ""
+    # One-time Stripe Price ID for guest scan pack (payment mode). Webhook adds credits to anonymous_scan_credits.
+    stripe_price_scan_pack: str = ""
+    # Credits granted per successful scan-pack purchase (default 50).
+    guest_scan_pack_credits: int = 50
     stripe_customer_portal_return_url: str = ""
 
     def get_cors_origins_list(self) -> List[str]:

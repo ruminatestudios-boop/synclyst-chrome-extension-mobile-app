@@ -4,7 +4,7 @@ uvicorn[standard]>=0.32.0
 python-multipart>=0.0.9
 
 # Vision / AI
-google-genai>=1.0.0
+google-genai>=2.3.0
 openai>=1.50.0
 google-cloud-vision>=3.7.0
 pytesseract>=0.3.10
@@ -26,6 +26,9 @@ stripe>=12.0.0
 
 # HTTP client (Shopify OAuth, GraphQL)
 httpx>=0.27.0
+
+# Rate limiting
+slowapi>=0.1.9
 
 # Utils
 pydantic>=2.9.0

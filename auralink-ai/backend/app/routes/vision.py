@@ -10,11 +10,13 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, Response
+from starlette.requests import Request
 from pydantic import ValidationError
 import httpx
 
 from app.auth import optional_verify_clerk
-from app.db import get_supabase, get_scan_usage, increment_scan
+from app.config import get_settings
+from app.db import get_supabase, get_scan_usage_unified, consume_one_scan, is_valid_anon_uuid
 from app.schemas.vision import (
     VisionExtractionRequest,
     VisionExtractionResponse,
@@ -23,6 +25,7 @@ from app.schemas.vision import (
     OptimizeSeoResponse,
     ProxyImageJsonRequest,
 )
+from app.schemas.reseller import ResellerScanRequest, ResellerScanResponse
 from app.services.vision_service import (
     MultimodalProcessor,
     get_synthetic_ocr,
@@ -40,6 +43,7 @@ from app.services.ocr_service import (
     enrich_attributes_from_ocr,
     extract_dimensions_from_ocr,
 )
+from app.services.ebay_service import fetch_ebay_market_summary
 from app.services.web_enrichment import enrich_from_web
 from app.services.product_images import fetch_product_image_urls, load_reference_image_bytes
 from app.services.seo_optimize import optimize_seo_listing
@@ -48,6 +52,49 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _processor = MultimodalProcessor()
+
+
+def _resolve_quota_key(http_request: Request, _auth: dict | None) -> str | None:
+    settings = get_settings()
+    sub = (_auth or {}).get("sub") if _auth else None
+    if sub and sub != "dev":
+        return str(sub)
+    if not settings.clerk_secret_key and sub == "dev":
+        return "dev"
+    raw = (
+        http_request.headers.get("X-SyncLyst-Anon-Id") or http_request.headers.get("x-synclyst-anon-id") or ""
+    ).strip()
+    if is_valid_anon_uuid(raw):
+        return f"anon:{raw}"
+    return None
+
+
+def _maybe_scan_quota_block(http_request: Request, _auth: dict | None) -> JSONResponse | None:
+    supabase = get_supabase()
+    if not supabase:
+        return None
+    qk = _resolve_quota_key(http_request, _auth)
+    if not qk:
+        if get_settings().clerk_secret_key:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "detail": "Missing X-SyncLyst-Anon-Id header for guest scans. Refresh the page or update the app.",
+                },
+            )
+        return None
+    usage = get_scan_usage_unified(supabase, qk)
+    if not usage.get("can_scan", True):
+        return JSONResponse(
+            status_code=402,
+            content={
+                "detail": "Scan limit reached. Buy scan credits or try again tomorrow.",
+                "scans_limit": int(usage.get("scans_limit", 10)),
+                "quota_window": str(usage.get("quota_window", "daily")),
+                "bonus_credits": int(usage.get("bonus_credits") or 0),
+            },
+        )
+    return None
 
 
 def _decode_base64(image_base64: str) -> bytes:
@@ -91,25 +138,383 @@ def _resize_image_if_large(image_base64: str, mime: str, max_px: int = 720, max_
     return image_base64.split(",", 1)[-1].strip() if image_base64.strip().startswith("data:") else image_base64.strip()
 
 
+def _build_clean_title_and_query(extraction: dict) -> tuple[str, str]:
+    """
+    Build a clean marketplace title and an eBay-friendly query from the vision extraction.
+    Prioritize speed and usefulness over perfect match.
+    """
+    att = extraction.get("attributes") or {}
+    copy = extraction.get("extraction_copy") or extraction.get("copy") or {}
+    tags = extraction.get("tags") or {}
+    brand = (att.get("brand") or "").strip()
+    product_type = (att.get("product_type") or tags.get("category") or "").strip()
+    color = (att.get("color") or "").strip()
+    exact_model = (att.get("exact_model") or "").strip()
+    year = (att.get("model_year") or "").strip()
+    title = (copy.get("seo_title") or "").strip()
+    kw = tags.get("search_keywords") or []
+    kw = [str(x).strip() for x in kw if x is not None and str(x).strip()]
+
+    # Clean title: prefer existing seo_title if it's not generic.
+    clean_parts: list[str] = []
+    if title and title.lower() not in ("product", "item from photo", "item"):
+        clean_parts.append(title)
+    else:
+        for p in (brand, product_type, exact_model, color):
+            if p and p.lower() not in ("unknown", "n/a"):
+                clean_parts.append(p)
+        if not clean_parts and kw:
+            clean_parts.append(kw[0])
+    clean_title = " ".join(clean_parts).strip()[:160] or "Item from photo"
+
+    # eBay query: tight, keyword-based.
+    query_parts: list[str] = []
+    for p in (brand, exact_model, product_type, color, year):
+        if p and p.lower() not in ("unknown", "n/a"):
+            query_parts.append(p)
+    # Add 2 extra keywords max for specificity.
+    for k in kw[:6]:
+        if len(query_parts) >= 6:
+            break
+        kl = k.lower()
+        if any(kl == q.lower() for q in query_parts):
+            continue
+        if brand and kl == brand.lower():
+            continue
+        query_parts.append(k)
+    query = " ".join(query_parts).strip()[:140] or clean_title[:140]
+    return clean_title, query
+
+
+def _estimate_profit(
+    *,
+    purchase_price: float | None,
+    estimated_resale_price: float | None,
+    fee_rate: float,
+    payment_rate: float,
+    payment_fixed: float,
+    shipping_default: float,
+) -> dict:
+    if estimated_resale_price is None or estimated_resale_price <= 0:
+        return {
+            "purchase_price": purchase_price,
+            "estimated_resale_price": None,
+            "estimated_fees": None,
+            "estimated_shipping": None,
+            "estimated_net_profit": None,
+            "estimated_roi_pct": None,
+        }
+    fees = max(0.0, estimated_resale_price * float(fee_rate))
+    payment = max(0.0, estimated_resale_price * float(payment_rate) + float(payment_fixed))
+    est_shipping = max(0.0, float(shipping_default))
+    total_cost = fees + payment + est_shipping + (float(purchase_price) if purchase_price is not None else 0.0)
+    net = float(estimated_resale_price) - total_cost
+    roi = None
+    if purchase_price is not None and purchase_price > 0:
+        roi = (net / float(purchase_price)) * 100.0
+    return {
+        "purchase_price": purchase_price,
+        "estimated_resale_price": float(estimated_resale_price),
+        "estimated_fees": round(fees + payment, 2),
+        "estimated_shipping": round(est_shipping, 2),
+        "estimated_net_profit": round(net, 2),
+        "estimated_roi_pct": round(roi, 1) if roi is not None else None,
+    }
+
+
+def _reseller_analysis_from_market(
+    *,
+    sold_count: int,
+    sell_through_confidence: float,
+    est_profit: float | None,
+    roi_pct: float | None,
+) -> dict:
+    # Demand
+    if sold_count >= 12 and sell_through_confidence >= 0.6:
+        demand = "high"
+        speed = "fast"
+    elif sold_count >= 5:
+        demand = "medium"
+        speed = "medium"
+    else:
+        demand = "low"
+        speed = "slow"
+
+    # Recommendation
+    rec = "maybe"
+    if est_profit is not None:
+        if est_profit >= 20 and (roi_pct is None or roi_pct >= 120):
+            rec = "buy"
+        elif est_profit <= 5:
+            rec = "skip"
+    else:
+        # no purchase price: base on confidence + range
+        if sell_through_confidence >= 0.65 and sold_count >= 8:
+            rec = "buy"
+        elif sold_count <= 1:
+            rec = "skip"
+
+    if rec == "buy":
+        summary = "Strong flip potential with healthy margins and consistent sold history."
+    elif rec == "skip":
+        summary = "Likely not worth reselling due to weak demand or thin margins after fees."
+    else:
+        summary = "Moderate resale potential — verify the exact model and condition for better comps."
+
+    return {
+        "recommendation": rec,
+        "summary": summary,
+        "demand_strength": demand,
+        "estimated_sell_speed": speed,
+        "resale_confidence": float(max(0.0, min(1.0, sell_through_confidence))),
+    }
+
+
+@router.post("/reseller-scan", response_model=ResellerScanResponse)
+async def reseller_scan(
+    http_request: Request,
+    rs: ResellerScanRequest,
+    _auth: dict = Depends(optional_verify_clerk),
+):
+    """
+    Reseller Intelligence Scanner:
+    - Vision identification (reuses existing stack)
+    - eBay sold/active comps (Finding API)
+    - Profit/ROI estimate (fast heuristics)
+    - Short reseller-focused recommendation
+    """
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    raw_b64 = _resize_image_if_large(rs.image_base64, rs.mime_type or "image/jpeg")
+    mime = rs.mime_type or "image/jpeg"
+
+    # Use existing product extraction path (optionally skipping web enrichment for speed)
+    extraction = await extract(
+        http_request,
+        VisionExtractionRequest(
+            image_base64=raw_b64,
+            mime_type=mime,
+            include_ocr=bool(rs.include_ocr),
+            skip_web_enrichment=bool(rs.skip_web_enrichment),
+            extraction_type="product",
+        ),
+        _auth,
+    )
+    if isinstance(extraction, JSONResponse):
+        return extraction
+
+    # Optional: barcode lookup to tighten product identity + eBay query when a UPC/EAN is visible.
+    # This is best-effort and never blocks the scan if the service is unavailable.
+    try:
+        from app.services.barcode_service import extract_barcode_candidates, lookup_upcitemdb
+
+        if isinstance(extraction, dict):
+            ocr_snips = extraction.get("raw_ocr_snippets") or []
+            ocr_snips = [str(x) for x in ocr_snips] if isinstance(ocr_snips, list) else []
+            candidates = extract_barcode_candidates(ocr_snips[:25])
+            if candidates:
+                info = await lookup_upcitemdb(candidates[0])
+                if info:
+                    att = extraction.get("attributes") or {}
+                    copy = extraction.get("extraction_copy") or extraction.get("copy") or {}
+                    tags = extraction.get("tags") or {}
+
+                    # Fill missing identity fields only (don't override strong vision results).
+                    if info.get("brand") and not (att.get("brand") or "").strip():
+                        att["brand"] = info["brand"]
+                    if info.get("model") and not (att.get("exact_model") or "").strip():
+                        att["exact_model"] = info["model"]
+                    if info.get("title"):
+                        t = str(info["title"]).strip()
+                        if t:
+                            if not (copy.get("seo_title") or "").strip() or str(copy.get("seo_title") or "").strip().lower() in (
+                                "product",
+                                "item from photo",
+                                "item",
+                            ):
+                                copy["seo_title"] = t
+                            # Add a couple of high-signal keywords for marketplace queries.
+                            kws = tags.get("search_keywords") if isinstance(tags.get("search_keywords"), list) else []
+                            kws = [str(x).strip() for x in kws if x is not None and str(x).strip()]
+                            for k in [info.get("brand"), info.get("model")]:
+                                if not k:
+                                    continue
+                                kl = str(k).strip()
+                                if kl and not any(kl.lower() == str(x).lower() for x in kws):
+                                    kws.insert(0, kl)
+                            tags["search_keywords"] = kws[:12]
+
+                    extraction["attributes"] = att
+                    extraction["extraction_copy"] = copy
+                    extraction["tags"] = tags
+    except Exception:
+        pass
+
+    clean_title, ebay_query = _build_clean_title_and_query(extraction)
+
+    # Guard: if the query looks like an OCR/vision error string, skip eBay and return a clear warning.
+    _OCR_ERROR_PREFIXES = (
+        "i am sorry", "the image", "i cannot", "i can't", "i'm sorry",
+        "no text", "unable to", "could not", "it looks like", "this image",
+        "the photo", "there is no", "unfortunately",
+    )
+    _query_lower = ebay_query.lower().strip()
+    _query_is_junk = (
+        any(_query_lower.startswith(p) for p in _OCR_ERROR_PREFIXES)
+        or (len(ebay_query) > 80 and sum(1 for w in ebay_query.split() if len(w) > 2) < 3)
+        or ebay_query == "Item from photo"
+    )
+
+    # eBay comps: if not configured, return empty market info.
+    if _query_is_junk:
+        market = {
+            "query": ebay_query,
+            "sold_count": 0,
+            "sold_avg": None,
+            "sold_low": None,
+            "sold_high": None,
+            "active_count": 0,
+            "active_avg": None,
+            "sell_through_confidence": 0.0,
+            "comps_sold": [],
+            "comps_active": [],
+            "warnings": ["Could not identify the product clearly enough to search eBay. Try a clearer photo with the item label visible."],
+        }
+    elif not settings.ebay_app_id:
+        market = {
+            "query": ebay_query,
+            "sold_count": 0,
+            "sold_avg": None,
+            "sold_low": None,
+            "sold_high": None,
+            "active_count": 0,
+            "active_avg": None,
+            "sell_through_confidence": 0.0,
+            "comps_sold": [],
+            "comps_active": [],
+            "warnings": ["eBay API not configured (set EBAY_APP_ID). Showing AI identification only."],
+        }
+    else:
+        try:
+            m = await fetch_ebay_market_summary(
+                app_id=settings.ebay_app_id,
+                cert_id=settings.ebay_cert_id,
+                gemini_api_key=settings.gemini_api_key,
+                keywords=ebay_query,
+            )
+            market = {
+                "query": m.query,
+                "sold_count": m.sold_count,
+                "sold_avg": m.sold_avg,
+                "sold_low": m.sold_low,
+                "sold_high": m.sold_high,
+                "active_count": m.active_count,
+                "active_avg": m.active_avg,
+                "sell_through_confidence": m.sell_through_confidence,
+                "comps_sold": [c.__dict__ for c in m.comps_sold],
+                "comps_active": [c.__dict__ for c in m.comps_active],
+                "warnings": m.warnings,
+            }
+        except Exception as e:
+            logger.warning("eBay market lookup failed: %s", e)
+            ebay_warning = "Could not reach eBay comps right now. Try again."
+            if isinstance(e, httpx.HTTPStatusError) and e.response is not None:
+                body = (e.response.text or "")[:2000]
+                lower_body = body.lower()
+                if (
+                    "ratelimiter" in lower_body
+                    or "exceeded the number of times" in lower_body
+                    or "operation is allowed" in lower_body
+                ):
+                    ebay_warning = (
+                        "eBay key is connected, but Finding API quota is not active yet. "
+                        "Wait for eBay quota propagation or complete Application Growth Check."
+                    )
+            market = {
+                "query": ebay_query,
+                "sold_count": 0,
+                "sold_avg": None,
+                "sold_low": None,
+                "sold_high": None,
+                "active_count": 0,
+                "active_avg": None,
+                "sell_through_confidence": 0.0,
+                "comps_sold": [],
+                "comps_active": [],
+                "warnings": [ebay_warning],
+            }
+
+    # Choose a resale anchor price for profit estimates:
+    # 1) Sold average, else sold high (small sample), else active average
+    # 2) Fallback to price detected in image (if any)
+    est_resale = market.get("sold_avg") or market.get("sold_high") or market.get("active_avg")
+    if not est_resale:
+        try:
+            att = (extraction.get("attributes") or {}) if isinstance(extraction, dict) else {}
+            pv = att.get("price_value")
+            if isinstance(pv, (int, float)) and pv and pv > 0:
+                est_resale = float(pv)
+                market_w = market.get("warnings") or []
+                if isinstance(market_w, list):
+                    market_w.append("Using price detected in image as a resale estimate (no comps available).")
+                    market["warnings"] = market_w
+        except Exception:
+            pass
+    profit = _estimate_profit(
+        purchase_price=rs.purchase_price,
+        estimated_resale_price=est_resale,
+        fee_rate=settings.reseller_fee_rate,
+        payment_rate=settings.reseller_payment_rate,
+        payment_fixed=settings.reseller_payment_fixed,
+        shipping_default=settings.reseller_shipping_default,
+    )
+    analysis = _reseller_analysis_from_market(
+        sold_count=int(market.get("sold_count") or 0),
+        sell_through_confidence=float(market.get("sell_through_confidence") or 0.0),
+        est_profit=profit.get("estimated_net_profit"),
+        roi_pct=profit.get("estimated_roi_pct"),
+    )
+
+    # Count this scan once for authenticated users (extract() increments too; avoid double-count by only incrementing here when extract did not)
+    # NOTE: extract() already increments for product path when user_id + supabase, so we don't increment again.
+
+    return {
+        "extraction": extraction,
+        "optimized_ebay_query": ebay_query,
+        "clean_title": clean_title,
+        "ebay_market": market,
+        "profit": profit,
+        "analysis": analysis,
+    }
+
 @router.post("/extract")
-async def extract(request: VisionExtractionRequest, _auth: dict = Depends(optional_verify_clerk)):
+async def extract(
+    http_request: Request,
+    vreq: VisionExtractionRequest,
+    _auth: dict = Depends(optional_verify_clerk),
+):
     """
     Extract from one image. Supports extraction_type: product (listing), invoice, or receipt.
     Product: returns attributes, extraction_copy, tags (UCP + schema.org/Product).
     Invoice/Receipt: returns vendor_name, document_date, line_items, total, currency, etc.
     """
-    from app.config import get_settings
     settings = get_settings()
-    raw_b64 = request.image_base64
-    mime = request.mime_type or "image/jpeg"
-    extraction_type = (request.extraction_type or "product").strip().lower()
+    raw_b64 = vreq.image_base64
+    mime = vreq.mime_type or "image/jpeg"
+    extraction_type = (vreq.extraction_type or "product").strip().lower()
+
+    blocked = _maybe_scan_quota_block(http_request, _auth)
+    if blocked:
+        return blocked
 
     # Invoice / receipt path
     if extraction_type in ("invoice", "receipt"):
         raw_b64 = _resize_image_if_large(raw_b64, mime)
         ocr_snippets = []
         raw_bytes = b""
-        if request.include_ocr:
+        if vreq.include_ocr:
             try:
                 raw_bytes = _decode_base64(raw_b64)
             except Exception:
@@ -142,6 +547,10 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
                 currency="GBP",
                 confidence_score=0.5,
             )
+            supabase = get_supabase()
+            qk = _resolve_quota_key(http_request, _auth)
+            if qk and supabase:
+                consume_one_scan(supabase, qk)
             return dummy.model_dump()
         if settings.vision_provider == "gemini" and not bool(settings.gemini_api_key):
             raise HTTPException(
@@ -153,18 +562,6 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
                 status_code=503,
                 detail="Vision API not configured. Set OPENAI_API_KEY in backend .env to use invoice extraction.",
             )
-        supabase = get_supabase()
-        user_id = _auth.get("sub") if _auth else None
-        if user_id and supabase:
-            usage = get_scan_usage(supabase, user_id)
-            if not usage.get("can_scan", True):
-                return JSONResponse(
-                    status_code=402,
-                    content={
-                        "detail": "Scan limit reached. Upgrade to continue.",
-                        "scans_limit": int(usage.get("scans_limit", 3)),
-                    },
-                )
         try:
             result = await asyncio.wait_for(
                 run_invoice_extraction(raw_b64, mime, ocr_snippets, extraction_type),
@@ -181,8 +578,10 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
                 status_code=503,
                 detail=f"Invoice extraction failed: {e}",
             ) from None
-        if user_id and supabase:
-            increment_scan(supabase, user_id)
+        supabase = get_supabase()
+        qk = _resolve_quota_key(http_request, _auth)
+        if qk and supabase:
+            consume_one_scan(supabase, qk)
         return result.model_dump()
 
     # Product path (existing)
@@ -190,6 +589,10 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
     has_openai = bool(settings.openai_api_key)
     use_dummy = bool(getattr(settings, "force_dummy_vision", False))
     if use_dummy:
+        supabase = get_supabase()
+        qk = _resolve_quota_key(http_request, _auth)
+        if qk and supabase:
+            consume_one_scan(supabase, qk)
         return get_dummy_extraction().model_dump()
     if settings.vision_provider == "gemini" and not has_gemini:
         raise HTTPException(
@@ -202,28 +605,15 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
             detail="Vision API not configured. Set OPENAI_API_KEY in backend .env.",
         )
 
-    supabase = get_supabase()
-    user_id = _auth.get("sub") if _auth else None
-    if user_id and supabase:
-        usage = get_scan_usage(supabase, user_id)
-        if not usage.get("can_scan", True):
-            return JSONResponse(
-                status_code=402,
-                content={
-                    "detail": "Scan limit reached. Upgrade to continue.",
-                    "scans_limit": int(usage.get("scans_limit", 3)),
-                },
-            )
-
-    raw_b64 = request.image_base64
-    mime = request.mime_type or "image/jpeg"
+    raw_b64 = vreq.image_base64
+    mime = vreq.mime_type or "image/jpeg"
     ocr_snippets: list[str] = []
     raw_bytes: bytes = b""
 
     # Resize early so OCR and vision both run on smaller image (faster, especially on mobile)
     raw_b64 = _resize_image_if_large(raw_b64, mime)
 
-    if request.include_ocr:
+    if vreq.include_ocr:
         async def _run_ocr_with_timeout() -> list[str]:
             out: list[str] = []
             try:
@@ -303,12 +693,15 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
             fallback.extraction_copy.description = "AI is temporarily unavailable (rate limited). Please review and edit this draft before publishing."
             fallback.confidence_score = 0.2
             fallback.sources = {**(fallback.sources or {}), "fallback": "quota"}
+            supabase = get_supabase()
+            qk = _resolve_quota_key(http_request, _auth)
+            if qk and supabase:
+                consume_one_scan(supabase, qk)
             return fallback.model_dump()
         raise HTTPException(status_code=503, detail=err_msg) from None
     except Exception as e:
         logger.exception("Vision extraction failed")
-        from app.config import get_settings
-        s = get_settings()
+        s = settings
         if not s.gemini_api_key and s.vision_provider != "openai":
             raise HTTPException(
                 status_code=503,
@@ -339,6 +732,10 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
             fallback.extraction_copy.description = "AI is temporarily unavailable (rate limited). Please review and edit this draft before publishing."
             fallback.confidence_score = 0.2
             fallback.sources = {**(fallback.sources or {}), "fallback": "quota"}
+            supabase = get_supabase()
+            qk = _resolve_quota_key(http_request, _auth)
+            if qk and supabase:
+                consume_one_scan(supabase, qk)
             return fallback.model_dump()
         raise HTTPException(status_code=500, detail=f"Extraction failed: {err_msg}")
 
@@ -387,15 +784,16 @@ async def extract(request: VisionExtractionRequest, _auth: dict = Depends(option
         result.attributes.brand = result.tags.category.split(">")[0].strip()
 
     # Internet-backed enrichment: fetch exact product name and full listing details from the web
-    if not request.skip_web_enrichment and settings.enable_web_enrichment and settings.gemini_api_key:
+    if not vreq.skip_web_enrichment and settings.enable_web_enrichment and settings.gemini_api_key:
         try:
             result = await enrich_from_web(result, settings)
         except Exception as e:
             logger.warning("Web enrichment failed (using image-only result): %s", e)
 
-    # Count this scan for authenticated user
-    if user_id and supabase:
-        increment_scan(supabase, user_id)
+    supabase = get_supabase()
+    qk = _resolve_quota_key(http_request, _auth)
+    if qk and supabase:
+        consume_one_scan(supabase, qk)
 
     # Return as dict to avoid FastAPI re-validating and triggering "copy" validation errors
     return result.model_dump()

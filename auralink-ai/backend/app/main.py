@@ -2,11 +2,14 @@
 SyncLyst - FastAPI backend.
 API-first, headless product onboarding from images.
 """
+import collections
+import time
 from contextlib import asynccontextmanager
+from typing import DefaultDict
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.config import get_settings
 from app.routes import vision, products, audit, shopify, feedback, ucp, integrations, usage, billing
@@ -39,10 +42,35 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # In-memory IP rate limiter for /api/v1/vision/* — 30 requests per minute per IP.
+    _VISION_RATE_LIMIT = 30
+    _VISION_WINDOW_SECS = 60
+    _vision_ip_timestamps: DefaultDict[str, collections.deque] = collections.defaultdict(collections.deque)
+
+    @app.middleware("http")
+    async def vision_rate_limit_middleware(request: Request, call_next):
+        if request.url.path.startswith("/api/v1/vision/"):
+            client_ip = (
+                request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+                or request.headers.get("x-real-ip", "")
+                or (request.client.host if request.client else "unknown")
+            )
+            now = time.monotonic()
+            bucket = _vision_ip_timestamps[client_ip]
+            # Remove timestamps older than the window
+            while bucket and now - bucket[0] > _VISION_WINDOW_SECS:
+                bucket.popleft()
+            if len(bucket) >= _VISION_RATE_LIMIT:
+                return JSONResponse(
+                    status_code=429,
+                    content={"error": "Too many requests. Slow down and try again in a minute."},
+                )
+            bucket.append(now)
+        return await call_next(request)
+
     @app.exception_handler(Exception)
-    async def global_exception_handler(request, exc):
+    async def global_exception_handler(request: Request, exc: Exception):
         """Return 500 with a clear message instead of unhandled exception."""
-        from fastapi.responses import JSONResponse
         from fastapi import HTTPException
         if isinstance(exc, HTTPException):
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})

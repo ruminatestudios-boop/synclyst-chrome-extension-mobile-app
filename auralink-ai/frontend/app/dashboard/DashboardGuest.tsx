@@ -203,18 +203,18 @@ export default function DashboardGuest() {
           <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Push to channels · Connect marketplaces</p>
           {usage !== null && (
             <p style={{ marginTop: "0.5rem", fontSize: "0.8125rem", color: "var(--muted)" }}>
-              🔍 {usage.free_scans_used}/{usage.free_scans_limit} free scans used
+              🔍 {Math.max(0, usage.free_scans_limit - usage.free_scans_used)} of {usage.free_scans_limit} free scans left today
             </p>
           )}
           {usage?.can_scan && usage.free_scans_used === 0 && (
             <div style={{ marginTop: "1rem", padding: "0.75rem 1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", display: "inline-block" }}>
-              <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#166534" }}>✨ You have 3 FREE scans!</span>
+              <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#166534" }}>✨ {usage.free_scans_limit} free scans today — resets daily</span>
             </div>
           )}
           {usage && !usage.can_scan && (
             <div style={{ marginTop: "1rem", padding: "0.75rem 1rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", display: "inline-block" }}>
-              <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#991b1b" }}>You&apos;ve used all 3 free scans.</span>
-              <Link href="/landing.html#waitlist" style={{ display: "block", marginTop: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--accent)" }}>Join waitlist →</Link>
+              <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#991b1b" }}>Daily free scans used up.</span>
+              <Link href="/scan?buy=1" style={{ display: "block", marginTop: "0.5rem", fontSize: "0.875rem", fontWeight: 700, color: "#2563eb" }}>Get 20 extra scans — $1.99 →</Link>
             </div>
           )}
         </div>
