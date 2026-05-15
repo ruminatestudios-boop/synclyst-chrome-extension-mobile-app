@@ -6,6 +6,8 @@
   <meta name="view-transition" content="same-origin" />
   <meta name="auralink-api-url" content="http://localhost:8000" />
   <meta name="synclyst-backend-url" content="https://auralink-api-299567386855.us-central1.run.app" />
+  <meta name="synclyst-chrome-extension-url" content="https://chromewebstore.google.com/detail/SyncLyst:%20Listing%20autopilot%20for%20resellers/copjkijolfpmhjgiggafngmdeibnmfnm" />
+  <meta name="synclyst-publishing-url" content="https://synclyst-publishing-299567386855.us-central1.run.app" />
   <title>Processing | Listing Flow | SyncLyst</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,6 +16,8 @@
   <link rel="stylesheet" href="/css/synclyst-flow.css" />
   <link rel="stylesheet" href="/css/flow-page-transition.css" />
   <script src="/js/flow-page-transition.js"></script>
+  <script src="/js/synclyst-anon-id.js"></script>
+  <script src="/js/synclyst-quota-modal.js"></script>
 
 
   <script>
@@ -75,53 +79,55 @@
     .proc-item .step-icon-current { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #eab308; border-top-color: transparent; flex-shrink: 0; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .marketplace-logo { width: 28px; height: 28px; object-fit: contain; opacity: 0.85; }
+    #proc-status-msg { transition: opacity 0.3s ease; opacity: 0; }
 
   </style>
 </head>
 <body class="min-h-screen bg-[#f5f5f5] font-sans text-[#0a0a0a] antialiased">
   <div id="synclyst-flow-shell" class="max-w-md mx-auto min-h-screen flex flex-col bg-white shadow-sm">
-    <!-- Header: same layout as flow-3 (centered logo, h-14, divider) -->
-    <header class="shrink-0 border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 h-14 grid grid-cols-3 items-center">
-      <div aria-hidden="true"></div>
-      <a href="/landing.html" class="inline-flex items-center justify-self-center no-underline text-[#111]"><span class="text-lg font-semibold tracking-tight">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
-      <div aria-hidden="true"></div>
+    <!-- Header: SyncIQ® — matches reseller-results.html exactly -->
+    <header class="shrink-0 border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 h-14 flex items-center justify-center">
+      <a href="/" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a]/20 focus-visible:rounded-sm ri-icon-btn py-2" title="SyncIQ® — scanning" aria-label="SyncIQ">
+        SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>
+      </a>
     </header>
     <p id="dev-api-hint" class="hidden shrink-0 px-4 py-1.5 text-center text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-100" aria-live="polite"></p>
     <main class="flex-1 px-5 pt-6 pb-6 overflow-auto">
-      <h1 class="vercel-headline text-xl font-bold text-[#0a0a0a] mb-1 text-center">Reading your product</h1>
-      <p class="text-center text-sm text-[#525252] mb-6 vercel-body">AI is working its magic…</p>
+      <h1 id="proc-headline" class="vercel-headline text-xl font-bold text-[#0a0a0a] mb-1 text-center">Scanning your item</h1>
+      <p id="proc-subhead" class="text-center text-sm text-[#525252] mb-6 vercel-body">Finding prices &amp; sell history…</p>
 
       <div class="smart-suggest-banner mb-6 w-full text-left" role="status" aria-live="polite">
         <div class="smart-suggest-icon-wrap" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+            <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" />
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" />
             <line x1="7" x2="17" y1="12" y2="12" />
           </svg>
           <span class="scan-line"></span>
         </div>
         <div class="smart-suggest-text">
-          <span class="smart-suggest-title">What we’re doing with your scan</span>
-          <span class="smart-suggest-desc">From this scan we draft your listing — the list tracks each stage.</span>
+          <span id="proc-banner-title" class="smart-suggest-title">What SyncIQ is doing</span>
+          <span id="proc-banner-desc" class="smart-suggest-desc">Reading the label, searching eBay sold comps &amp; building your profit estimate.</span>
         </div>
       </div>
 
       <div class="vercel-card p-6">
         <div id="proc-bar" class="listing-quality-bar-track mb-2" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-        <p id="proc-pct" class="text-right text-sm font-semibold text-zinc-600 mb-6">0%</p>
-        <p id="proc-wait" class="hidden -mt-4 mb-6 text-xs text-zinc-500 text-center">
-          Still reading — review opens when ready.
+        <div class="flex items-center justify-between -mt-1 mb-5">
+          <p id="proc-status-msg" class="text-xs text-zinc-400 transition-all duration-500"></p>
+          <p id="proc-pct" class="text-sm font-semibold text-zinc-600">0%</p>
+        </div>
+        <p id="proc-wait" class="hidden -mt-2 mb-5 text-xs text-zinc-500 text-center italic">
+          Still working — results open when ready.
         </p>
         <ul class="space-y-4 text-sm" id="proc-list">
-          <li class="proc-item done flex items-center gap-3" data-step="0"><span class="step-icon-done">✓</span> OCR — reading labels</li>
-          <li class="proc-item done flex items-center gap-3" data-step="1"><span class="step-icon-done">✓</span> Object recognition</li>
-          <li class="proc-item done flex items-center gap-3" data-step="2"><span class="step-icon-done">✓</span> Brand & model identified</li>
-          <li class="proc-item pending flex items-center gap-3" data-step="3"><span class="step-icon-current"></span> Writing title & description</li>
-          <li class="proc-item pending flex items-center gap-3" data-step="4"><span class="step-icon-pending"></span> Building SEO tags</li>
-          <li class="proc-item pending flex items-center gap-3" data-step="5"><span class="step-icon-pending"></span> Checking your sell history</li>
-          <li class="proc-item pending flex items-center gap-3" data-step="6"><span class="step-icon-pending"></span> Recommending price</li>
+          <li class="proc-item done flex items-center gap-3" data-step="0"><span class="step-icon-done">✓</span> <span class="step-label">Reading product labels</span></li>
+          <li class="proc-item done flex items-center gap-3" data-step="1"><span class="step-icon-done">✓</span> <span class="step-label">Identifying brand &amp; model</span></li>
+          <li class="proc-item done flex items-center gap-3" data-step="2"><span class="step-icon-done">✓</span> <span class="step-label">Assessing condition</span></li>
+          <li class="proc-item pending flex items-center gap-3" data-step="3"><span class="step-icon-current"></span> <span class="step-label">Searching eBay sold listings</span></li>
+          <li class="proc-item pending flex items-center gap-3" data-step="4"><span class="step-icon-pending"></span> <span class="step-label">Comparing recent sale prices</span></li>
+          <li class="proc-item pending flex items-center gap-3" data-step="5"><span class="step-icon-pending"></span> <span class="step-label">Calculating profit &amp; ROI</span></li>
+          <li class="proc-item pending flex items-center gap-3" data-step="6"><span class="step-icon-pending"></span> <span class="step-label">Building your reseller report</span></li>
         </ul>
       </div>
     </main>
@@ -145,20 +151,7 @@
     </div>
   </div>
 
-  <!-- Scan limit (402): same waitlist UX as dashboard upload — modal instead of only redirecting -->
-  <div id="waitlist-quota-modal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4 bg-black/45" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="waitlist-quota-title">
-    <div class="vercel-card max-w-md w-full p-6 shadow-xl relative">
-      <button type="button" id="waitlist-quota-close" class="absolute top-3 right-3 text-zinc-400 hover:text-zinc-700 text-xl leading-none" aria-label="Close">×</button>
-      <h2 id="waitlist-quota-title" class="text-lg font-bold text-[#0a0a0a] pr-8 mb-2">Scan limit reached</h2>
-      <p id="waitlist-quota-message" class="text-sm text-[#525252] mb-4">You have used all free scans. Join the waitlist and we will email you when paid plans open.</p>
-      <div class="flex flex-col sm:flex-row gap-2">
-        <input type="email" id="waitlist-quota-email" placeholder="you@company.com" class="flex-1 rounded-xl border border-[#e5e5e5] px-3 py-2.5 text-sm text-[#0a0a0a]" autocomplete="email" />
-        <button type="button" id="waitlist-quota-submit" class="rounded-xl bg-[#0a0a0a] text-white text-sm font-semibold px-4 py-2.5 whitespace-nowrap">Join waitlist</button>
-      </div>
-      <p id="waitlist-quota-status" class="hidden text-xs mt-2"></p>
-      <p id="waitlist-quota-footer-links" class="text-xs text-zinc-500 mt-4 mb-0"><a href="/landing.html#waitlist" class="text-[#111] font-medium underline">Open waitlist on homepage</a> · <a href="/scan" class="text-[#111] font-medium underline">Back to scan</a></p>
-    </div>
-  </div>
+  <!-- Scan limit (402): SyncLystQuotaModal injects markup from /js/synclyst-quota-modal.js -->
   <script>
     document.addEventListener('keydown', function(e) {
       if (e.key !== 'ArrowLeft') return;
@@ -222,6 +215,7 @@
         renderProcBar(v);
         if (pctEl) pctEl.textContent = Math.round(v) + '%';
       }
+      var _wasWaiting = false;
       function setWaiting(on) {
         if (barEl) {
           if (on) barEl.classList.add('proc-bar-waiting');
@@ -231,6 +225,10 @@
           if (on) waitEl.classList.remove('hidden');
           else waitEl.classList.add('hidden');
         }
+        // Start/stop cycling status messages
+        if (on && !_wasWaiting) startStatusCycle();
+        else if (!on && _wasWaiting) stopStatusCycle();
+        _wasWaiting = on;
       }
       function markStepDone(index) {
         var li = steps[index];
@@ -270,6 +268,24 @@
         if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(next);
         else window.location.href = next;
       }
+
+      function redirectToResellerResults() {
+        try { sessionStorage.removeItem(PENDING_SCAN_KEY); } catch (e) {}
+        var INTEL_HANDOFF = 'auralink_reseller_intel_handoff';
+        var RESULT_KEY = 'auralink_reseller_result';
+        try {
+          var rawR = sessionStorage.getItem(RESULT_KEY);
+          if (rawR) {
+            localStorage.setItem(
+              INTEL_HANDOFF,
+              JSON.stringify({ raw: rawR, exp: Date.now() + 10 * 60 * 1000 })
+            );
+          }
+        } catch (eH) {}
+        var next = '/?intel=reseller';
+        if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(next);
+        else window.location.href = next;
+      }
       function showError(message) {
         extractionDone = true;
         if (cardEl) cardEl.classList.add('hidden');
@@ -281,6 +297,7 @@
         }
         if (errorMsg) errorMsg.textContent = msg;
       }
+      }
 
       function continueWithoutAiDraft() {
         extractionDone = true;
@@ -289,7 +306,8 @@
         setWaiting(false);
         try { sessionStorage.removeItem(PENDING_SCAN_KEY); } catch (e) {}
         try {
-          var imageDataUrl = pending && pending.base64 ? ('data:image/jpeg;base64,' + pending.base64) : '';
+          var pendingMime = (pending && pending.mime_type) ? String(pending.mime_type) : 'image/jpeg';
+          var imageDataUrl = pending && pending.base64 ? ('data:' + pendingMime + ';base64,' + pending.base64) : '';
           var extraction = {
             extraction_copy: {
               seo_title: 'Item from photo',
@@ -320,33 +338,25 @@
         redirectToFlow3();
       }
 
-      function publishingBase() {
-        var host = window.location.hostname;
-        var port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-        var isLocal = host === 'localhost' || host === '127.0.0.1';
-        if (isLocal && (port === '3000' || port === '3001')) return window.location.origin.replace(/\/$/, '') + '/__synclyst_publishing';
-        if (host === 'synclyst.app' || host === 'www.synclyst.app') return 'https://synclyst-publishing-299567386855.us-central1.run.app';
-        return window.location.protocol + '//' + host + ':8001';
-      }
-
-      function showWaitlistQuotaModal(limit) {
+      function showWaitlistQuotaModal(limit, quotaWindow, extraOpts) {
         extractionDone = true;
         extractionInFlight = false;
         setWaiting(false);
         if (cardEl) cardEl.classList.add('hidden');
         if (errorWrap) errorWrap.classList.add('hidden');
-        var titleEl = document.getElementById('waitlist-quota-title');
-        if (titleEl) titleEl.textContent = 'Scan limit reached';
-        var msgEl = document.getElementById('waitlist-quota-message');
-        if (msgEl) {
-          var n = typeof limit === 'number' && limit > 0 ? limit : 3;
-          msgEl.textContent = 'You have used all ' + n + ' free scan' + (n === 1 ? '' : 's') + '. Join the waitlist and we will email you when paid plans open.';
-        }
-        var modal = document.getElementById('waitlist-quota-modal');
-        if (modal) {
-          modal.classList.remove('hidden');
-          modal.classList.add('flex');
-          modal.setAttribute('aria-hidden', 'false');
+        if (window.SyncLystQuotaModal && typeof SyncLystQuotaModal.show === 'function') {
+          SyncLystQuotaModal.show(
+            limit,
+            quotaWindow,
+            Object.assign(
+              {
+                waitlistSource: 'reading-product-402',
+                footerBackHref: '/scan',
+                footerBackLabel: 'Back to scan',
+              },
+              extraOpts || {}
+            )
+          );
         }
       }
 
@@ -369,44 +379,140 @@
         }
       }
 
-      var apiUrl = (document.querySelector('meta[name="auralink-api-url"]') && document.querySelector('meta[name="auralink-api-url"]').getAttribute('content')) || 'http://localhost:8000';
-      apiUrl = (apiUrl || '').trim().replace(/\/$/, '') || 'http://localhost:8000';
+      var metaApi = (document.querySelector('meta[name="auralink-api-url"]') && document.querySelector('meta[name="auralink-api-url"]').getAttribute('content')) || '';
+      metaApi = (metaApi || '').trim().replace(/\/$/, '');
       var host = window.location.hostname;
       var prodBackend = document.querySelector('meta[name="synclyst-backend-url"]');
       var fallbackApiUrl = (prodBackend && prodBackend.getAttribute('content')) ? prodBackend.getAttribute('content').trim().replace(/\/$/, '') : '';
-      // Local dev: include file:// (empty host) so we keep auralink-api-url instead of Cloud Run.
-      var isLocalBrowserHost = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || !host || window.location.protocol === 'file:';
-      if (isLocalBrowserHost) {
-        apiUrl = apiUrl || 'http://localhost:8000';
-      } else if (prodBackend && prodBackend.getAttribute('content')) {
-        apiUrl = prodBackend.getAttribute('content').trim().replace(/\/$/, '');
-      } else if (host) {
-        apiUrl = window.location.origin;
-      }
-      var devHint = document.getElementById('dev-api-hint');
-      if (devHint && isLocalBrowserHost) {
-        devHint.textContent = 'Local dev — vision API: ' + apiUrl;
-        devHint.classList.remove('hidden');
-      }
+      // Same-origin /api/v1/vision/* (Next route → backend): works on Vercel, avoids CORS, and proxies both
+      // extract + reseller-scan (reseller-scan had no Next route before and 404'd in production).
+      var apiUrl = '';
+      try {
+        if ((window.location.protocol === 'http:' || window.location.protocol === 'https:') && host)
+          apiUrl = String(window.location.origin || '').replace(/\/$/, '');
+      } catch (eO) {}
+      if (!apiUrl) apiUrl = metaApi || 'http://localhost:8000';
 
       // If you're on localhost but want Cloud Run, we can auto-fallback on network failure.
       var triedFallback = false;
+
+      // ---- Flow-aware labels ----
+      var pendingFlow = 'listing';
+      try { pendingFlow = (pending && pending.flow) ? String(pending.flow).toLowerCase() : 'listing'; } catch(e) {}
+      var isResellerFlow = pendingFlow === 'reseller';
+
+      // Reseller steps (7 items, same data-step indices)
+      var resellerStepLabels = [
+        'Reading product labels',
+        'Identifying brand &amp; model',
+        'Assessing condition',
+        'Searching eBay sold listings',
+        'Comparing recent sale prices',
+        'Calculating profit &amp; ROI',
+        'Building your reseller report'
+      ];
+      // Listing steps
+      var listingStepLabels = [
+        'OCR — reading labels',
+        'Object recognition',
+        'Brand &amp; model identified',
+        'Writing title &amp; description',
+        'Building SEO tags',
+        'Finding marketplace fit',
+        'Setting recommended price'
+      ];
+      var stepLabels = isResellerFlow ? resellerStepLabels : listingStepLabels;
+      // Apply labels to DOM
+      var stepLabelEls = listEl ? listEl.querySelectorAll('.step-label') : [];
+      for (var si = 0; si < stepLabelEls.length; si++) {
+        if (stepLabels[si] != null) stepLabelEls[si].innerHTML = stepLabels[si];
+      }
+      // Update headline + subhead + banner based on flow
+      var headlineEl  = document.getElementById('proc-headline');
+      var subheadEl   = document.getElementById('proc-subhead');
+      var bannerTitle = document.getElementById('proc-banner-title');
+      var bannerDesc  = document.getElementById('proc-banner-desc');
+      if (!isResellerFlow) {
+        if (headlineEl) headlineEl.textContent = 'Reading your product';
+        if (subheadEl)  subheadEl.textContent  = 'AI is working its magic…';
+        if (bannerTitle) bannerTitle.textContent = 'What we\'re doing with your scan';
+        if (bannerDesc)  bannerDesc.innerHTML   = 'From this scan we draft your listing — the list tracks each stage.';
+      }
+
+      // Cycling status messages shown below the progress bar while waiting
+      var resellerStatusMsgs = [
+        'Reading the photo…',
+        'Identifying product…',
+        'Searching eBay sold listings…',
+        'Pulling recent sale prices…',
+        'Checking resale demand…',
+        'Estimating profit margin…',
+        'Finalising your report…'
+      ];
+      var listingStatusMsgs = [
+        'Reading the photo…',
+        'Detecting brand & model…',
+        'Writing title & description…',
+        'Building SEO tags…',
+        'Checking marketplace fit…',
+        'Setting recommended price…',
+        'Finalising your listing…'
+      ];
+      var statusMsgs = isResellerFlow ? resellerStatusMsgs : listingStatusMsgs;
+      var statusMsgIdx = 0;
+      var statusMsgEl = document.getElementById('proc-status-msg');
+      var statusMsgTimer = null;
+      function startStatusCycle() {
+        if (!statusMsgEl) return;
+        statusMsgEl.textContent = statusMsgs[0];
+        statusMsgTimer = setInterval(function () {
+          statusMsgIdx = (statusMsgIdx + 1) % statusMsgs.length;
+          // Fade out → update → fade in
+          statusMsgEl.style.opacity = '0';
+          setTimeout(function () {
+            statusMsgEl.textContent = statusMsgs[statusMsgIdx];
+            statusMsgEl.style.opacity = '1';
+          }, 300);
+        }, 3800);
+      }
+      function stopStatusCycle() {
+        if (statusMsgTimer) { clearInterval(statusMsgTimer); statusMsgTimer = null; }
+        if (statusMsgEl) { statusMsgEl.style.opacity = '0'; }
+      }
 
       var start = Date.now();
       /** Vision + OCR + web enrichment can exceed 45s; align with landing/index extract timeout. */
       var EXTRACTION_TIMEOUT_MS = 180000;
       var DRAFT_INTRO_MS = 4000;
-      /** While waiting: fast rise, then eases toward high 90s (not wall-clock seconds — avoids crawl + sudden jump). */
-      var PENDING_TAU_MS = 6500;
-      var PENDING_CAP = 97;
+      /** While waiting: faster initial rise (lower tau = quicker climb early on). */
+      var PENDING_TAU_MS = 3800;
+      /** Cap at 93 so the bar never looks "almost done but stuck" for a long time. */
+      var PENDING_CAP = 93;
       /** When extraction returns: smooth glide from current % to 100 (no snap). */
-      var COMPLETION_RAMP_MS = 480;
+      var COMPLETION_RAMP_MS = 600;
       var completionRamp = null;
 
       function finalizePendingSuccess(data) {
         extractionDone = true;
+        stopStatusCycle();
+        if (statusMsgEl) { statusMsgEl.style.opacity = '1'; statusMsgEl.textContent = 'Done! Opening results…'; }
         setPct(100);
         for (var i = 0; i < steps.length; i++) markStepDone(i);
+        var flow = 'listing';
+        try { flow = (pending && pending.flow) ? String(pending.flow) : 'listing'; } catch (e) {}
+        flow = (flow || 'listing').toLowerCase();
+        var isReseller = flow === 'reseller';
+
+        if (isReseller) {
+          try {
+            var resMime = (pending && pending.mime_type) ? String(pending.mime_type) : 'image/jpeg';
+            var resPayload = { result: data, imageDataUrl: 'data:' + resMime + ';base64,' + pending.base64, ts: Date.now() };
+            sessionStorage.setItem('auralink_reseller_result', JSON.stringify(resPayload));
+          } catch (e) {}
+          setTimeout(redirectToResellerResults, 250);
+          return;
+        }
+
         var att = data.attributes || {};
         var suggestedPrice = 199;
         if (att.price_value != null && typeof att.price_value === 'number' && att.price_value > 0) suggestedPrice = att.price_value;
@@ -414,7 +520,8 @@
           var match = att.price_display.replace(/[^\d.]/g, '').match(/[\d.]+/);
           if (match && parseFloat(match[0]) > 0) suggestedPrice = parseFloat(match[0]);
         }
-        var payload = { extraction: data, suggested_price: suggestedPrice, imageDataUrl: 'data:image/jpeg;base64,' + pending.base64 };
+        var payloadMime = (pending && pending.mime_type) ? String(pending.mime_type) : 'image/jpeg';
+        var payload = { extraction: data, suggested_price: suggestedPrice, imageDataUrl: 'data:' + payloadMime + ';base64,' + pending.base64 };
         try {
           sessionStorage.removeItem('auralink_review_draft');
           sessionStorage.setItem(DRAFT_LISTING_KEY, JSON.stringify(payload));
@@ -493,26 +600,40 @@
         var abort = new AbortController();
         var extractionTimeoutId = setTimeout(function() { try { abort.abort(); } catch (e) {} }, EXTRACTION_TIMEOUT_MS);
 
-        return fetch(apiUrl + '/api/v1/vision/extract', {
+        var flow = 'listing';
+        try { flow = (pending && pending.flow) ? String(pending.flow) : 'listing'; } catch (e) {}
+        flow = (flow || 'listing').toLowerCase();
+        var isReseller = flow === 'reseller';
+
+        var endpoint = isReseller ? '/api/v1/vision/reseller-scan' : '/api/v1/vision/extract';
+        var reqHeaders = { 'Content-Type': 'application/json' };
+        try {
+          if (window.SyncLystAnon && typeof window.SyncLystAnon.get === 'function')
+            reqHeaders['X-SyncLyst-Anon-Id'] = window.SyncLystAnon.get();
+        } catch (eAnon) {}
+        return fetch(apiUrl + endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: reqHeaders,
           signal: abort.signal,
           body: JSON.stringify({
             image_base64: pending.base64,
-            mime_type: 'image/jpeg',
+            mime_type: (pending && pending.mime_type) ? String(pending.mime_type) : 'image/jpeg',
             include_ocr: true,
-            skip_web_enrichment: false
+            skip_web_enrichment: isReseller ? true : false
           })
         })
           .then(function(r) {
           if (r.status === 402) {
             return r.json().then(function(body) {
-              var lim = 3;
+              var lim = 10;
               if (body && typeof body.scans_limit === 'number' && body.scans_limit > 0) lim = body.scans_limit;
-              showWaitlistQuotaModal(lim);
+              var qw = 'daily';
+              if (body && body.quota_window) qw = String(body.quota_window).toLowerCase();
+              var bonus = typeof body.bonus_credits === 'number' ? body.bonus_credits : 0;
+              showWaitlistQuotaModal(lim, qw, { bonusCredits: bonus });
               return null;
             }).catch(function() {
-              showWaitlistQuotaModal(3);
+              showWaitlistQuotaModal(10, 'daily');
               return null;
             });
           }
@@ -544,8 +665,12 @@
         var raw = (err && err.message) ? String(err.message) : '';
         var networkFail = err && (err.name === 'TypeError' || raw === 'Failed to fetch' || raw === 'fetch failed' || raw.indexOf('NetworkError') !== -1);
 
-        // Auto-fallback: if localhost backend isn't reachable, try Cloud Run once.
-        if (!triedFallback && networkFail && (host === 'localhost' || host === '127.0.0.1') && fallbackApiUrl && apiUrl.indexOf('localhost:8000') !== -1) {
+        // Auto-fallback: if local Next proxy or :8000 isn't reachable, try Cloud Run once.
+        var originTry = '';
+        try { originTry = String(window.location.origin || '').replace(/\/$/, ''); } catch (eOg) {}
+        var usingDirect8000 = apiUrl.indexOf('localhost:8000') !== -1;
+        var usingNextProxy = originTry && apiUrl === originTry;
+        if (!triedFallback && networkFail && (host === 'localhost' || host === '127.0.0.1') && fallbackApiUrl && (usingDirect8000 || usingNextProxy)) {
           triedFallback = true;
           apiUrl = fallbackApiUrl;
           setWaiting(true);
@@ -591,55 +716,6 @@
         }
       })();
 
-      (function wireWaitlistModal() {
-        var modalEl = document.getElementById('waitlist-quota-modal');
-        var closeBtn = document.getElementById('waitlist-quota-close');
-        var submitBtn = document.getElementById('waitlist-quota-submit');
-        var emailInput = document.getElementById('waitlist-quota-email');
-        var statusEl = document.getElementById('waitlist-quota-status');
-        function setWlStatus(kind, text) {
-          if (!statusEl) return;
-          statusEl.textContent = text || '';
-          statusEl.classList.remove('hidden');
-          statusEl.style.color = kind === 'ok' ? '#166534' : kind === 'warn' ? '#92400e' : '#991b1b';
-        }
-        if (closeBtn) {
-          closeBtn.addEventListener('click', function() {
-            window.location.href = '/landing.html#waitlist';
-          });
-        }
-        if (modalEl) {
-          modalEl.addEventListener('click', function(e) {
-            if (e.target === modalEl) window.location.href = '/landing.html#waitlist';
-          });
-        }
-        if (submitBtn && emailInput) {
-          submitBtn.addEventListener('click', function() {
-            var email = (emailInput.value || '').trim();
-            if (!email || email.indexOf('@') === -1) {
-              setWlStatus('err', 'Enter a valid email.');
-              return;
-            }
-            submitBtn.disabled = true;
-            setWlStatus('warn', 'Adding you to waitlist…');
-            fetch(publishingBase() + '/auth/waitlist', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: email, source: 'reading-product-402' }),
-            })
-              .then(function(res) {
-                if (!res.ok) throw new Error('fail');
-                setWlStatus('ok', 'You are on the waitlist. We will email you when paid plans open.');
-              })
-              .catch(function() {
-                setWlStatus('err', 'Could not join right now. Try the homepage waitlist or try again.');
-              })
-              .finally(function() {
-                submitBtn.disabled = false;
-              });
-          });
-        }
-      })();
     })();
   </script>
 </body>
