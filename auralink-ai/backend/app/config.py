@@ -109,8 +109,8 @@ class Settings(BaseSettings):
     stripe_price_scale: str = ""
     # One-time Stripe Price ID for guest scan pack (payment mode). Webhook adds credits to anonymous_scan_credits.
     stripe_price_scan_pack: str = ""
-    # Credits granted per successful scan-pack purchase (default 50).
-    guest_scan_pack_credits: int = 50
+    # Credits granted per successful scan-pack purchase (default 20).
+    guest_scan_pack_credits: int = 20
     stripe_customer_portal_return_url: str = ""
 
     def get_cors_origins_list(self) -> List[str]:
