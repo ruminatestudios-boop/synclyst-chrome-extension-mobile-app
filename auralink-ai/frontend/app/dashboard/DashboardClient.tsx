@@ -32,7 +32,7 @@ export default function DashboardClient() {
   const [pushChannels, setPushChannels] = useState<string[]>(["shopify"]);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushMessage, setPushMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [billingNotice, setBillingNotice] = useState<string | null>(null);
+  const [billingNotice, setBillingNotice] = useState<{ text: string; ok: boolean } | null>(null);
   const [shopifyConnected, setShopifyConnected] = useState(false);
   const [shopifyShopDomain, setShopifyShopDomain] = useState<string | null>(null);
 
@@ -54,15 +54,16 @@ export default function DashboardClient() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    // Shopify connection is owned by the publishing service (not the backend API).
-    // Fetch via same-origin proxy: /__synclyst_publishing/api/user/connected-stores
-    fetch("/api/publishing/token")
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), 8000);
+    fetch("/api/publishing/token", { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const token = d?.token;
         if (!token) return null;
         return fetch("/__synclyst_publishing/api/user/connected-stores", {
           headers: { Authorization: `Bearer ${token}` },
+          signal: ac.signal,
         });
       })
       .then((r) => (r && r.ok ? r.json() : null))
@@ -79,7 +80,8 @@ export default function DashboardClient() {
         setShopifyConnected(false);
         setShopifyShopDomain(null);
         setPushChannels((prev) => prev.filter((c) => c !== "shopify"));
-      });
+      })
+      .finally(() => clearTimeout(timeout));
     fetchUsage();
   }, [isLoaded, getToken]);
 
@@ -89,6 +91,11 @@ export default function DashboardClient() {
     const billing = (params.get("billing") || "").toLowerCase();
     const sessionId = params.get("session_id") || "";
     if (billing !== "success" || !sessionId) return;
+
+    const cleaned = new URL(window.location.href);
+    cleaned.searchParams.delete("billing");
+    cleaned.searchParams.delete("session_id");
+    window.history.replaceState({}, "", cleaned.toString());
 
     (async () => {
       try {
@@ -100,18 +107,33 @@ export default function DashboardClient() {
         });
         if (res.ok) {
           await fetchUsage();
-          setBillingNotice("Payment confirmed. Your plan is now active.");
-        } else {
-          setBillingNotice("Payment received. Plan sync is in progress.");
+          setBillingNotice({ text: "Payment confirmed. Your plan is now active.", ok: true });
+          return;
         }
       } catch {
-        setBillingNotice("Payment received. Plan sync is in progress.");
-      } finally {
-        const cleaned = new URL(window.location.href);
-        cleaned.searchParams.delete("billing");
-        cleaned.searchParams.delete("session_id");
-        window.history.replaceState({}, "", cleaned.toString());
+        // fall through to polling
       }
+
+      // Backend confirm failed — poll usage until tier upgrades (up to 30 s)
+      setBillingNotice({ text: "Payment received. Activating your plan…", ok: true });
+      for (let i = 0; i < 15; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+          const r = await apiFetch("/api/v1/usage", { token });
+          if (r.ok) {
+            const u = await r.json();
+            if (u?.tier && u.tier !== "starter") {
+              setUsage(u);
+              setBillingNotice({ text: `Payment confirmed. Your ${u.tier} plan is now active.`, ok: true });
+              return;
+            }
+          }
+        } catch {
+          // keep polling
+        }
+      }
+      setBillingNotice({ text: "Payment received. Your plan will activate within a few minutes.", ok: true });
     })();
   }, [isLoaded, getToken]);
 
@@ -193,9 +215,10 @@ export default function DashboardClient() {
             </p>
           )}
           {billingNotice && (
-            <p style={{ marginTop: "0.5rem", fontSize: "0.8125rem", color: "#166534" }}>
-              {billingNotice}
-            </p>
+            <div style={{ marginTop: "0.75rem", padding: "0.65rem 1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", display: "inline-flex", alignItems: "center", gap: "0.75rem" }}>
+              <span style={{ fontSize: "0.8125rem", color: "#166534", fontWeight: 500 }}>{billingNotice.text}</span>
+              <button type="button" onClick={() => setBillingNotice(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#166534", fontSize: "1rem", lineHeight: 1, padding: 0 }} aria-label="Dismiss">×</button>
+            </div>
           )}
           {usage?.can_scan && usage.scans_used === 0 && (
             <div style={{ marginTop: "1rem", padding: "0.75rem 1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", display: "inline-block" }}>

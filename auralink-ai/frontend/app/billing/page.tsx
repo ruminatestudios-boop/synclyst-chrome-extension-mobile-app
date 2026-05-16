@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, useUser, useAuth } from "@clerk/nextjs";
 import { Suspense, useState } from "react";
 
 const PLANS: {
@@ -47,11 +47,14 @@ const PLANS: {
   },
 ];
 
+const CLERK_JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE?.trim();
+
 function BillingInner() {
   const sp = useSearchParams();
   const canceled = sp?.get("canceled") === "1";
   const preselect = ((sp && sp.get("tier")) || "").toLowerCase();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -60,14 +63,33 @@ function BillingInner() {
     setErr(null);
     setLoading(tier);
     try {
-      const res = await fetch("/api/billing/checkout", {
+      const token = await getToken(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+      if (!token) {
+        setErr("Could not get auth token. Please sign in again.");
+        setLoading(null);
+        return;
+      }
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const res = await fetch("/api/v1/billing/checkout-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          tier,
+          success_url: `${origin}/dashboard?billing=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${origin}/billing?tier=${encodeURIComponent(tier)}&canceled=1`,
+        }),
       });
-      const data = (await res.json()) as { url?: string; error?: string; message?: string };
+      const data = (await res.json()) as { url?: string; error?: string; detail?: string; message?: string };
       if (!res.ok) {
-        setErr(data.message || data.error || "Checkout failed");
+        if (res.status === 503) {
+          setErr("Payments are not yet configured. Please try again later.");
+        } else if (res.status === 401 || res.status === 403) {
+          setErr("Please sign in to upgrade.");
+        } else if (res.status >= 500) {
+          setErr("Payment service error. Please try again in a moment.");
+        } else {
+          setErr(data.detail || data.message || data.error || "Checkout failed. Please try again.");
+        }
         setLoading(null);
         return;
       }
@@ -75,7 +97,7 @@ function BillingInner() {
         window.location.href = data.url;
         return;
       }
-      setErr("No checkout URL returned");
+      setErr("No checkout URL returned. Please try again.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -94,14 +116,22 @@ function BillingInner() {
       });
       const data = (await res.json()) as { url?: string; error?: string; message?: string; detail?: string };
       if (!res.ok) {
-        setErr(data.message || data.detail || data.error || "Could not open billing portal");
+        if (res.status === 404 || data.error === "no_subscription") {
+          setErr("No active subscription found. Subscribe to a plan to manage billing.");
+        } else if (res.status === 401) {
+          setErr("Please sign in to manage billing.");
+        } else if (res.status >= 500) {
+          setErr("Billing service unavailable. Please try again in a moment.");
+        } else {
+          setErr(data.message || data.detail || data.error || "Could not open billing portal. Please try again.");
+        }
         return;
       }
       if (data.url) {
         window.location.href = data.url;
         return;
       }
-      setErr("No portal URL returned");
+      setErr("No portal URL returned. Please contact support.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Network error");
     } finally {

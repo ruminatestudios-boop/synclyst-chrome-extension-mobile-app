@@ -388,8 +388,9 @@ async def stripe_webhook(request: Request):
                     stripe_subscription_id=subscription_id,
                     current_period_end=current_period_end if isinstance(current_period_end, int) else None,
                 )
-    except Exception:
-        # Always ack so Stripe doesn't retry endlessly; you'll see failures in logs.
+    except Exception as exc:
+        import traceback
+        print(f"[billing/webhook] event={etype} sync error: {exc}\n{traceback.format_exc()}", flush=True)
         return {"received": True, "synced": False}
 
     return {"received": True}

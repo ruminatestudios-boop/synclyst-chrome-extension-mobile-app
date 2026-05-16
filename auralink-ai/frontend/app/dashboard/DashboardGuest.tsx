@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { apiFetch, API_BASE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 const MARKETPLACES = [
   { id: "shopify", name: "Shopify", logo: "https://www.google.com/s2/favicons?domain=shopify.com&sz=128", connect: true },
@@ -27,21 +27,9 @@ export default function DashboardGuest() {
     productTitle: string;
     queued: { channel: string; shop_domain?: string; task_id?: string }[];
   } | null>(null);
-  const [simulatedStores, setSimulatedStores] = useState<string[]>([]);
   const [connectStoreSuccess, setConnectStoreSuccess] = useState<string | null>(null);
-  const [apiConnected, setApiConnected] = useState<boolean | null>(null);
   const [shopifyConnected, setShopifyConnected] = useState(false);
   const [shopifyShopDomain, setShopifyShopDomain] = useState<string | null>(null);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 5000);
-    fetch(`${API_BASE}/health`, { signal: ac.signal })
-      .then((r) => r.ok)
-      .then(setApiConnected)
-      .catch(() => setApiConnected(false))
-      .finally(() => clearTimeout(t));
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -60,14 +48,16 @@ export default function DashboardGuest() {
   }, []);
 
   useEffect(() => {
-    // Shopify connection is owned by the publishing service (not the backend API).
-    fetch("/api/publishing/token")
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), 8000);
+    fetch("/api/publishing/token", { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const token = d?.token;
         if (!token) return null;
         return fetch("/__synclyst_publishing/api/user/connected-stores", {
           headers: { Authorization: `Bearer ${token}` },
+          signal: ac.signal,
         });
       })
       .then((r) => (r && r.ok ? r.json() : null))
@@ -84,7 +74,8 @@ export default function DashboardGuest() {
         setShopifyConnected(false);
         setShopifyShopDomain(null);
         setPushChannels((prev) => prev.filter((c) => c !== "shopify"));
-      });
+      })
+      .finally(() => clearTimeout(timeout));
     apiFetch("/api/v1/usage", {})
       .then((r) => (r.ok ? r.json() : null))
       .then((u: Record<string, unknown> | null) => {
@@ -169,10 +160,7 @@ export default function DashboardGuest() {
     setPushChannels(["shopify"]);
   };
 
-  const connectedShopDomains = [
-    ...(shopifyShopDomain ? [shopifyShopDomain] : []),
-    ...simulatedStores,
-  ];
+  const connectedShopDomains = shopifyShopDomain ? [shopifyShopDomain] : [];
   const hasShopifyConnected = connectedShopDomains.length > 0;
 
   return (
@@ -181,20 +169,9 @@ export default function DashboardGuest() {
         <Link href="/landing.html" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text)" }}>
           SyncLyst
         </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", fontSize: "0.8125rem", color: "var(--muted)", flexWrap: "wrap" }}>
-          <span title="Backend API">API: {API_BASE}</span>
-          {apiConnected === true && (
-            <span style={{ color: "#16a34a", fontWeight: 600 }}>● Connected</span>
-          )}
-          {apiConnected === false && (
-            <span style={{ color: "#dc2626", fontWeight: 600 }} title="Start backend: cd auralink-ai/backend && source .venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000">
-              ● Not connected — start backend on port 8000
-            </span>
-          )}
-          {apiConnected === null && (
-            <span style={{ color: "#ca8a04", fontWeight: 500 }}>● Checking…</span>
-          )}
-          <span>Guest</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <Link href="/billing" style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--accent)", textDecoration: "none" }}>Upgrade</Link>
+          <Link href="/sign-in" style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--muted)", textDecoration: "none" }}>Sign in</Link>
         </div>
       </header>
       <main style={{ padding: "2rem", maxWidth: "64rem", margin: "0 auto" }}>
@@ -449,7 +426,8 @@ export default function DashboardGuest() {
           </section>
         </div>
         <p style={{ marginTop: "3rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)", textAlign: "center", color: "var(--muted)", fontSize: "0.8125rem" }}>
-          Login will be added later.
+          <Link href="/sign-up" style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>Create an account</Link>
+          {" to save products and manage your subscription."}
         </p>
       </main>
     </div>
