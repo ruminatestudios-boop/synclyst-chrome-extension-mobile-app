@@ -1228,11 +1228,12 @@
         window.openModal = openModal;
         window.closeModal = closeModal;
 
-        // Scan mode: ?mode=scan on home.html, or pretty URL /scan (Next rewrites to this file)
+        // Scan mode: ?mode=scan on home.html, or pretty URL /scan or /list (Next rewrites to this file)
         var urlParams = new URLSearchParams(window.location.search);
         var pathNorm = (window.location.pathname || '').replace(/\/+$/, '') || '/';
         var isScanPath = pathNorm === '/scan';
-        if (urlParams.get('mode') === 'scan' || isScanPath) {
+        var isListPath = pathNorm === '/list';
+        if (urlParams.get('mode') === 'scan' || isScanPath || isListPath) {
           var mainLanding = document.getElementById('main-landing');
           if (mainLanding) mainLanding.style.display = 'none';
           var mainHeader = document.getElementById('main-header');
@@ -1242,14 +1243,14 @@
           var scanBrand = document.getElementById('scan-view-brand');
           var scanExit = document.getElementById('scan-view-exit');
           var scanModeParam = (urlParams.get('mode') || '').toLowerCase();
-          if (scanBrand && (scanModeParam === 'reseller' || scanModeParam === 'resell')) {
-            scanBrand.className = 'text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700';
-            scanBrand.innerHTML = 'SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
-            if (scanExit) {
-              scanExit.href = '/reseller-results';
-              scanExit.title = 'SyncIQ® — scan results';
-              scanExit.setAttribute('aria-label', 'SyncIQ — open scan results');
-            }
+          // /scan → always SyncIQ® reseller flow; /list → always Synclyst® listing flow
+          if (isListPath || scanModeParam === 'listing') {
+            if (scanBrand) scanBrand.innerHTML = 'Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
+            if (scanExit) { scanExit.title = 'Synclyst®'; scanExit.setAttribute('aria-label', 'Synclyst'); scanExit.href = '/'; }
+          } else {
+            // /scan or mode=reseller → SyncIQ®
+            if (scanBrand) scanBrand.innerHTML = 'SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
+            if (scanExit) { scanExit.href = '/reseller-results'; scanExit.title = 'SyncIQ®'; scanExit.setAttribute('aria-label', 'SyncIQ'); }
           }
           document.documentElement.classList.remove('synclyst-scan-initial');
 
@@ -1433,11 +1434,14 @@
 
           /** Store image and go to /reading-product (progress + “Reading your product”). */
           function goToFlow2(base64, mimeType) {
-            var scanMode = 'listing';
+            // /scan → reseller flow (SyncIQ®); /list → listing flow (Synclyst®)
+            var pathN = (window.location.pathname || '').replace(/\/+$/, '');
+            var scanMode = (pathN === '/list') ? 'listing' : 'reseller';
             try {
               var params = new URLSearchParams(window.location.search || '');
               var m = (params.get('mode') || '').toLowerCase();
               if (m === 'reseller' || m === 'resell') scanMode = 'reseller';
+              if (m === 'listing') scanMode = 'listing';
             } catch (e) {}
             var rawB64 = base64.indexOf(',') >= 0 ? base64.split(',')[1] : base64;
             var mime = (mimeType || 'image/jpeg').split(';')[0] || 'image/jpeg';

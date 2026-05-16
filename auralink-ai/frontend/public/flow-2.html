@@ -85,10 +85,10 @@
 </head>
 <body class="min-h-screen bg-[#f5f5f5] font-sans text-[#0a0a0a] antialiased">
   <div id="synclyst-flow-shell" class="max-w-md mx-auto min-h-screen flex flex-col bg-white shadow-sm">
-    <!-- Header: SyncIQ® — matches reseller-results.html exactly -->
+    <!-- Header: logo swaps based on flow (reseller → SyncIQ®, listing → Synclyst®) -->
     <header class="shrink-0 border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 h-14 flex items-center justify-center">
-      <a href="/" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a]/20 focus-visible:rounded-sm ri-icon-btn py-2" title="SyncIQ® — scanning" aria-label="SyncIQ">
-        SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>
+      <a id="proc-brand-link" href="/" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a]/20 focus-visible:rounded-sm ri-icon-btn py-2" title="SyncIQ® — scanning" aria-label="SyncIQ">
+        <span id="proc-brand-text">SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span>
       </a>
     </header>
     <p id="dev-api-hint" class="hidden shrink-0 px-4 py-1.5 text-center text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-100" aria-live="polite"></p>
@@ -400,6 +400,19 @@
       var pendingFlow = 'listing';
       try { pendingFlow = (pending && pending.flow) ? String(pending.flow).toLowerCase() : 'listing'; } catch(e) {}
       var isResellerFlow = pendingFlow === 'reseller';
+
+      // Swap header logo: reseller → SyncIQ®, listing → Synclyst®
+      var procBrandText = document.getElementById('proc-brand-text');
+      var procBrandLink = document.getElementById('proc-brand-link');
+      if (procBrandText) {
+        if (isResellerFlow) {
+          procBrandText.innerHTML = 'SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
+          if (procBrandLink) { procBrandLink.title = 'SyncIQ®'; procBrandLink.setAttribute('aria-label', 'SyncIQ'); }
+        } else {
+          procBrandText.innerHTML = 'Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
+          if (procBrandLink) { procBrandLink.title = 'Synclyst®'; procBrandLink.setAttribute('aria-label', 'Synclyst'); }
+        }
+      }
 
       // Reseller steps (7 items, same data-step indices)
       var resellerStepLabels = [
