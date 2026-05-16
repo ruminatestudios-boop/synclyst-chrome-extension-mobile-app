@@ -73,6 +73,8 @@ const nextConfig = {
       afterFiles: [
         ...listingFlowRewrites,
         { source: "/scan", destination: "/home.html" },
+        { source: "/list", destination: "/home.html" },
+        { source: "/reseller-results", destination: "/reseller-results.html" },
         { source: "/reading-product", destination: "/flow-2.html" },
         { source: "/flow-3", destination: "/flow-3.html" },
         { source: "/flow-publishing", destination: "/flow-publishing.html" },
