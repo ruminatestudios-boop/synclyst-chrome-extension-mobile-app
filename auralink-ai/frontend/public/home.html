@@ -1132,7 +1132,7 @@
                 const btn = document.createElement(isActive ? 'a' : 'button');
                 btn.className = `bg-white border border-zinc-200 rounded-xl p-6 flex flex-col items-center justify-center text-center group transition-all duration-300 ${isActive ? 'cursor-pointer hover:-translate-y-1 hover:border-zinc-400 hover:shadow-md' : 'cursor-pointer hover:bg-zinc-50'}`;
                 if (isActive) {
-                    btn.href = '/scan';
+                    btn.href = '/list';
                     btn.setAttribute('aria-label', `List on ${c.name}`);
                 }
                 const gridIconBoxCls = 'inline-flex items-center justify-center w-10 h-10 rounded-xl border border-zinc-200 bg-white shrink-0';

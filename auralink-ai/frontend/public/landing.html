@@ -1024,7 +1024,7 @@
             const btn = document.createElement(isActive ? 'a' : 'button');
             btn.className = `vercel-card p-6 flex flex-col items-center justify-center text-center group transition-all duration-200 ${isActive ? 'cursor-pointer hover:scale-[1.02] hover:border-black hover:shadow-lg' : (isDisabled ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:scale-[1.02]')}`;
             if (isActive) {
-                btn.href = window.synclystAppUrl('/scan');
+                btn.href = window.synclystAppUrl('/list');
                 btn.setAttribute('aria-label', `List on ${c.name}`);
             }
             const gridIconBoxCls = 'inline-flex items-center justify-center w-10 h-10 rounded-lg border border-zinc-200 bg-zinc-50';
