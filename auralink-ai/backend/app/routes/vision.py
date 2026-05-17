@@ -367,7 +367,9 @@ async def reseller_scan(
         or ebay_query == "Item from photo"
     )
 
-    # eBay comps: if not configured, return empty market info.
+    # Market comps: eBay Finding API → Gemini+Google Search grounding fallback.
+    # When EBAY_APP_ID is unset we skip the eBay call and let fetch_ebay_market_summary
+    # go straight to the Gemini Google Search grounding path (uses GEMINI_API_KEY).
     if _query_is_junk:
         market = {
             "query": ebay_query,
@@ -380,21 +382,7 @@ async def reseller_scan(
             "sell_through_confidence": 0.0,
             "comps_sold": [],
             "comps_active": [],
-            "warnings": ["Could not identify the product clearly enough to search eBay. Try a clearer photo with the item label visible."],
-        }
-    elif not settings.ebay_app_id:
-        market = {
-            "query": ebay_query,
-            "sold_count": 0,
-            "sold_avg": None,
-            "sold_low": None,
-            "sold_high": None,
-            "active_count": 0,
-            "active_avg": None,
-            "sell_through_confidence": 0.0,
-            "comps_sold": [],
-            "comps_active": [],
-            "warnings": ["eBay API not configured (set EBAY_APP_ID). Showing AI identification only."],
+            "warnings": ["Could not identify the product clearly enough to search for prices. Try a clearer photo with the item label visible."],
         }
     else:
         try:

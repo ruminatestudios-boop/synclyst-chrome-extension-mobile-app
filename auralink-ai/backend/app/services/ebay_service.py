@@ -486,24 +486,26 @@ async def fetch_ebay_market_summary(
     gemini_sold_prices: list[float] = []
 
     # --- Sold comps: try Finding API first, fall back to Gemini Search ---
-    finding_blocked = False
-    try:
-        sold_comps = await _finding_sold(
-            app_id=app_id,
-            keywords=q,
-            entries_per_page=max(10, max_comps * 3),
-        )
-    except httpx.HTTPStatusError as e:
-        body = (e.response.text or "")[:2000].lower()
-        if any(kw in body for kw in ("ratelimiter", "exceeded the number", "operation is allowed", "developer.access")):
+    # If no eBay App ID is configured, skip straight to Gemini+Google Search grounding.
+    finding_blocked = not bool(app_id)
+    if app_id:
+        try:
+            sold_comps = await _finding_sold(
+                app_id=app_id,
+                keywords=q,
+                entries_per_page=max(10, max_comps * 3),
+            )
+        except httpx.HTTPStatusError as e:
+            body = (e.response.text or "")[:2000].lower()
+            if any(kw in body for kw in ("ratelimiter", "exceeded the number", "operation is allowed", "developer.access")):
+                finding_blocked = True
+            else:
+                warnings.append(f"Could not fetch sold comps from eBay ({e.response.status_code}).")
+        except Exception as e:
             finding_blocked = True
-        else:
-            warnings.append(f"Could not fetch sold comps from eBay ({e.response.status_code}).")
-    except Exception as e:
-        finding_blocked = True
-        logger.debug("Finding API sold comps error: %s", e)
+            logger.debug("Finding API sold comps error: %s", e)
 
-    # Gemini fallback when Finding API is quota-blocked or returned nothing
+    # Gemini fallback when Finding API is quota-blocked / unconfigured, or returned nothing
     if (finding_blocked or not sold_comps) and gemini_api_key:
         logger.info("Using Gemini Search grounding for sold comps: %s", q)
         g_prices, g_comps, g_note = await _gemini_sold_comps(
@@ -522,36 +524,38 @@ async def fetch_ebay_market_summary(
             )
 
     # --- Active listings (Browse API preferred, Finding API fallback) ---
-    try:
-        if cert_id:
-            token = await _get_oauth_token(app_id=app_id, cert_id=cert_id)
-            active_comps = await _browse_search(
-                token=token,
-                keywords=q,
-                limit=max(10, max_comps * 2),
-            )
-        else:
-            # Fallback: Finding API findItemsByKeywords
-            params: dict[str, Any] = {
-                "OPERATION-NAME": "findItemsByKeywords",
-                "SERVICE-VERSION": "1.13.0",
-                "SECURITY-APPNAME": app_id,
-                "RESPONSE-DATA-FORMAT": "JSON",
-                "REST-PAYLOAD": "true",
-                "keywords": q,
-                "paginationInput.entriesPerPage": str(max(10, max_comps * 2)),
-                "outputSelector(0)": "PictureURLLarge",
-                "itemFilter(0).name": "ListingType",
-                "itemFilter(0).value(0)": "FixedPrice",
-                "itemFilter(0).value(1)": "Auction",
-            }
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                r = await client.get(EBAY_FINDING_ENDPOINT, params=params)
-                r.raise_for_status()
-                active_items = [_parse_finding_comp(it) for it in _extract_finding_items(r.json())]
-                active_comps = [c for c in active_items if c is not None]
-    except Exception as e:
-        warnings.append(f"eBay active listings error: {str(e)[:120]}")
+    # Skip entirely when no eBay App ID is configured.
+    if app_id:
+        try:
+            if cert_id:
+                token = await _get_oauth_token(app_id=app_id, cert_id=cert_id)
+                active_comps = await _browse_search(
+                    token=token,
+                    keywords=q,
+                    limit=max(10, max_comps * 2),
+                )
+            else:
+                # Fallback: Finding API findItemsByKeywords
+                params: dict[str, Any] = {
+                    "OPERATION-NAME": "findItemsByKeywords",
+                    "SERVICE-VERSION": "1.13.0",
+                    "SECURITY-APPNAME": app_id,
+                    "RESPONSE-DATA-FORMAT": "JSON",
+                    "REST-PAYLOAD": "true",
+                    "keywords": q,
+                    "paginationInput.entriesPerPage": str(max(10, max_comps * 2)),
+                    "outputSelector(0)": "PictureURLLarge",
+                    "itemFilter(0).name": "ListingType",
+                    "itemFilter(0).value(0)": "FixedPrice",
+                    "itemFilter(0).value(1)": "Auction",
+                }
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    r = await client.get(EBAY_FINDING_ENDPOINT, params=params)
+                    r.raise_for_status()
+                    active_items = [_parse_finding_comp(it) for it in _extract_finding_items(r.json())]
+                    active_comps = [c for c in active_items if c is not None]
+        except Exception as e:
+            warnings.append(f"eBay active listings error: {str(e)[:120]}")
 
     # --- Enrich sold comps with images from Browse API ---
     # Gemini comps have no image_url.  Reuse real eBay CDN images from active

@@ -7,7 +7,7 @@ const BACKEND =
   process.env.AURALINK_BACKEND_URL ||
   process.env.NEXT_PUBLIC_SYNCLYST_BACKEND_URL ||
   process.env.SYNCLYST_BACKEND_URL ||
-  "http://localhost:8000";
+  "https://auralink-api-299567386855.us-central1.run.app";
 
 export const config = { api: { bodyParser: { sizeLimit: "10mb" } } };
 

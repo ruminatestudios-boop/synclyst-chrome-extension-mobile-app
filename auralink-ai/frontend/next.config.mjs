@@ -70,19 +70,18 @@ const nextConfig = {
         { source: "/scan", destination: "/home.html" },
         { source: "/list", destination: "/home.html" },
         { source: "/reseller-results", destination: "/reseller-results.html" },
+        { source: "/reseller-listing-draft", destination: "/reseller-listing-draft.html" },
+        { source: "/reseller-library", destination: "/reseller-library.html" },
         { source: "/reading-product", destination: "/flow-2.html" },
         { source: "/flow-3", destination: "/flow-3.html" },
         { source: "/flow-publishing", destination: "/flow-publishing.html" },
         { source: "/review", destination: "/flow-3.html" },
         { source: "/connect-store", destination: "/stores-connect-shopify.html" },
-        // Backend API proxy (avoid CORS in the browser).
-        // Falls back to the Cloud Run service URL so the rewrite always exists even when
-        // NEXT_PUBLIC_API_URL / AURALINK_BACKEND_URL are not set at build time (e.g. fresh
-        // Synclyst Vercel project without env vars configured yet).
-        {
-          source: "/api/v1/:path*",
-          destination: `${apiBase || "https://auralink-api-299567386855.us-central1.run.app"}/api/v1/:path*`,
-        },
+        // NOTE: Do NOT add a catch-all /api/v1/:path* rewrite here.
+        // On Vercel the Edge rewrites fire before serverless functions, so a
+        // generic /api/v1/* rewrite would bypass pages/api/v1/vision/*.js proxy
+        // handlers (reseller-scan, extract) and send requests straight to Cloud
+        // Run without the per-route headers, timeout config, and error handling.
         {
           source: "/__synclyst_publishing/:path*",
           destination: `${pubBase}/:path*`,
