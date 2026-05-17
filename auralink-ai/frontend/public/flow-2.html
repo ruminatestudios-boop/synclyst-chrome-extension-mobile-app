@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="view-transition" content="same-origin" />
-  <meta name="auralink-api-url" content="http://localhost:8000" />
+  <meta name="auralink-api-url" content="https://auralink-api-299567386855.us-central1.run.app" />
   <meta name="synclyst-backend-url" content="https://auralink-api-299567386855.us-central1.run.app" />
   <meta name="synclyst-chrome-extension-url" content="https://chromewebstore.google.com/detail/SyncLyst:%20Listing%20autopilot%20for%20resellers/copjkijolfpmhjgiggafngmdeibnmfnm" />
   <meta name="synclyst-publishing-url" content="https://synclyst-publishing-299567386855.us-central1.run.app" />
@@ -87,7 +87,7 @@
   <div id="synclyst-flow-shell" class="max-w-md mx-auto min-h-screen flex flex-col bg-white shadow-sm">
     <!-- Header: logo swaps based on flow (reseller → SyncIQ®, listing → Synclyst®) -->
     <header class="shrink-0 border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 h-14 flex items-center justify-center">
-      <a id="proc-brand-link" href="/" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a]/20 focus-visible:rounded-sm ri-icon-btn py-2" title="SyncIQ® — scanning" aria-label="SyncIQ">
+      <a id="proc-brand-link" href="/list" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a]/20 focus-visible:rounded-sm ri-icon-btn py-2" title="SyncIQ® — scanning" aria-label="SyncIQ">
         <span id="proc-brand-text">SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span>
       </a>
     </header>
@@ -493,8 +493,9 @@
       }
 
       var start = Date.now();
-      /** Vision + OCR + web enrichment can exceed 45s; align with landing/index extract timeout. */
-      var EXTRACTION_TIMEOUT_MS = 180000;
+      /** Reseller-scan runs vision + eBay comps and can take 60–90s; listing extract is faster (~30s).
+       *  Use a generous timeout so slow backends don't silently kill the scan. */
+      var EXTRACTION_TIMEOUT_MS = isResellerFlow ? 90000 : 60000;
       var DRAFT_INTRO_MS = 4000;
       /** While waiting: faster initial rise (lower tau = quicker climb early on). */
       var PENDING_TAU_MS = 3800;
@@ -677,12 +678,15 @@
         var raw = (err && err.message) ? String(err.message) : '';
         var networkFail = err && (err.name === 'TypeError' || raw === 'Failed to fetch' || raw === 'fetch failed' || raw.indexOf('NetworkError') !== -1);
 
-        // Auto-fallback: if local Next proxy or :8000 isn't reachable, try Cloud Run once.
+        // Auto-fallback: if the Next.js proxy or local dev server isn't reachable,
+        // retry once against the Cloud Run backend directly (works on localhost AND production).
         var originTry = '';
         try { originTry = String(window.location.origin || '').replace(/\/$/, ''); } catch (eOg) {}
         var usingDirect8000 = apiUrl.indexOf('localhost:8000') !== -1;
         var usingNextProxy = originTry && apiUrl === originTry;
-        if (!triedFallback && networkFail && (host === 'localhost' || host === '127.0.0.1') && fallbackApiUrl && (usingDirect8000 || usingNextProxy)) {
+        // Allow fallback on any host (not just localhost) so production Vercel can recover
+        // if the /api/v1 proxy rewrite is misconfigured or missing.
+        if (!triedFallback && fallbackApiUrl && (usingDirect8000 || usingNextProxy)) {
           triedFallback = true;
           apiUrl = fallbackApiUrl;
           setWaiting(true);
@@ -691,17 +695,17 @@
             setWaiting(false);
             var raw2 = (err2 && err2.message) ? String(err2.message) : '';
             var msg2 = (err2 && err2.name === 'AbortError')
-              ? 'Extraction timed out. Make sure the backend is reachable at ' + apiUrl + ' (open /health) and try again.'
-              : (raw2 || ('Cannot reach the vision API at ' + apiUrl + '.'));
+              ? 'Could not complete extraction in time. Please try again.'
+              : (raw2 || 'Could not read the image. Try again or use a different photo.');
             showError(msg2);
           });
         }
 
         var msg;
         if (err && err.name === 'AbortError') {
-          msg = 'Extraction timed out. Make sure the backend is running on ' + apiUrl + ' (open /health) and try again.';
+          msg = 'Could not complete extraction in time. Please try again with a clearer photo.';
         } else if (networkFail) {
-          msg = 'Cannot reach the vision API at ' + apiUrl + '. If you are using Cloud Run, ensure it is public and supports CORS for this site.';
+          msg = 'Cannot reach the AI service. Please check your connection and try again.';
         } else {
           msg = raw || 'Could not read the image. Try again or use a different photo.';
         }

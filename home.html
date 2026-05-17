@@ -13,7 +13,7 @@
     })();
     </script>
     <meta name="view-transition" content="same-origin" />
-    <meta name="auralink-api-url" content="http://localhost:8000">
+    <meta name="auralink-api-url" content="https://auralink-api-299567386855.us-central1.run.app">
     <meta name="synclyst-backend-url" content="https://auralink-api-299567386855.us-central1.run.app">
     <title>SyncLyst - List products. In seconds.</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -486,7 +486,7 @@
                     List in seconds from the mobile app or Chrome extension.<br />Scan anything <span class="text-orange-600 font-semibold">FREE</span> with SyncIQ to see if it's worth buying.
                 </p>
                 <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
-                    <a href="/scan" id="hero-scan-btn" class="bg-zinc-900 text-white px-8 py-4 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-zinc-900/10 w-full sm:flex-1 sm:min-w-[200px] relative overflow-hidden group no-underline">
+                    <a href="/list" id="hero-scan-btn" class="bg-zinc-900 text-white px-8 py-4 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-zinc-900/10 w-full sm:flex-1 sm:min-w-[200px] relative overflow-hidden group no-underline">
                         <span class="scan-icon-wrap relative inline-flex items-center justify-center w-5 h-5 shrink-0">
                             <i data-lucide="camera" stroke-width="1.5" class="w-5 h-5 relative z-10 text-white/90"></i>
                             <span class="scan-line"></span>
@@ -526,7 +526,7 @@
                             <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800">Live Now</span>
                         </div>
                         <p class="text-base text-zinc-500 leading-relaxed flex-1 mb-8">Open SyncLyst on your phone. Point your camera at any product — AI extracts the title, description, price and tags, then pushes it straight to your Shopify product page.</p>
-                        <a href="/home.html?mode=scan" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3.5 rounded-xl font-medium bg-zinc-900 text-white hover:bg-zinc-800 transition-colors text-center no-underline text-sm">
+                        <a href="/list" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3.5 rounded-xl font-medium bg-zinc-900 text-white hover:bg-zinc-800 transition-colors text-center no-underline text-sm">
                             Scan Your First Item
                         </a>
                     </div>
@@ -891,7 +891,7 @@
                 </div>
             </div>
             <div class="max-w-3xl mx-auto text-center">
-                <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-8 py-4 rounded-xl text-sm font-medium bg-zinc-900 text-white hover:bg-zinc-800 transition-colors no-underline shadow-lg shadow-zinc-900/10">
+                <a href="/scan" class="inline-flex items-center justify-center px-8 py-4 rounded-xl text-sm font-medium bg-zinc-900 text-white hover:bg-zinc-800 transition-colors no-underline shadow-lg shadow-zinc-900/10">
                     Try SyncIQ — 10 free scans/day
                 </a>
                 <p class="text-xs text-zinc-400 mt-4 font-medium">No account needed · Same SyncLyst ecosystem · Paid limits coming later</p>
@@ -928,7 +928,7 @@
                 <div>
                     <h4 class="text-xs font-semibold text-zinc-900 uppercase tracking-widest mb-6">Start</h4>
                     <ul class="space-y-4 text-base text-zinc-500 font-medium">
-                        <li><a href="?mode=scan" class="hover:text-zinc-900 transition-colors">Scan item</a></li>
+                        <li><a href="/list" class="hover:text-zinc-900 transition-colors">Scan item</a></li>
                         <li><a href="/home.html?mode=batch" class="hover:text-zinc-900 transition-colors">Batch Upload</a></li>
                         <li><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="hover:text-zinc-900 transition-colors">Chrome Extension</a></li>
                         <li><a href="#synciq" onclick="handleNavigate(event, 'synciq')" class="hover:text-zinc-900 transition-colors">SyncIQ — Free Buy Scanner</a></li>
@@ -996,7 +996,7 @@
     </div>
 
     <script>
-        window.AURALINK_CONFIG = { API_URL: 'http://localhost:8000' };
+        window.AURALINK_CONFIG = { API_URL: 'https://auralink-api-299567386855.us-central1.run.app' };
         (function() {
           var host = window.location.hostname;
           if (host === 'localhost' || host === '127.0.0.1') {

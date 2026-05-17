@@ -1,0 +1,82 @@
+/* --------------- Clients --------------- */
+
+.brand-ds{
+
+    .item{
+        position: relative;
+        display: flex;
+        align-items: center;
+
+        &:after{
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
+            border: 1px solid #ccc;
+            border-radius: 50%;
+            pointer-events: none;
+            transition: all .4s;
+        }
+
+        .text-center{
+            width: 100%;
+        }
+
+        .img{
+            width: 50px;
+            margin: auto;
+            opacity: .25;
+            transition: all .4s;
+        }
+
+        p{
+            margin-top: 30px;
+        }
+
+        &:nth-of-type(3),
+        &:nth-of-type(4){
+
+            .img{
+                width: 70px;
+            }
+        }
+
+        &:hover{
+            z-index: 4;
+
+            &:after{
+                border-color: $main-color;
+            }
+
+            .img{
+                opacity: 1;
+            }
+        }
+    }
+}
+
+.clients-ds{
+
+    .item{
+        position: relative;
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 80px;
+        height: 100%;
+        padding: 50px 30px;
+
+        .text-center{
+            width: 100%;
+        }
+
+        .img{
+            max-width: 100px;
+            margin: auto;
+        }
+
+        p{
+            margin-top: 30px;
+        }
+    }
+}
