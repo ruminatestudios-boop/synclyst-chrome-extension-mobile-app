@@ -6,7 +6,7 @@
       try {
         var q = window.location.search || "";
         var path = (window.location.pathname || "").replace(/\/+$/, "") || "/";
-        if (q.indexOf("mode=scan") !== -1 || path === "/scan") {
+        if (q.indexOf("mode=scan") !== -1 || path === "/scan" || path === "/list") {
           document.documentElement.classList.add("synclyst-scan-initial");
         }
       } catch (e) {}
@@ -307,7 +307,7 @@
     <!-- Header: same logo + white band as flow-3.html (min-height + safe-area; no fixed h-14 + extra padding clash) -->
     <div class="scan-view-header shrink-0 w-full box-border border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 grid grid-cols-3 items-center min-h-14 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
       <div></div>
-      <a href="/" id="scan-view-exit" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none" title="SyncIQ®" aria-label="SyncIQ"><span id="scan-view-brand">SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
+      <a href="/list" id="scan-view-exit" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none" title="SyncIQ®" aria-label="SyncIQ"><span id="scan-view-brand">SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
       <div class="justify-self-end"></div>
     </div>
 
@@ -449,7 +449,7 @@
   <div id="batch-view" class="fixed inset-0 z-[80] hidden flex-col bg-zinc-50 text-zinc-900">
     <div class="flex items-center justify-between px-6 h-16 border-b border-zinc-200 bg-white/80 backdrop-blur-md shrink-0">
       <div></div>
-      <a href="/" id="batch-view-exit" class="text-xl font-semibold tracking-tight text-zinc-900 uppercase no-underline">SYNCLYST</a>
+      <a href="/list" id="batch-view-exit" class="text-xl font-semibold tracking-tight text-zinc-900 uppercase no-underline">SYNCLYST</a>
       <a href="/scan" class="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors no-underline">Scan</a>
     </div>
     <main class="flex-1 px-5 pt-6 pb-6 overflow-auto max-w-md mx-auto w-full">

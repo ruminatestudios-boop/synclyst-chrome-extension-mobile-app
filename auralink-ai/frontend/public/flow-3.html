@@ -202,7 +202,7 @@
     <!-- Header: landing-style -->
     <header class="shrink-0 w-full box-border border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 grid grid-cols-3 items-center min-h-14 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
       <div id="flow3-header-left"></div>
-      <a href="/" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none">Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></a>
+      <a href="/list" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none">Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></a>
       <div class="justify-self-end"></div>
     </header>
     <main class="flex-1 px-5 pt-6 pb-6 overflow-auto">
@@ -210,6 +210,7 @@
       <p class="text-center text-sm text-[#525252] mb-6 vercel-body">Review and edit any field, then push live</p>
 
       <!-- Smart Suggest banner (informational only, not clickable) -->
+      <!-- TODO: restore Shopify Smart Suggest banner once app is approved:
       <div class="smart-suggest-banner mb-6 w-full text-left">
         <div class="smart-suggest-icon-wrap">
           <img src="https://www.google.com/s2/favicons?domain=shopify.com&sz=128" alt="" class="w-6 h-6" width="24" height="24" />
@@ -217,6 +218,16 @@
         <div class="smart-suggest-text">
           <span class="smart-suggest-title">Smart Suggest</span>
           <span class="smart-suggest-desc">AI analysed your photo — title, description, SEO tags and price all set from one scan.</span>
+        </div>
+      </div>
+      -->
+      <div class="smart-suggest-banner mb-6 w-full text-left">
+        <div class="smart-suggest-icon-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+        </div>
+        <div class="smart-suggest-text">
+          <span class="smart-suggest-title">Listing ready</span>
+          <span class="smart-suggest-desc">AI read your photo and pre-filled everything below. Review, edit if needed, then copy and paste anywhere.</span>
         </div>
       </div>
 
@@ -248,9 +259,9 @@
           <p class="section-hint">Sharp, well-lit photos from several angles help buyers decide.</p>
           <div class="mt-2 rounded-xl border border-dashed border-[#eaeaea] bg-[#fafafa] p-4">
             <p class="text-[11px] font-semibold uppercase tracking-wider text-[#555] mb-2">Your photos</p>
-            <div class="flex items-center gap-3 flex-wrap">
-              <div id="review-photos-list" class="review-photos-horizontal flex-1 min-w-0 gap-2 min-h-[64px]">
-                <!-- Filled by JS: thumbnails + add button as last child -->
+            <div class="flex flex-col gap-0">
+              <div id="review-photos-list" class="w-full">
+                <!-- Filled by JS: hero photo + thumbnail row + add button -->
               </div>
             </div>
             <!-- Auto-find images hidden until ready -->
@@ -444,10 +455,11 @@
     </main>
     <div class="p-4 pt-3 border-t border-[#e5e5e5] shrink-0 bg-white">
       <div class="flex flex-col gap-2">
-        <a href="/flow-choose-platform.html" id="review-next-btn" class="block w-full py-3.5 px-6 rounded-xl bg-[#0a0a0a] text-white font-semibold text-[15px] hover:bg-[#262626] transition-colors no-underline text-center flex items-center justify-center gap-2">
-          <span id="review-next-btn-label">Publish to Shopify</span>
-          <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/shopify.svg" alt="" class="w-5 h-5 shrink-0" style="filter: brightness(0) invert(1);" width="20" height="20" />
-        </a>
+        <button type="button" id="copy-listing-btn" onclick="synclystCopyFullListing()" class="block w-full py-3.5 px-6 rounded-xl bg-[#0a0a0a] text-white font-semibold text-[15px] hover:bg-[#262626] active:bg-[#16a34a] transition-colors text-center flex items-center justify-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          <span id="copy-listing-label">Copy full listing</span>
+        </button>
+        <p class="text-center text-xs text-zinc-400 leading-snug">Paste into Shopify, eBay, Etsy or anywhere &nbsp;·&nbsp; One-click publishing coming soon</p>
       </div>
     </div>
   </div>
@@ -701,11 +713,19 @@
             var priceSource = (att.price_source || '').trim();
             if (priceSource === 'found_in_image' && att.price_value != null) {
               price = String(att.price_value).replace(/^\$|^£/, '');
-            } else if (priceSource === 'ai_suggested' && (att.price_confidence == null || att.price_confidence >= 0.7) && att.price_value != null) {
+            } else if (priceSource === 'ai_suggested' && att.price_value != null) {
+              // Use AI suggestion regardless of confidence — user can always adjust
               price = String(att.price_value).replace(/^\$|^£/, '');
             }
-            if (!price && (p.suggested_price != null) && priceSource !== 'not_found') {
+            // Always fall back to suggested_price (from flow-2 extraction), regardless of price_source.
+            // This ensures the price field is never blank — user sees an estimate to verify.
+            if (!price && p.suggested_price != null && parseFloat(p.suggested_price) > 0) {
               price = String(p.suggested_price).replace(/^\$|^£/, '');
+            }
+            // Last resort: £9.99 placeholder so the field is never empty
+            if (!price || parseFloat(price) <= 0) {
+              price = '9.99';
+              if (!priceSource) priceSource = 'estimated';
             }
             var priceDisplay = (att.price_display || '').trim();
             var compareAt = '';
@@ -1030,11 +1050,21 @@
           }
           return s;
         }
-        container.innerHTML = photos.map(function(src, i) {
+        // First photo — large hero
+        var mainSrc = photoDisplaySrc(photos[0]);
+        var mainSafe = (mainSrc || photos[0] || '').replace(/"/g, '&quot;');
+        var heroHtml = '<div class="review-photo-item" data-photo-index="0" style="width:100%;height:220px;border-radius:12px;margin-bottom:10px;">'
+          + '<button type="button" class="review-photo-delete" aria-label="Remove photo 1">&times;</button>'
+          + '<img src="' + mainSafe + '" alt="Product 1" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.style.display=\'none\';var w=this.parentElement;if(w&&!w.querySelector(\'.review-photo-fail\')){var s=document.createElement(\'span\');s.className=\'review-photo-fail text-[10px] text-[#555]\';s.textContent=\'—\';w.appendChild(s);}" />'
+          + '</div>';
+        // Remaining photos — small thumbnails
+        var thumbsHtml = photos.slice(1).map(function(src, i) {
           var displaySrc = photoDisplaySrc(src);
           var safeSrc = (displaySrc || src || '').replace(/"/g, '&quot;');
-          return '<div class="review-photo-item" data-photo-index="' + i + '"><button type="button" class="review-photo-delete review-photo-delete-sm" aria-label="Remove photo ' + (i + 1) + '">&times;</button><img src="' + safeSrc + '" alt="Product ' + (i + 1) + '" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.style.display=\'none\';var w=this.parentElement;if(w&&!w.querySelector(\'.review-photo-fail\')){var s=document.createElement(\'span\');s.className=\'review-photo-fail text-[10px] text-[#555]\';s.textContent=\'—\';w.appendChild(s);}" /></div>';
-        }).join('') + '<button type="button" id="photos-add-plus-btn" class="shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-[#d4d4d8] bg-[#fafafa] hover:bg-zinc-100 hover:border-[#a1a1aa] transition-colors flex items-center justify-center text-[#52525b] hover:text-[#18181b] font-medium text-2xl leading-none" aria-label="Add photo">+</button>';
+          return '<div class="review-photo-item" data-photo-index="' + (i + 1) + '"><button type="button" class="review-photo-delete review-photo-delete-sm" aria-label="Remove photo ' + (i + 2) + '">&times;</button><img src="' + safeSrc + '" alt="Product ' + (i + 2) + '" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.style.display=\'none\';var w=this.parentElement;if(w&&!w.querySelector(\'.review-photo-fail\')){var s=document.createElement(\'span\');s.className=\'review-photo-fail text-[10px] text-[#555]\';s.textContent=\'—\';w.appendChild(s);}" /></div>';
+        }).join('');
+        var addBtn = '<button type="button" id="photos-add-plus-btn" class="shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-[#d4d4d8] bg-[#fafafa] hover:bg-zinc-100 hover:border-[#a1a1aa] transition-colors flex items-center justify-center text-[#52525b] hover:text-[#18181b] font-medium text-2xl leading-none" aria-label="Add photo">+</button>';
+        container.innerHTML = heroHtml + '<div class="review-photos-horizontal" style="min-height:0;padding:0;">' + thumbsHtml + addBtn + '</div>';
       }
       renderPhotosPanel();
       if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -1757,14 +1787,10 @@
           priceSourceLabel.textContent = 'AI estimate — verify';
           priceSourceLabel.className = 'text-[11px] mt-0.5 min-h-[14px] text-amber-600';
           priceSourceLabel.setAttribute('title', 'Price suggested from product. Verify before publishing.');
-        } else if (!priceInput.value.trim()) {
-          priceSourceLabel.textContent = 'Add your price';
+        } else if (priceSrc === 'not_found' || priceSrc === 'estimated') {
+          priceSourceLabel.textContent = 'Estimated — verify before listing';
           priceSourceLabel.className = 'text-[11px] mt-0.5 min-h-[14px] text-amber-600';
-          priceSourceLabel.setAttribute('title', 'Verify price before publishing.');
-        } else if (priceSrc === 'not_found') {
-          priceSourceLabel.textContent = 'Saved price — verify';
-          priceSourceLabel.className = 'text-[11px] mt-0.5 min-h-[14px] text-amber-600';
-          priceSourceLabel.setAttribute('title', 'Verify price before publishing.');
+          priceSourceLabel.setAttribute('title', 'AI could not confirm a price. Update this before publishing.');
         } else {
           priceSourceLabel.textContent = '';
           priceSourceLabel.className = 'text-[11px] mt-0.5 min-h-[14px]';
@@ -2509,6 +2535,98 @@
       e.preventDefault();
       history.back();
     });
+  </script>
+
+  <script>
+    function synclystCopyFullListing() {
+      function val(id) { var el = document.getElementById(id); return el ? (el.value || '').trim() : ''; }
+      var title     = val('modal-title');
+      var desc      = val('modal-description');
+      var symEl     = document.getElementById('modal-price-symbol');
+      var sym       = symEl ? (symEl.textContent || '£').trim() : '£';
+      var price     = val('modal-price');
+      var compareAt = val('modal-compare-at');
+      var category  = val('modal-category');
+      var weight    = val('modal-weight');
+      var sku       = val('modal-sku');
+      var qty       = val('modal-quantity');
+      var vendor    = val('modal-vendor');
+
+      // Tags — read pill text, strip the × button
+      var tagsWrap = document.getElementById('modal-tags-wrap');
+      var tagEls = tagsWrap ? tagsWrap.querySelectorAll('span') : [];
+      var tags = [];
+      for (var ti = 0; ti < tagEls.length; ti++) {
+        var clone = tagEls[ti].cloneNode(true);
+        var rm = clone.querySelector('button');
+        if (rm) rm.parentNode.removeChild(rm);
+        var t = clone.textContent.trim();
+        if (t) tags.push(t);
+      }
+
+      // Variants — collect name + values from each option block
+      var variantSections = document.querySelectorAll('#modal-variant-options-list > div');
+      var variants = [];
+      for (var vi = 0; vi < variantSections.length; vi++) {
+        var sec = variantSections[vi];
+        var nameEl = sec.querySelector('span.font-medium, span.text-xs');
+        var name = nameEl ? nameEl.textContent.trim() : '';
+        var pills = sec.querySelectorAll('.variant-pill');
+        var values = [];
+        for (var pi = 0; pi < pills.length; pi++) {
+          var pc = pills[pi].cloneNode(true);
+          var pr = pc.querySelector('button');
+          if (pr) pr.parentNode.removeChild(pr);
+          var pv = pc.textContent.trim();
+          if (pv) values.push(pv);
+        }
+        if (name && values.length) variants.push(name + ': ' + values.join(', '));
+      }
+
+      if (!title && !desc) { alert('No listing data to copy yet.'); return; }
+
+      var lines = [];
+      if (title)           lines.push('TITLE:\n' + title);
+      if (desc)            lines.push('DESCRIPTION:\n' + desc);
+      if (price)           lines.push('PRICE: ' + sym + price + (compareAt ? '  (was ' + sym + compareAt + ')' : ''));
+      if (category)        lines.push('CATEGORY: ' + category);
+      if (vendor)          lines.push('BRAND: ' + vendor);
+      if (tags.length)     lines.push('TAGS: ' + tags.join(', '));
+      if (variants.length) lines.push('VARIANTS:\n' + variants.map(function(v){ return '  ' + v; }).join('\n'));
+      if (sku)             lines.push('SKU: ' + sku);
+      if (weight)          lines.push('WEIGHT: ' + weight + ' kg');
+      if (qty)             lines.push('QUANTITY: ' + qty);
+
+      var text = lines.join('\n\n');
+
+      function done() {
+        var btn = document.getElementById('copy-listing-btn');
+        var lbl = document.getElementById('copy-listing-label');
+        if (lbl) lbl.textContent = '✓ Copied!';
+        if (btn) {
+          btn.style.background = '#16a34a';
+          setTimeout(function() {
+            btn.style.background = '';
+            if (lbl) lbl.textContent = 'Copy full listing';
+          }, 2200);
+        }
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function() {
+          fallbackCopy(text); done();
+        });
+      } else {
+        fallbackCopy(text); done();
+      }
+
+      function fallbackCopy(t) {
+        var ta = document.createElement('textarea');
+        ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    }
   </script>
 </body>
 </html>
