@@ -494,8 +494,9 @@
       }
 
       var start = Date.now();
-      /** Vision + OCR + web enrichment can take ~20–30s; 45s gives a comfortable margin. */
-      var EXTRACTION_TIMEOUT_MS = 45000;
+      /** Reseller-scan runs vision + eBay comps and can take 60–90s; listing extract is faster (~30s).
+       *  Use a generous timeout so slow backends don't silently kill the scan. */
+      var EXTRACTION_TIMEOUT_MS = isResellerFlow ? 90000 : 60000;
       var DRAFT_INTRO_MS = 4000;
       /** While waiting: faster initial rise (lower tau = quicker climb early on). */
       var PENDING_TAU_MS = 3800;
