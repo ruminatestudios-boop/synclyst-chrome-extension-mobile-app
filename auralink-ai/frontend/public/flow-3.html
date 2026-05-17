@@ -445,30 +445,68 @@
     <div class="p-4 pt-3 border-t border-[#e5e5e5] shrink-0 bg-white">
       <div class="flex flex-col gap-2">
         <button type="button" id="copy-listing-btn" onclick="(function(){
-          var titleEl = document.getElementById('modal-title');
-          var descEl  = document.getElementById('modal-description');
-          var title = titleEl ? (titleEl.value || titleEl.textContent || '').trim() : '';
-          var desc  = descEl  ? (descEl.value  || descEl.textContent  || '').trim() : '';
+          function val(id) { var el = document.getElementById(id); return el ? (el.value || '').trim() : ''; }
+          var title    = val('modal-title');
+          var desc     = val('modal-description');
+          var sym      = (document.getElementById('modal-price-symbol') || {}).textContent || '£';
+          var price    = val('modal-price');
+          var compareAt= val('modal-compare-at');
+          var category = val('modal-category');
+          var weight   = val('modal-weight');
+          var sku      = val('modal-sku');
+          var qty      = val('modal-quantity');
+          var vendor   = val('modal-vendor');
+          // Tags: grab text from each pill (exclude the × remove button)
+          var tagsWrap = document.getElementById('modal-tags-wrap');
+          var tagPills = tagsWrap ? Array.from(tagsWrap.querySelectorAll('span.inline-flex, span[class*="rounded-full"]')) : [];
+          var tags = tagPills.map(function(s) {
+            var clone = s.cloneNode(true);
+            var rm = clone.querySelector('button');
+            if (rm) rm.remove();
+            return clone.textContent.trim();
+          }).filter(Boolean);
+          // Variants: collect option names + values
+          var variantSections = document.querySelectorAll('#modal-variant-options-list > div');
+          var variants = [];
+          variantSections.forEach(function(sec) {
+            var nameEl = sec.querySelector('span.text-xs, span.font-medium');
+            var name = nameEl ? nameEl.textContent.trim() : '';
+            var pills = sec.querySelectorAll('.variant-pill');
+            var values = Array.from(pills).map(function(p) {
+              var c = p.cloneNode(true); var rm = c.querySelector('button'); if (rm) rm.remove(); return c.textContent.trim();
+            }).filter(Boolean);
+            if (name && values.length) variants.push(name + ': ' + values.join(', '));
+          });
           if (!title && !desc) { alert('No listing data to copy yet.'); return; }
-          var text = (title ? 'TITLE:\n' + title : '') + (title && desc ? '\n\n' : '') + (desc ? 'DESCRIPTION:\n' + desc : '');
+          var lines = [];
+          if (title)     lines.push('TITLE:\n' + title);
+          if (desc)      lines.push('DESCRIPTION:\n' + desc);
+          if (price)     lines.push('PRICE: ' + sym + price + (compareAt ? '  (was ' + sym + compareAt + ')' : ''));
+          if (category)  lines.push('CATEGORY: ' + category);
+          if (vendor)    lines.push('BRAND: ' + vendor);
+          if (tags.length)    lines.push('TAGS: ' + tags.join(', '));
+          if (variants.length) lines.push('VARIANTS:\n' + variants.map(function(v){ return '  ' + v; }).join('\n'));
+          if (sku)       lines.push('SKU: ' + sku);
+          if (weight)    lines.push('WEIGHT: ' + weight + ' kg');
+          if (qty)       lines.push('QUANTITY: ' + qty);
+          var text = lines.join('\n\n');
+          function done() {
+            var btn = document.getElementById('copy-listing-btn');
+            var lbl = document.getElementById('copy-listing-label');
+            if (lbl) lbl.textContent = '✓ Copied!';
+            if (btn) { btn.style.background = '#16a34a'; setTimeout(function(){ btn.style.background = ''; if(lbl) lbl.textContent = 'Copy full listing'; }, 2200); }
+          }
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(function() {
-              var btn = document.getElementById('copy-listing-btn');
-              var lbl = document.getElementById('copy-listing-label');
-              if (lbl) lbl.textContent = '✓ Copied!';
-              if (btn) { btn.style.background = '#16a34a'; setTimeout(function(){ btn.style.background = ''; if(lbl) lbl.textContent = 'Copy listing text'; }, 2200); }
-            });
+            navigator.clipboard.writeText(text).then(done);
           } else {
             var ta = document.createElement('textarea');
             ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
             document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-            document.body.removeChild(ta);
-            var lbl = document.getElementById('copy-listing-label');
-            if (lbl) { lbl.textContent = '✓ Copied!'; setTimeout(function(){ lbl.textContent = 'Copy listing text'; }, 2200); }
+            document.body.removeChild(ta); done();
           }
         })()" class="block w-full py-3.5 px-6 rounded-xl bg-[#0a0a0a] text-white font-semibold text-[15px] hover:bg-[#262626] active:bg-[#16a34a] transition-colors text-center flex items-center justify-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-          <span id="copy-listing-label">Copy listing text</span>
+          <span id="copy-listing-label">Copy full listing</span>
         </button>
         <p class="text-center text-xs text-zinc-400 leading-snug">Paste into Shopify, eBay, Etsy or anywhere &nbsp;·&nbsp; One-click publishing coming soon</p>
       </div>
