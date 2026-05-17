@@ -248,9 +248,9 @@
           <p class="section-hint">Sharp, well-lit photos from several angles help buyers decide.</p>
           <div class="mt-2 rounded-xl border border-dashed border-[#eaeaea] bg-[#fafafa] p-4">
             <p class="text-[11px] font-semibold uppercase tracking-wider text-[#555] mb-2">Your photos</p>
-            <div class="flex items-center gap-3 flex-wrap">
-              <div id="review-photos-list" class="review-photos-horizontal flex-1 min-w-0 gap-2 min-h-[64px]">
-                <!-- Filled by JS: thumbnails + add button as last child -->
+            <div class="flex flex-col gap-0">
+              <div id="review-photos-list" class="w-full">
+                <!-- Filled by JS: hero photo + thumbnail row + add button -->
               </div>
             </div>
             <!-- Auto-find images hidden until ready -->
@@ -1061,11 +1061,21 @@
           }
           return s;
         }
-        container.innerHTML = photos.map(function(src, i) {
+        // First photo — large hero
+        var mainSrc = photoDisplaySrc(photos[0]);
+        var mainSafe = (mainSrc || photos[0] || '').replace(/"/g, '&quot;');
+        var heroHtml = '<div class="review-photo-item" data-photo-index="0" style="width:100%;height:220px;border-radius:12px;margin-bottom:10px;">'
+          + '<button type="button" class="review-photo-delete" aria-label="Remove photo 1">&times;</button>'
+          + '<img src="' + mainSafe + '" alt="Product 1" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.style.display=\'none\';var w=this.parentElement;if(w&&!w.querySelector(\'.review-photo-fail\')){var s=document.createElement(\'span\');s.className=\'review-photo-fail text-[10px] text-[#555]\';s.textContent=\'—\';w.appendChild(s);}" />'
+          + '</div>';
+        // Remaining photos — small thumbnails
+        var thumbsHtml = photos.slice(1).map(function(src, i) {
           var displaySrc = photoDisplaySrc(src);
           var safeSrc = (displaySrc || src || '').replace(/"/g, '&quot;');
-          return '<div class="review-photo-item" data-photo-index="' + i + '"><button type="button" class="review-photo-delete review-photo-delete-sm" aria-label="Remove photo ' + (i + 1) + '">&times;</button><img src="' + safeSrc + '" alt="Product ' + (i + 1) + '" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.style.display=\'none\';var w=this.parentElement;if(w&&!w.querySelector(\'.review-photo-fail\')){var s=document.createElement(\'span\');s.className=\'review-photo-fail text-[10px] text-[#555]\';s.textContent=\'—\';w.appendChild(s);}" /></div>';
-        }).join('') + '<button type="button" id="photos-add-plus-btn" class="shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-[#d4d4d8] bg-[#fafafa] hover:bg-zinc-100 hover:border-[#a1a1aa] transition-colors flex items-center justify-center text-[#52525b] hover:text-[#18181b] font-medium text-2xl leading-none" aria-label="Add photo">+</button>';
+          return '<div class="review-photo-item" data-photo-index="' + (i + 1) + '"><button type="button" class="review-photo-delete review-photo-delete-sm" aria-label="Remove photo ' + (i + 2) + '">&times;</button><img src="' + safeSrc + '" alt="Product ' + (i + 2) + '" class="w-full h-full object-cover object-center" onerror="this.onerror=null;this.style.display=\'none\';var w=this.parentElement;if(w&&!w.querySelector(\'.review-photo-fail\')){var s=document.createElement(\'span\');s.className=\'review-photo-fail text-[10px] text-[#555]\';s.textContent=\'—\';w.appendChild(s);}" /></div>';
+        }).join('');
+        var addBtn = '<button type="button" id="photos-add-plus-btn" class="shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-[#d4d4d8] bg-[#fafafa] hover:bg-zinc-100 hover:border-[#a1a1aa] transition-colors flex items-center justify-center text-[#52525b] hover:text-[#18181b] font-medium text-2xl leading-none" aria-label="Add photo">+</button>';
+        container.innerHTML = heroHtml + '<div class="review-photos-horizontal" style="min-height:0;padding:0;">' + thumbsHtml + addBtn + '</div>';
       }
       renderPhotosPanel();
       if (typeof lucide !== 'undefined') lucide.createIcons();
