@@ -1,0 +1,60 @@
+/* --------------- header --------------- */
+.header-ds {
+  background-image: url(../imgs/header-bg.png);
+  background-size: cover;
+  background-position: bottom;
+  background-color: #fff; }
+  .header-ds .container {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-pack: justify;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    padding: 180px 0 80px;
+    min-height: 800px; }
+  .header-ds .caption h1 {
+    font-size: 96px;
+    line-height: 96px;
+    font-weight: 600; }
+    .header-ds .caption h1 span {
+      font-family: "Playfair Display", serif;
+      font-style: italic;
+      font-weight: 400; }
+  .header-ds .social-icon a {
+    width: 48px;
+    height: 48px;
+    line-height: 48px;
+    text-align: center;
+    color: #151515;
+    border: 1px solid #fff;
+    background: #fff;
+    border-radius: 50%;
+    font-size: 16px;
+    -webkit-transition: all .4s;
+    -o-transition: all .4s;
+    transition: all .4s; }
+    .header-ds .social-icon a:hover {
+      color: #fff;
+      background: transparent; }
+  .header-ds .numb {
+    padding-top: 50px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1); }
+    .header-ds .numb > div {
+      width: -webkit-min-content;
+      width: -moz-min-content;
+      width: min-content; }
+    .header-ds .numb h2 {
+      font-size: 96px;
+      line-height: 96px;
+      font-weight: 400;
+      margin-bottom: 10px; }
+    .header-ds .numb span {
+      font-size: 14px;
+      line-height: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase; }
