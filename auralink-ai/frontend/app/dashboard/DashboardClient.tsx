@@ -22,21 +22,6 @@ const MARKETPLACES = [
 
 const CLERK_JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE?.trim();
 
-type BillingTier = "starter" | "pro" | "growth" | "scale";
-
-const PLANS: {
-  id: BillingTier;
-  name: string;
-  price: string;
-  scans: string;
-  paid: boolean;
-}[] = [
-  { id: "starter", name: "Starter", price: "£0/mo", scans: "3 scans", paid: false },
-  { id: "pro", name: "Pro", price: "£9/mo", scans: "100 scans", paid: true },
-  { id: "growth", name: "Growth", price: "£29/mo", scans: "500 scans", paid: true },
-  { id: "scale", name: "Scale", price: "£79/mo", scans: "Unlimited", paid: true },
-];
-
 export default function DashboardClient() {
   const { user } = useUser();
   const { isLoaded, getToken } = useAuth();
@@ -47,18 +32,9 @@ export default function DashboardClient() {
   const [pushChannels, setPushChannels] = useState<string[]>(["shopify"]);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushMessage, setPushMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [billingNotice, setBillingNotice] = useState<string | null>(null);
+  const [billingNotice, setBillingNotice] = useState<{ text: string; ok: boolean } | null>(null);
   const [shopifyConnected, setShopifyConnected] = useState(false);
   const [shopifyShopDomain, setShopifyShopDomain] = useState<string | null>(null);
-
-  const [pricingOpen, setPricingOpen] = useState(false);
-  const [pricingErr, setPricingErr] = useState<string | null>(null);
-  const [pricingCanceled, setPricingCanceled] = useState(false);
-  const [pricingPreselect, setPricingPreselect] = useState<BillingTier | "">("");
-  const [checkoutLoadingTier, setCheckoutLoadingTier] = useState<BillingTier | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [scanLimitModalShown, setScanLimitModalShown] = useState(false);
-  const [autoStartConsumed, setAutoStartConsumed] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -66,22 +42,9 @@ export default function DashboardClient() {
     setPushProductId(params.get("push_product"));
   }, []);
 
-  const getClerkTokenSafe = async () => {
-    if (!getToken) return null;
-    try {
-      return await getToken(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (CLERK_JWT_TEMPLATE && /jwt template exists with name/i.test(msg)) {
-        return await getToken();
-      }
-      return null;
-    }
-  };
-
   const fetchUsage = async () => {
     try {
-      const token = await getClerkTokenSafe();
+      const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
       const r = await apiFetch("/api/v1/usage", { token });
       setUsage(r.ok ? await r.json() : null);
     } catch {
@@ -91,15 +54,16 @@ export default function DashboardClient() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    // Shopify connection is owned by the publishing service (not the backend API).
-    // Fetch via same-origin proxy: /__synclyst_publishing/api/user/connected-stores
-    fetch("/api/publishing/token")
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), 8000);
+    fetch("/api/publishing/token", { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const token = d?.token;
         if (!token) return null;
         return fetch("/__synclyst_publishing/api/user/connected-stores", {
           headers: { Authorization: `Bearer ${token}` },
+          signal: ac.signal,
         });
       })
       .then((r) => (r && r.ok ? r.json() : null))
@@ -116,7 +80,8 @@ export default function DashboardClient() {
         setShopifyConnected(false);
         setShopifyShopDomain(null);
         setPushChannels((prev) => prev.filter((c) => c !== "shopify"));
-      });
+      })
+      .finally(() => clearTimeout(timeout));
     fetchUsage();
   }, [isLoaded, getToken]);
 
@@ -127,102 +92,54 @@ export default function DashboardClient() {
     const sessionId = params.get("session_id") || "";
     if (billing !== "success" || !sessionId) return;
 
+    const cleaned = new URL(window.location.href);
+    cleaned.searchParams.delete("billing");
+    cleaned.searchParams.delete("session_id");
+    window.history.replaceState({}, "", cleaned.toString());
+
     (async () => {
       try {
-        const token = await getClerkTokenSafe();
+        const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
         const res = await apiFetch("/api/v1/billing/confirm", {
           method: "POST",
           token,
           body: JSON.stringify({ session_id: sessionId }),
         });
         if (res.ok) {
-          const j = (await res.json().catch(() => null)) as { tier?: unknown } | null;
-          const tier = typeof j?.tier === "string" ? j.tier : null;
-          if (tier && typeof window !== "undefined") {
-            try {
-              window.localStorage.setItem("synclyst_tier", tier);
-            } catch {
-              /* ignore */
-            }
-          }
           await fetchUsage();
-          setBillingNotice("Payment confirmed. Your plan is now active.");
-          setPricingErr(null);
-          setPricingCanceled(false);
-          setPricingOpen(true);
-        } else {
-          setBillingNotice("Payment received. Plan sync is in progress.");
+          setBillingNotice({ text: "Payment confirmed. Your plan is now active.", ok: true });
+          return;
         }
       } catch {
-        setBillingNotice("Payment received. Plan sync is in progress.");
-      } finally {
-        const cleaned = new URL(window.location.href);
-        cleaned.searchParams.delete("billing");
-        cleaned.searchParams.delete("session_id");
-        window.history.replaceState({}, "", cleaned.toString());
+        // fall through to polling
       }
+
+      // Backend confirm failed — poll usage until tier upgrades (up to 30 s)
+      setBillingNotice({ text: "Payment received. Activating your plan…", ok: true });
+      for (let i = 0; i < 15; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+          const r = await apiFetch("/api/v1/usage", { token });
+          if (r.ok) {
+            const u = await r.json();
+            if (u?.tier && u.tier !== "starter") {
+              setUsage(u);
+              setBillingNotice({ text: `Payment confirmed. Your ${u.tier} plan is now active.`, ok: true });
+              return;
+            }
+          }
+        } catch {
+          // keep polling
+        }
+      }
+      setBillingNotice({ text: "Payment received. Your plan will activate within a few minutes.", ok: true });
     })();
   }, [isLoaded, getToken]);
 
   useEffect(() => {
-    if (!isLoaded || typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const open = params.get("pricing") === "1" || params.get("upgrade") === "1";
-    const canceled = params.get("canceled") === "1";
-    const tier = (params.get("tier") || "").toLowerCase();
-    const preselect = tier === "pro" || tier === "growth" || tier === "scale" ? (tier as BillingTier) : "";
-    if (open || canceled) {
-      setPricingOpen(true);
-      setPricingCanceled(canceled);
-      setPricingPreselect(preselect);
-    }
-  }, [isLoaded]);
-
-  useEffect(() => {
-    if (!isLoaded || typeof window === "undefined") return;
-    if (!pricingOpen) return;
-    if (autoStartConsumed) return;
-    if (checkoutLoadingTier !== null || portalLoading) return;
-    const params = new URLSearchParams(window.location.search);
-    const autostart = params.get("autostart") === "1";
-    if (!autostart) return;
-    const tier = (params.get("tier") || "").toLowerCase();
-    if (tier !== "pro" && tier !== "growth" && tier !== "scale") return;
-    const current = String(usage?.tier || "starter").toLowerCase();
-    if (current === tier) {
-      setAutoStartConsumed(true);
-      return;
-    }
-    setAutoStartConsumed(true);
-    // Fire and forget; errors show inside the modal via pricingErr.
-    void startCheckout(tier as Exclude<BillingTier, "starter">);
-  }, [isLoaded, pricingOpen, autoStartConsumed, checkoutLoadingTier, portalLoading, usage?.tier]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    if (!usage || usage.can_scan) return;
-    if (scanLimitModalShown) return;
-    setScanLimitModalShown(true);
-    setPricingErr(null);
-    setPricingCanceled(false);
-    setPricingPreselect("");
-    setPricingOpen(true);
-  }, [isLoaded, usage, scanLimitModalShown]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const tier = (usage?.tier || "").trim();
-    if (!tier) return;
-    try {
-      window.localStorage.setItem("synclyst_tier", tier);
-    } catch {
-      /* ignore */
-    }
-  }, [usage?.tier]);
-
-  useEffect(() => {
     if (!pushProductId || !getToken) return;
-    getClerkTokenSafe()
+    getToken(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined)
       .then((token) => apiFetch(`/api/v1/products/${pushProductId}`, { token }))
       .then((r) => (r.ok ? r.json() : null))
       .then((p: { copy_seo_title?: string } | null) => setPushProductTitle(p?.copy_seo_title ?? "Draft"))
@@ -241,7 +158,7 @@ export default function DashboardClient() {
     setPushLoading(true);
     setPushMessage(null);
     try {
-      const token = await getClerkTokenSafe();
+      const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
       const res = await apiFetch(`/api/v1/products/${pushProductId}/push-drafts`, {
         method: "POST",
         token,
@@ -267,79 +184,6 @@ export default function DashboardClient() {
 
   const connectShopify = () => {
     window.location.href = "/shopify/launch?return=stores-list";
-  };
-
-  const openPricing = () => {
-    setPricingErr(null);
-    setPricingCanceled(false);
-    setPricingPreselect("");
-    setPricingOpen(true);
-  };
-
-  const startCheckout = async (tier: Exclude<BillingTier, "starter">) => {
-    if (typeof window === "undefined") return;
-    setPricingErr(null);
-    setCheckoutLoadingTier(tier);
-    try {
-      const token = await getClerkTokenSafe();
-      if (!token) {
-        setPricingErr("Could not verify your session. Please reload and try again.");
-        return;
-      }
-      const origin = window.location.origin;
-      const successUrl = `${origin}/dashboard?billing=success&pricing=1&session_id={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `${origin}/dashboard?pricing=1&tier=${encodeURIComponent(tier)}&canceled=1`;
-      const res = await apiFetch("/api/v1/billing/checkout-session", {
-        method: "POST",
-        token,
-        body: JSON.stringify({ tier, success_url: successUrl, cancel_url: cancelUrl }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        setPricingErr(text || `Could not start checkout (${res.status}).`);
-        return;
-      }
-      const body = (await res.json().catch(() => null)) as { url?: unknown } | null;
-      const url = typeof body?.url === "string" ? body.url : "";
-      if (!url) {
-        setPricingErr("Checkout did not return a payment URL. Check Stripe configuration.");
-        return;
-      }
-      window.location.href = url;
-    } catch (e) {
-      setPricingErr(e instanceof Error ? e.message : "Checkout failed");
-    } finally {
-      setCheckoutLoadingTier(null);
-    }
-  };
-
-  const openPortal = async () => {
-    if (typeof window === "undefined") return;
-    setPricingErr(null);
-    setPortalLoading(true);
-    try {
-      const res = await fetch("/api/billing/portal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ return_url: `${window.location.origin}/dashboard?pricing=1` }),
-      });
-      const body = (await res.json().catch(() => null)) as { url?: unknown; detail?: unknown; error?: unknown } | null;
-      if (!res.ok) {
-        const msg = typeof body?.detail === "string" ? body.detail : typeof body?.error === "string" ? body.error : "Could not open billing portal";
-        setPricingErr(msg);
-        return;
-      }
-      const url = typeof body?.url === "string" ? body.url : "";
-      if (!url) {
-        setPricingErr("No portal URL returned");
-        return;
-      }
-      window.location.href = url;
-    } catch (e) {
-      setPricingErr(e instanceof Error ? e.message : "Could not open billing portal");
-    } finally {
-      setPortalLoading(false);
-    }
   };
 
   if (!isLoaded) {
@@ -371,9 +215,10 @@ export default function DashboardClient() {
             </p>
           )}
           {billingNotice && (
-            <p style={{ marginTop: "0.5rem", fontSize: "0.8125rem", color: "#166534" }}>
-              {billingNotice}
-            </p>
+            <div style={{ marginTop: "0.75rem", padding: "0.65rem 1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", display: "inline-flex", alignItems: "center", gap: "0.75rem" }}>
+              <span style={{ fontSize: "0.8125rem", color: "#166534", fontWeight: 500 }}>{billingNotice.text}</span>
+              <button type="button" onClick={() => setBillingNotice(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#166534", fontSize: "1rem", lineHeight: 1, padding: 0 }} aria-label="Dismiss">×</button>
+            </div>
           )}
           {usage?.can_scan && usage.scans_used === 0 && (
             <div style={{ marginTop: "1rem", padding: "0.75rem 1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", display: "inline-block" }}>
@@ -383,23 +228,7 @@ export default function DashboardClient() {
           {usage && !usage.can_scan && (
             <div style={{ marginTop: "1rem", padding: "0.75rem 1rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", display: "inline-block" }}>
               <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#991b1b" }}>You&apos;ve hit your scan limit.</span>
-              <button
-                type="button"
-                onClick={openPricing}
-                style={{
-                  display: "block",
-                  marginTop: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 700,
-                  color: "var(--accent)",
-                  background: "transparent",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                }}
-              >
-                Upgrade now →
-              </button>
+              <Link href="/landing.html#waitlist" style={{ display: "block", marginTop: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--accent)" }}>Join waitlist →</Link>
             </div>
           )}
         </div>
@@ -535,173 +364,6 @@ export default function DashboardClient() {
           </section>
         </div>
       </main>
-
-      {pricingOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            background: "rgba(0, 0, 0, 0.42)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1rem",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setPricingOpen(false);
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "44rem",
-              borderRadius: 22,
-              background: "#fff",
-              boxShadow: "0 20px 70px rgba(0,0,0,0.28)",
-              border: "1px solid rgba(15,23,42,0.1)",
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.1rem", borderBottom: "1px solid #eef2f7" }}>
-              <div>
-                <div style={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Plans &amp; billing</div>
-                <div style={{ fontSize: "0.8125rem", color: "#64748b", marginTop: 2 }}>
-                  {usage ? (
-                    <>
-                      {usage.scans_used}/{usage.scans_limit} scans used · Current plan: <strong style={{ color: "#0f172a" }}>{usage.tier}</strong>
-                    </>
-                  ) : (
-                    "Loading usage…"
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPricingOpen(false)}
-                aria-label="Close"
-                style={{ border: "none", background: "transparent", fontSize: "1.25rem", lineHeight: 1, cursor: "pointer", color: "#64748b" }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{ padding: "1rem 1.1rem 1.1rem" }}>
-              {pricingCanceled && (
-                <div style={{ marginBottom: "0.85rem", padding: "0.7rem 0.85rem", borderRadius: 14, background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e", fontSize: "0.875rem" }}>
-                  Checkout canceled — pick a plan when you&apos;re ready.
-                </div>
-              )}
-              {pricingErr && (
-                <div style={{ marginBottom: "0.85rem", padding: "0.7rem 0.85rem", borderRadius: 14, background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", fontSize: "0.875rem", whiteSpace: "pre-wrap" }}>
-                  {pricingErr}
-                </div>
-              )}
-              {usage && !usage.can_scan && (
-                <div style={{ marginBottom: "0.85rem", padding: "0.7rem 0.85rem", borderRadius: 14, background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", fontSize: "0.875rem" }}>
-                  You&apos;ve hit your scan limit. Upgrade to continue scanning.
-                </div>
-              )}
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.9rem" }}>
-                <div style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
-                  Signed in as <strong style={{ color: "#0f172a" }}>{user?.primaryEmailAddress?.emailAddress}</strong>
-                </div>
-                <button
-                  type="button"
-                  onClick={openPortal}
-                  disabled={portalLoading || checkoutLoadingTier !== null}
-                  style={{
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    padding: "0.55rem 0.85rem",
-                    fontWeight: 700,
-                    fontSize: "0.8125rem",
-                    cursor: portalLoading || checkoutLoadingTier !== null ? "not-allowed" : "pointer",
-                    opacity: portalLoading || checkoutLoadingTier !== null ? 0.6 : 1,
-                  }}
-                >
-                  {portalLoading ? "Opening billing…" : "Manage billing"}
-                </button>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {PLANS.map((p) => {
-                  const currentTier = (usage?.tier || "starter").toLowerCase();
-                  const isCurrent = currentTier === p.id;
-                  const isSelected = pricingPreselect === p.id;
-                  const showOutline = isSelected && !isCurrent;
-                  const disabled = checkoutLoadingTier !== null || portalLoading;
-                  const canUpgrade = p.paid && !isCurrent;
-                  return (
-                    <div
-                      key={p.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "0.85rem",
-                        padding: "0.95rem 1rem",
-                        borderRadius: 18,
-                        border: showOutline ? "2px solid #0f172a" : "1px solid #e5e7eb",
-                        background: "#fafafa",
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                          <div style={{ fontSize: "1.05rem", fontWeight: 850, letterSpacing: "-0.01em", color: "#0f172a" }}>{p.name}</div>
-                          {isCurrent ? (
-                            <span style={{ fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#16a34a" }}>
-                              Current
-                            </span>
-                          ) : null}
-                        </div>
-                        <div style={{ marginTop: 2, color: "#6b7280", fontSize: "0.9rem" }}>
-                          {p.price} · {p.scans}
-                        </div>
-                      </div>
-                      <div style={{ flexShrink: 0, minWidth: 9 * 16, textAlign: "center" }}>
-                        {p.id === "starter" ? (
-                          <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#6b7280" }}>{isCurrent ? "Included" : "Free"}</span>
-                        ) : canUpgrade ? (
-                          <button
-                            type="button"
-                            onClick={() => startCheckout(p.id as Exclude<BillingTier, "starter">)}
-                            disabled={disabled}
-                            style={{
-                              appearance: "none",
-                              border: "none",
-                              background: "#111827",
-                              color: "#fff",
-                              borderRadius: 12,
-                              padding: "0.75rem 1rem",
-                              fontWeight: 750,
-                              fontSize: "0.875rem",
-                              cursor: disabled ? "not-allowed" : "pointer",
-                              opacity: disabled ? 0.6 : 1,
-                            }}
-                          >
-                            {checkoutLoadingTier === p.id ? "Redirecting…" : "Upgrade"}
-                          </button>
-                        ) : (
-                          <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#6b7280" }}>Current</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div style={{ marginTop: "1rem", textAlign: "center", color: "#9ca3af", fontSize: "0.75rem", lineHeight: 1.35 }}>
-                Payments processed by Stripe. Plan updates immediately after checkout.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

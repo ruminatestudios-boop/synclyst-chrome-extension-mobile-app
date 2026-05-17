@@ -4,73 +4,252 @@ import { useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
-// Clerk paused for testing — no token passed; backend allows guest usage.
+interface ExtractionResult {
+  extraction_copy: {
+    seo_title: string;
+    description: string;
+    bullet_points: string[];
+    description_fact_feel_proof?: { fact?: string; feel?: string; proof?: string };
+  };
+  tags: {
+    category?: string;
+    search_keywords: string[];
+  };
+  attributes: {
+    brand?: string;
+    color?: string;
+    material?: string;
+    condition?: string;
+    price_display?: string;
+    price_value?: number;
+  };
+}
+
+const copyBtnStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  borderRadius: "6px",
+  padding: "0.3rem 0.65rem",
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  background: "transparent",
+  color: "var(--text)",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      style={{
+        ...copyBtnStyle,
+        color: copied ? "#16a34a" : "var(--text)",
+        borderColor: copied ? "#16a34a" : "var(--border)",
+      }}
+    >
+      {copied ? "✓ Copied!" : label}
+    </button>
+  );
+}
+
+function buildCopyAll(result: ExtractionResult): string {
+  const { extraction_copy, tags } = result;
+  const bullets = extraction_copy.bullet_points.map((b) => `• ${b}`).join("\n");
+  const keywords = tags.search_keywords.join(", ");
+  const categoryLine = tags.category ? `\nCATEGORY: ${tags.category}` : "";
+  return `TITLE:\n${extraction_copy.seo_title}\n\nDESCRIPTION:\n${extraction_copy.description}\n\nBULLET POINTS:\n${bullets}\n\nKEYWORDS:\n${keywords}${categoryLine}`;
+}
+
+function ResultsSection({ result }: { result: ExtractionResult }) {
+  const [allCopied, setAllCopied] = useState(false);
+
+  const handleCopyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(buildCopyAll(result));
+      setAllCopied(true);
+      setTimeout(() => setAllCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const { extraction_copy, tags, attributes } = result;
+
+  const detailParts: string[] = [];
+  if (attributes.brand) detailParts.push(`Brand: ${attributes.brand}`);
+  if (attributes.color) detailParts.push(`Color: ${attributes.color}`);
+  if (attributes.condition) detailParts.push(`Condition: ${attributes.condition}`);
+  if (attributes.price_display) detailParts.push(`Price: ${attributes.price_display}`);
+
+  const cardStyle: React.CSSProperties = {
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "10px",
+    padding: "1rem 1.125rem",
+    marginBottom: "0.875rem",
+  };
+
+  const cardHeaderStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "0.5rem",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: "0.6875rem",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    color: "var(--muted)",
+  };
+
+  return (
+    <div style={{ marginTop: "1.75rem" }}>
+      {/* Copy all button */}
+      <div style={{ marginBottom: "1.25rem" }}>
+        <button
+          type="button"
+          onClick={handleCopyAll}
+          style={{
+            width: "100%",
+            padding: "0.625rem 1rem",
+            background: allCopied ? "#f0fdf4" : "var(--accent)",
+            color: allCopied ? "#16a34a" : "var(--bg)",
+            border: allCopied ? "1px solid #16a34a" : "none",
+            borderRadius: "8px",
+            fontWeight: 700,
+            fontSize: "0.9375rem",
+            cursor: "pointer",
+          }}
+        >
+          {allCopied ? "✓ Copied to clipboard!" : "Copy all to clipboard"}
+        </button>
+      </div>
+
+      {/* Title */}
+      <div style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <span style={labelStyle}>Title</span>
+          <CopyButton text={extraction_copy.seo_title} />
+        </div>
+        <p style={{ margin: 0, fontSize: "0.9375rem", color: "var(--text)", fontWeight: 600, lineHeight: 1.4 }}>
+          {extraction_copy.seo_title}
+        </p>
+      </div>
+
+      {/* Description */}
+      <div style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <span style={labelStyle}>Description</span>
+          <CopyButton text={extraction_copy.description} />
+        </div>
+        <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+          {extraction_copy.description}
+        </p>
+      </div>
+
+      {/* Bullet points */}
+      {extraction_copy.bullet_points.length > 0 && (
+        <div style={cardStyle}>
+          <div style={cardHeaderStyle}>
+            <span style={labelStyle}>Bullet Points</span>
+            <CopyButton
+              text={extraction_copy.bullet_points.map((b) => `• ${b}`).join("\n")}
+            />
+          </div>
+          <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
+            {extraction_copy.bullet_points.map((point, i) => (
+              <li key={i} style={{ fontSize: "0.875rem", color: "var(--text)", lineHeight: 1.6, marginBottom: "0.25rem" }}>
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Tags / Keywords */}
+      {tags.search_keywords.length > 0 && (
+        <div style={cardStyle}>
+          <div style={cardHeaderStyle}>
+            <span style={labelStyle}>Keywords</span>
+            <CopyButton text={tags.search_keywords.join(", ")} />
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", marginTop: "0.25rem" }}>
+            {tags.search_keywords.map((kw, i) => (
+              <span
+                key={i}
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.55rem",
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "20px",
+                  color: "var(--text)",
+                }}
+              >
+                {kw}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Category + Details row */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.875rem" }}>
+        {tags.category && (
+          <span
+            style={{
+              fontSize: "0.75rem",
+              padding: "0.25rem 0.65rem",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              color: "var(--muted)",
+              fontWeight: 600,
+            }}
+          >
+            Category: {tags.category}
+          </span>
+        )}
+        {detailParts.map((d, i) => (
+          <span
+            key={i}
+            style={{
+              fontSize: "0.75rem",
+              padding: "0.25rem 0.65rem",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              color: "var(--muted)",
+            }}
+          >
+            {d}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  const [savedProductId, setSavedProductId] = useState<string | null>(null);
+  const [result, setResult] = useState<ExtractionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
-  const [waitlistEmail, setWaitlistEmail] = useState("");
-  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
-  const [waitlistStatus, setWaitlistStatus] = useState<{ type: "ok" | "err" | "warn"; text: string } | null>(null);
-  /** Shown in modal; set from 402 JSON `scans_limit` (matches backend STARTER_SCAN_LIMIT). */
-  const [waitlistScansLimit, setWaitlistScansLimit] = useState(3);
-  const [buyLoading, setBuyLoading] = useState(false);
-  const [buyError, setBuyError] = useState<string | null>(null);
-
-  const submitWaitlist = async () => {
-    const email = waitlistEmail.trim();
-    if (!email || !email.includes("@")) {
-      setWaitlistStatus({ type: "err", text: "Enter a valid email." });
-      return;
-    }
-
-    setWaitlistSubmitting(true);
-    setWaitlistStatus({ type: "warn", text: "Adding you to waitlist..." });
-    try {
-      const res = await fetch("/__synclyst_publishing/auth/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, source: "upload-scan-limit" }),
-      });
-      if (!res.ok) throw new Error("waitlist_failed");
-      setWaitlistStatus({ type: "ok", text: "You are on the waitlist. We will email you when paid plans open." });
-    } catch {
-      setWaitlistStatus({ type: "err", text: "Could not join waitlist. Please try again." });
-    } finally {
-      setWaitlistSubmitting(false);
-    }
-  };
-
-  const handleBuyScans = async () => {
-    setBuyLoading(true);
-    setBuyError(null);
-    try {
-      const anonId =
-        (typeof window !== "undefined" && localStorage.getItem("synclyst_anon_id_v1")) || "";
-      const res = await fetch("/api/v1/billing/guest-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anon_id: anonId }),
-      });
-      if (!res.ok) {
-        const msg = await res.text().catch(() => "Unknown error");
-        throw new Error(msg || `Error ${res.status}`);
-      }
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No checkout URL returned");
-      }
-    } catch (err) {
-      setBuyError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBuyLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,22 +271,16 @@ export default function UploadPage() {
         }),
       });
       if (res.status === 402) {
-        // Send user back to dashboard pricing modal (direct-to-Stripe upgrade).
-        try {
-          if (typeof window !== "undefined") {
-            window.location.href = "/dashboard?pricing=1";
-            return;
-          }
-        } catch {
-          /* ignore */
+        if (typeof window !== "undefined") {
+          window.location.href = "/dashboard?pricing=1";
+          return;
         }
         setError("Scan limit reached. Open billing to upgrade.");
         return;
       }
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setResult(data);
-      setSavedProductId(null);
+      setResult(data as ExtractionResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -117,256 +290,60 @@ export default function UploadPage() {
 
   return (
     <div style={{ maxWidth: "640px", margin: "0 auto", padding: "2rem" }}>
-      <div style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ margin: 0 }}>Photo → Draft Listing</h2>
-        <Link href="/dashboard" style={{ fontSize: "0.875rem", color: "var(--muted)" }}>← Dashboard</Link>
+      {/* Header */}
+      <div style={{ marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 700 }}>Scan product → get listing copy</h2>
+        <Link href="/dashboard" style={{ fontSize: "0.875rem", color: "var(--muted)", textDecoration: "none" }}>
+          ← Dashboard
+        </Link>
       </div>
-      <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-        Upload a product image. Extraction runs in &lt;3s and returns attributes, copy, and tags.
-      </p>
+
+      {/* Banner */}
+      <div
+        style={{
+          marginBottom: "1.5rem",
+          padding: "0.625rem 0.875rem",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "8px",
+          fontSize: "0.8125rem",
+          color: "var(--muted)",
+        }}
+      >
+        ✓ Copy your listing and paste it into Shopify, eBay, Etsy, or anywhere. One-click publishing coming soon.
+      </div>
+
+      {/* Upload form */}
       <form onSubmit={handleSubmit}>
         <input
           type="file"
           accept="image/*"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          style={{ marginBottom: "1rem", color: "var(--text)" }}
+          style={{ marginBottom: "1rem", color: "var(--text)", display: "block" }}
         />
         <button
           type="submit"
           disabled={!file || loading}
           style={{
-            padding: "0.5rem 1rem",
+            padding: "0.5rem 1.25rem",
             background: "var(--accent)",
             color: "var(--bg)",
             border: "none",
             borderRadius: "6px",
             fontWeight: 600,
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: !file || loading ? "not-allowed" : "pointer",
+            opacity: !file || loading ? 0.7 : 1,
           }}
         >
-          {loading ? "Extracting…" : "Extract"}
+          {loading ? "Generating…" : "Generate listing"}
         </button>
       </form>
-      {error && <p style={{ color: "#f87171", marginTop: "1rem" }}>{error}</p>}
-      {result && (
-        <div style={{ marginTop: "1.5rem" }}>
-          <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  setError(null);
-                  const res = await apiFetch("/api/v1/products/from-extraction", {
-                    method: "POST",
-                    body: JSON.stringify(result),
-                  });
-                  if (!res.ok) throw new Error(await res.text());
-                  const { id } = await res.json();
-                  setSavedProductId(id);
-                  setError(null);
-                  alert(`Draft saved! Product ID: ${id}`);
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : String(err));
-                }
-              }}
-              style={{
-                padding: "0.5rem 1rem",
-                background: "var(--accent)",
-                color: "var(--bg)",
-                border: "none",
-                borderRadius: "6px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Save as draft
-            </button>
-            {savedProductId && (
-              <Link
-                href={`/dashboard?push_product=${savedProductId}`}
-                style={{
-                  padding: "0.5rem 1rem",
-                  background: "var(--accent)",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  fontWeight: 600,
-                  textDecoration: "none",
-                }}
-              >
-                Push to marketplaces →
-              </Link>
-            )}
-            {result && (
-              <a
-                href="/review"
-                onClick={() => {
-                  try {
-                    window.sessionStorage.setItem("auralink_primary_channel", "shopify");
-                    const ext = result as { extraction_copy?: unknown; attributes?: { price_value?: number } & Record<string, unknown>; tags?: unknown };
-                    window.sessionStorage.setItem("auralink_draft_listing", JSON.stringify({
-                      extraction: { copy: ext.extraction_copy, extraction_copy: ext.extraction_copy, attributes: ext.attributes, tags: ext.tags },
-                      suggested_price: ext.attributes?.price_value,
-                    }));
-                  } catch (_) {}
-                }}
-                style={{
-                  padding: "0.5rem 1rem",
-                  border: "1px solid var(--accent)",
-                  borderRadius: "6px",
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  color: "var(--accent)",
-                }}
-              >
-                Confirm listing for Shopify →
-              </a>
-            )}
-            <Link
-              href="/dashboard/products"
-              style={{
-                padding: "0.5rem 1rem",
-                border: "1px solid var(--border)",
-                borderRadius: "6px",
-                fontWeight: 600,
-                textDecoration: "none",
-                color: "var(--text)",
-              }}
-            >
-              View products
-            </Link>
-          </div>
-          <pre style={{ padding: "1rem", background: "var(--surface)", borderRadius: "8px", overflow: "auto", fontSize: "0.875rem" }}>
-            {JSON.stringify(result, null, 2)}
-          </pre>
-        </div>
+
+      {error && (
+        <p style={{ color: "#f87171", marginTop: "1rem", fontSize: "0.875rem" }}>{error}</p>
       )}
-      {showWaitlistModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            background: "rgba(0, 0, 0, 0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1rem",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowWaitlistModal(false);
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "28rem",
-              background: "#fff",
-              borderRadius: "12px",
-              border: "1px solid var(--border)",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-              padding: "1rem",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-              <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Scan limit reached</h3>
-              <button
-                type="button"
-                onClick={() => setShowWaitlistModal(false)}
-                style={{ border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: "1.25rem", lineHeight: 1 }}
-                aria-label="Close waitlist modal"
-              >
-                ×
-              </button>
-            </div>
-            <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: 0, marginBottom: "0.75rem" }}>
-              You&apos;ve used all {waitlistScansLimit} free scans today. Top up instantly — no subscription needed.
-            </p>
-            <button
-              type="button"
-              onClick={handleBuyScans}
-              disabled={buyLoading}
-              style={{
-                width: "100%",
-                marginBottom: "0.75rem",
-                border: "none",
-                background: "#2563eb",
-                color: "#fff",
-                borderRadius: "8px",
-                padding: "0.7rem 0.9rem",
-                fontWeight: 700,
-                fontSize: "0.9375rem",
-                cursor: buyLoading ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.5rem",
-              }}
-            >
-              {buyLoading ? (
-                <span style={{ display: "inline-block", width: "1em", height: "1em", border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-              ) : null}
-              {buyLoading ? "Redirecting to checkout…" : "Get 20 extra scans — $1.99"}
-            </button>
-            {buyError && (
-              <p style={{ marginTop: "-0.5rem", marginBottom: "0.5rem", fontSize: "0.75rem", color: "#991b1b" }}>
-                {buyError}
-              </p>
-            )}
-            <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.5rem", textAlign: "center" }}>— or get notified when subscription plans launch —</p>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <input
-                type="email"
-                value={waitlistEmail}
-                onChange={(e) => setWaitlistEmail(e.target.value)}
-                placeholder="you@company.com"
-                style={{
-                  flex: 1,
-                  border: "1px solid var(--border)",
-                  borderRadius: "8px",
-                  padding: "0.6rem 0.75rem",
-                  fontSize: "0.875rem",
-                }}
-              />
-              <button
-                type="button"
-                onClick={submitWaitlist}
-                disabled={waitlistSubmitting}
-                style={{
-                  border: "1px solid #111",
-                  background: "#111",
-                  color: "#fff",
-                  borderRadius: "8px",
-                  padding: "0.6rem 0.9rem",
-                  fontWeight: 600,
-                  cursor: waitlistSubmitting ? "not-allowed" : "pointer",
-                }}
-              >
-                {waitlistSubmitting ? "Joining..." : "Join waitlist"}
-              </button>
-            </div>
-            {waitlistStatus && (
-              <p
-                style={{
-                  marginTop: "0.65rem",
-                  marginBottom: 0,
-                  fontSize: "0.75rem",
-                  color:
-                    waitlistStatus.type === "ok"
-                      ? "#166534"
-                      : waitlistStatus.type === "warn"
-                        ? "#92400e"
-                        : "#991b1b",
-                }}
-              >
-                {waitlistStatus.text}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+
+      {result && <ResultsSection result={result} />}
     </div>
   );
 }

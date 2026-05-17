@@ -26,6 +26,11 @@ class PushDraftsRequest(BaseModel):
     as_draft: bool = True
 
 
+def _is_missing_table_error(e: Exception) -> bool:
+    msg = str(e).lower()
+    return "does not exist" in msg or "pgrst200" in msg or "schema cache" in msg or "undefined table" in msg
+
+
 @router.post("", response_model=dict)
 async def create_universal_product(payload: UniversalProductCreate, _auth: dict = Depends(verify_clerk)):
     """
@@ -42,6 +47,11 @@ async def create_universal_product(payload: UniversalProductCreate, _auth: dict 
             build_and_upsert_ucp_manifest(supabase, product_id, get_settings().app_base_url)
             return {"id": product_id, "created_at": row["created_at"]}
         except Exception as e:
+            if _is_missing_table_error(e):
+                import traceback
+                print(f"[products] universal_products table missing — using demo store. Run migrations in Supabase dashboard.\n{traceback.format_exc()}", flush=True)
+                row = create_product_demo(payload)
+                return {"id": row["id"], "created_at": row["created_at"], "demo": True}
             raise HTTPException(status_code=400, detail=str(e))
     # Demo mode: in-memory store
     row = create_product_demo(payload)
@@ -53,7 +63,13 @@ async def get_universal_product(product_id: UUID, _auth: dict = Depends(verify_c
     """Get master profile and channel adapters. Uses demo store when DB not configured."""
     supabase = get_supabase()
     if supabase:
-        row = get_product(supabase, str(product_id))
+        try:
+            row = get_product(supabase, str(product_id))
+        except Exception as e:
+            if _is_missing_table_error(e):
+                row = get_product_demo(str(product_id))
+            else:
+                raise HTTPException(status_code=500, detail=str(e))
     else:
         row = get_product_demo(str(product_id))
     if not row:
@@ -92,6 +108,8 @@ async def list_universal_products(limit: int = 50, offset: int = 0, _auth: dict 
         try:
             return list_products(supabase, limit=limit, offset=offset)
         except Exception as e:
+            if _is_missing_table_error(e):
+                return list_products_demo(limit=limit, offset=offset)
             raise HTTPException(status_code=503, detail=f"Database list failed: {str(e)}")
     return list_products_demo(limit=limit, offset=offset)
 
