@@ -19,11 +19,7 @@ const publishingProxyTarget =
   (process.env.VERCEL === "1" ? defaultPublishingProxyForVercel : "") ||
   "http://127.0.0.1:8001";
 
-/** Root `/` content: `demo` (default) or `landing` when you switch the main site back to marketing. */
-const homepageDestination =
-  (process.env.SYNCLYST_HOMEPAGE || "").trim().toLowerCase() === "landing"
-    ? "/landing.html"
-    : "/demo.html";
+/** Root `/` always redirects to /list (the main listing scan flow). */
 
 const listingFlowRewrites = [
   { source: "/dashboard/home", destination: "/dashboard-home.html" },
@@ -40,6 +36,7 @@ const nextConfig = {
   ...(resolvedPublicApiUrl ? { env: { NEXT_PUBLIC_API_URL: resolvedPublicApiUrl } } : {}),
   async redirects() {
     return [
+      { source: "/", destination: "/list", permanent: false },
       { source: "/shopify/launch", destination: "/api/shopify/oauth-start", permanent: false },
       { source: "/shopify/launch/", destination: "/api/shopify/oauth-start", permanent: false },
       { source: "/flow-3.html", destination: "/review", permanent: false },
@@ -63,7 +60,6 @@ const nextConfig = {
       // beforeFiles: run before App Router / public checks so static `public/*.html` wins.
       // This avoids Vercel NOT_FOUND when the `/snap` App route is missing or not bundled.
       beforeFiles: [
-        { source: "/", destination: homepageDestination },
         { source: "/demo", destination: "/demo.html" },
         { source: "/snap", destination: "/snap.html" },
         { source: "/snap/", destination: "/snap.html" },
