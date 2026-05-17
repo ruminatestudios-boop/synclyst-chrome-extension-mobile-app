@@ -17,10 +17,17 @@ const clerkConfigured = Boolean(
 const clerk = clerkMiddleware();
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
+  const p = request.nextUrl.pathname;
+
+  // Serve marketing landing page at root without a URL change.
+  // beforeFiles rewrites can't override the App Router root, so we do it here.
+  if (p === "/") {
+    return NextResponse.rewrite(new URL("/landing.html", request.url));
+  }
+
   if (!clerkConfigured) {
     return NextResponse.next();
   }
-  const p = request.nextUrl.pathname;
   if (p === "/shopify/launch" || p === "/shopify/launch/") {
     return NextResponse.next();
   }
