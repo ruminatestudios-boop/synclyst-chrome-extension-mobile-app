@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="auralink-api-url" content="http://localhost:8000" />
+    <meta name="auralink-api-url" content="https://auralink-api-299567386855.us-central1.run.app" />
     <meta name="auralink-publishing-url" content="http://localhost:8001" />
     <meta name="synclyst-publishing-url" content="https://synclyst-publishing-299567386855.us-central1.run.app" />
     <meta name="synclyst-backend-url" content="https://auralink-api-299567386855.us-central1.run.app" />
@@ -486,23 +486,28 @@
         <section class="relative pt-32 pb-20 px-6 overflow-hidden bg-white">
             <div class="max-w-5xl mx-auto text-center">
                 <h1 class="text-3xl md:text-5xl font-bold tracking-tight leading-tight mb-8 text-[#000] text-center text-balance">
-                    Snap a photo. AI lists it on Shopify
+                    Two AI tools. One scan.
                 </h1>
                 <p class="text-lg md:text-xl text-[#555] max-w-2xl mx-auto mb-10 text-balance leading-relaxed vercel-body">
-                    Try the scan free—upload or snap a photo and preview your listing in seconds.
+                    Snap a photo — get a full listing in seconds, or an instant resale price check.
                 </p>
-                <div class="w-full max-w-2xl mx-auto flex flex-col items-stretch gap-4">
-                    <a href="/?mode=scan" class="scan-hero-btn text-white px-10 py-4 rounded-xl font-semibold border border-black transition-all flex items-center justify-center gap-3 group w-full bg-black min-h-[3.25rem] text-[15px] shadow-lg shadow-zinc-900/10 no-underline hover:bg-zinc-900">
-                        <div class="relative flex items-center justify-center w-5 h-5 overflow-hidden shrink-0">
-                            <i data-lucide="camera" class="w-5 h-5 relative z-10"></i>
+                <div class="w-full max-w-2xl mx-auto flex flex-col sm:flex-row items-stretch gap-4">
+                    <!-- SyncLyst® — Listing AI -->
+                    <a href="/list" class="flex-1 flex flex-col items-center justify-center gap-2 bg-black text-white px-6 py-5 rounded-2xl font-semibold text-[15px] shadow-lg shadow-zinc-900/10 no-underline hover:bg-zinc-900 transition-colors border border-black group">
+                        <div class="relative flex items-center justify-center w-6 h-6 overflow-hidden shrink-0">
+                            <i data-lucide="camera" class="w-6 h-6 relative z-10"></i>
                             <div class="absolute left-0 right-0 h-[2px] bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] animate-scan-sweep z-20"></div>
                         </div>
-                        Scan Your First Item
+                        <span>SyncLyst<sup class="text-[0.55em] font-normal opacity-80 relative -top-[0.15em]">®</sup></span>
+                        <span class="text-xs font-normal opacity-70 text-center">AI listing copy — title, description &amp; keywords</span>
                     </a>
-                    <a href="/flow-batch-upload.html" class="bg-white text-[#111] px-8 py-3.5 rounded-xl font-semibold border border-[#eaeaea] hover:bg-zinc-50 transition-all inline-flex items-center justify-center gap-2 w-full sm:w-auto self-center">
-                        <i data-lucide="layers" class="w-5 h-5"></i>
-                        Batch Upload
-                        <span class="text-[10px] font-semibold text-amber-600 uppercase">Premium</span>
+                    <!-- SyncIQ® — Reseller Scanner -->
+                    <a href="/scan" class="flex-1 flex flex-col items-center justify-center gap-2 bg-white text-[#111] px-6 py-5 rounded-2xl font-semibold text-[15px] border border-[#d4d4d4] hover:bg-zinc-50 transition-colors no-underline group shadow-sm">
+                        <div class="flex items-center justify-center w-6 h-6 shrink-0">
+                            <i data-lucide="bar-chart-2" class="w-6 h-6"></i>
+                        </div>
+                        <span>SyncIQ<sup class="text-[0.55em] font-normal opacity-60 relative -top-[0.15em]">®</sup></span>
+                        <span class="text-xs font-normal text-zinc-500 text-center">Reseller price check — eBay comps &amp; profit estimate</span>
                     </a>
                 </div>
                 <div class="w-full max-w-2xl mx-auto mt-10 text-center px-4 sm:px-6">
@@ -912,11 +917,11 @@
 
     <script>
         // SyncLyst API URL (injected at build via NEXT_PUBLIC_API_URL)
-        window.AURALINK_CONFIG = { API_URL: 'http://localhost:8000' };
+        window.AURALINK_CONFIG = { API_URL: 'https://auralink-api-299567386855.us-central1.run.app' };
         (function() {
           var meta = document.querySelector('meta[name="auralink-api-url"]');
           var url = (meta && meta.getAttribute('content') ? meta.getAttribute('content').trim().replace(/\/$/, '') : '') || window.AURALINK_CONFIG.API_URL;
-          window.AURALINK_CONFIG.API_URL = (url && url !== 'http://localhost:8000') ? url : 'http://localhost:8000';
+          window.AURALINK_CONFIG.API_URL = (url && url !== 'http://localhost:8000') ? url : 'https://auralink-api-299567386855.us-central1.run.app';
           var host = window.location.hostname;
           // On production, call Cloud Run backend directly (bypasses Vercel proxy / env var)
           if (host && host !== 'localhost' && host !== '127.0.0.1') {

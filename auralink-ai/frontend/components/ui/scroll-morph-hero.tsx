@@ -343,7 +343,7 @@ export default function ScrollMorphHero() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pointer-events-auto">
             <Link
-              href="/scan"
+              href="/list"
               className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white px-6 py-3.5 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors shadow-lg shadow-zinc-900/10"
             >
               <svg
@@ -358,7 +358,7 @@ export default function ScrollMorphHero() {
                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
                 <circle cx="12" cy="13" r="3" />
               </svg>
-              Scan Your First Item
+              SyncLyst® — List a Product
             </Link>
             <Link
               href="/landing.html"
