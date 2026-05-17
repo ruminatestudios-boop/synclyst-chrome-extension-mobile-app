@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { auth } from "@clerk/nextjs/server";
 import { tierForPriceId, type BillingTier } from "@/lib/stripe-tier-map";
 
 export const runtime = "nodejs";
 
-/**
- * Public read of Checkout Session after redirect (payment-success.html).
- * Does not require Clerk cookie — session_id is secret from Stripe redirect.
- */
 export async function GET(req: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const secret = process.env.STRIPE_SECRET_KEY;
   if (!secret) {
     return NextResponse.json({ error: "billing_unconfigured" }, { status: 503 });
@@ -27,6 +29,10 @@ export async function GET(req: Request) {
       expand: ["line_items", "line_items.data.price"],
     });
 
+    if (session.client_reference_id && session.client_reference_id !== userId) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
     let tier: BillingTier | null = null;
     const meta = session.metadata?.tier;
     if (meta && /^(starter|pro|growth|scale)$/.test(meta)) {
@@ -41,7 +47,6 @@ export async function GET(req: Request) {
       status: session.status,
       payment_status: session.payment_status,
       tier: tier || "starter",
-      customer_email: session.customer_details?.email || null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

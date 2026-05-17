@@ -22,6 +22,7 @@ export default function SignOutClient() {
   useEffect(() => {
     try {
       sessionStorage.removeItem("auralink_jwt");
+      localStorage.removeItem("auralink_jwt");
     } catch {}
 
     signOut({ redirectUrl }).catch(() => {
