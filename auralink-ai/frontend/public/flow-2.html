@@ -631,7 +631,7 @@
             image_base64: pending.base64,
             mime_type: (pending && pending.mime_type) ? String(pending.mime_type) : 'image/jpeg',
             include_ocr: true,
-            skip_web_enrichment: isReseller ? true : false
+            skip_web_enrichment: false
           })
         })
           .then(function(r) {
