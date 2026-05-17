@@ -18,7 +18,7 @@
   <div class="max-w-md mx-auto min-h-screen flex flex-col bg-white shadow-sm">
     <header class="shrink-0 border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 h-14 flex items-center justify-center">
       <a
-        href="http://localhost:3000/reseller-results"
+        href="/reseller-results"
         class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a]/20 focus-visible:rounded-sm rl-tap py-2"
         title="SyncIQ® — scan results"
         aria-label="SyncIQ — open scan results"
@@ -111,7 +111,7 @@
             savedBuyPrice: entry.buyPrice != null ? String(entry.buyPrice) : null,
           };
           sessionStorage.setItem(RESULT_KEY, JSON.stringify(wrap));
-          window.location.href = 'http://localhost:3000/reseller-results';
+          window.location.href = '/reseller-results';
         } catch (e4) {
           alert('Could not open saved scan.');
         }

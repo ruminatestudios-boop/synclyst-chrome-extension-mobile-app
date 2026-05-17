@@ -224,14 +224,14 @@
             id="ri-save"
             type="button"
             class="ri-icon-btn rounded-2xl border border-[#e5e5e5] bg-white text-[#111] px-2 py-2.5 text-center shadow-sm active:scale-[0.99] transition-transform"
-            aria-label="Library — save this scan and photos to your library"
+            aria-label="Library — view all saved scans"
           >
             <span class="mx-auto mb-1 inline-flex w-9 h-9 items-center justify-center rounded-xl bg-zinc-100">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
               </svg>
             </span>
-            <span id="ri-save-label" class="block text-[11px] font-semibold leading-none">Save</span>
+            <span id="ri-save-label" class="block text-[11px] font-semibold leading-none">Library</span>
           </button>
 
           <button id="ri-crosslist" type="button" class="ri-icon-btn rounded-2xl border border-[#e5e5e5] bg-white text-[#111] px-2 py-2.5 text-center shadow-sm active:scale-[0.99] transition-transform">
@@ -1113,60 +1113,58 @@
       });
 
       /**
-       * Bookmark = Library tab: save full result + scan photo to device library, then open profile page.
-       * One row per scan session (`sourceTs` = payload.ts from flow-2); re-tap updates same row (e.g. buy price).
+       * Auto-save every scan to the library on page load.
+       * One row per scan session (sourceTs = payload.ts); re-visiting updates same row.
+       * Library button just navigates to /reseller-library.
        */
+      (function autoSaveToLibrary() {
+        try {
+          var key = 'auralink_reseller_history';
+          var imgData = payload.imageDataUrl || null;
+          try {
+            var im = document.getElementById('ri-image');
+            if (!imgData && im && im.src) {
+              var s = String(im.src);
+              if (s.indexOf('data:') === 0) imgData = s;
+            }
+          } catch (eIm) {}
+
+          var sourceTs =
+            payload.ts != null && !isNaN(Number(payload.ts))
+              ? Number(payload.ts)
+              : Date.now();
+
+          var cur = [];
+          try { cur = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { cur = []; }
+          if (!Array.isArray(cur)) cur = [];
+          // Don't duplicate — remove existing entry for this scan session
+          cur = cur.filter(function (x) {
+            return !(x && x.sourceTs != null && Number(x.sourceTs) === sourceTs);
+          });
+          var entryId =
+            'ri_' + sourceTs + '_' +
+            (typeof crypto !== 'undefined' && crypto.randomUUID
+              ? crypto.randomUUID().slice(0, 8)
+              : String(Math.random()).slice(2, 10));
+          cur.unshift({
+            id: entryId,
+            sourceTs: sourceTs,
+            ts: Date.now(),
+            title: title,
+            result: result,
+            image: imgData || null,
+            buyPrice: null,
+          });
+          cur = cur.slice(0, 50);
+          localStorage.setItem(key, JSON.stringify(cur));
+        } catch (eAuto) {}
+      })();
+
+      // Library button — just navigate to the library (scan already saved above)
       var saveBtn = document.getElementById('ri-save');
       if (saveBtn) {
         saveBtn.addEventListener('click', function () {
-          try {
-            var key = 'auralink_reseller_history';
-            var buyEl = document.getElementById('ri-buy');
-            var buySnap = buyEl ? String(buyEl.value || '').trim() : '';
-            var imgData = payload.imageDataUrl || null;
-            try {
-              var im = document.getElementById('ri-image');
-              if (!imgData && im && im.src) {
-                var s = String(im.src);
-                if (s.indexOf('data:') === 0) imgData = s;
-              }
-            } catch (eIm) {}
-
-            var sourceTs =
-              payload.ts != null && !isNaN(Number(payload.ts))
-                ? Number(payload.ts)
-                : Date.now();
-
-            var cur = [];
-            try {
-              cur = JSON.parse(localStorage.getItem(key) || '[]');
-            } catch (e) {
-              cur = [];
-            }
-            if (!Array.isArray(cur)) cur = [];
-            cur = cur.filter(function (x) {
-              return !(x && x.sourceTs != null && Number(x.sourceTs) === sourceTs);
-            });
-            var entryId =
-              'ri_' +
-              sourceTs +
-              '_' +
-              (typeof crypto !== 'undefined' && crypto.randomUUID
-                ? crypto.randomUUID().slice(0, 8)
-                : String(Math.random()).slice(2, 10));
-            cur.unshift({
-              id: entryId,
-              sourceTs: sourceTs,
-              ts: Date.now(),
-              title: title,
-              result: result,
-              image: imgData || null,
-              buyPrice: buySnap || null,
-            });
-            cur = cur.slice(0, 50);
-            localStorage.setItem(key, JSON.stringify(cur));
-            riNavigate('/reseller-library');
-          } catch (e2) {}
+          riNavigate('/reseller-library');
         });
       }
       var CONNECTED_SS_KEY = 'auralink_connected_stores';
