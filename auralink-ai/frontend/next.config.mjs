@@ -80,8 +80,14 @@ const nextConfig = {
         { source: "/flow-publishing", destination: "/flow-publishing.html" },
         { source: "/review", destination: "/flow-3.html" },
         { source: "/connect-store", destination: "/stores-connect-shopify.html" },
-        // Backend API proxy (avoid CORS in the browser). Requires NEXT_PUBLIC_API_URL or AURALINK_BACKEND_URL at build time.
-        ...(apiBase ? [{ source: "/api/v1/:path*", destination: `${apiBase}/api/v1/:path*` }] : []),
+        // Backend API proxy (avoid CORS in the browser).
+        // Falls back to the Cloud Run service URL so the rewrite always exists even when
+        // NEXT_PUBLIC_API_URL / AURALINK_BACKEND_URL are not set at build time (e.g. fresh
+        // Synclyst Vercel project without env vars configured yet).
+        {
+          source: "/api/v1/:path*",
+          destination: `${apiBase || "https://auralink-api-299567386855.us-central1.run.app"}/api/v1/:path*`,
+        },
         {
           source: "/__synclyst_publishing/:path*",
           destination: `${pubBase}/:path*`,
