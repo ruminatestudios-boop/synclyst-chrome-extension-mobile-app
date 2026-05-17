@@ -546,6 +546,8 @@ async def fetch_ebay_market_summary(
                     "keywords": q,
                     "paginationInput.entriesPerPage": str(max(10, max_comps * 2)),
                     "outputSelector(0)": "PictureURLLarge",
+                    "outputSelector(1)": "PictureURLSuperSize",
+                    "outputSelector(2)": "GalleryInfo",
                     "itemFilter(0).name": "ListingType",
                     "itemFilter(0).value(0)": "FixedPrice",
                     "itemFilter(0).value(1)": "Auction",
@@ -558,17 +560,17 @@ async def fetch_ebay_market_summary(
         except Exception as e:
             warnings.append(f"eBay active listings error: {str(e)[:120]}")
 
-    # --- Enrich sold comps with images from Browse API ---
-    # Gemini comps have no image_url.  Reuse real eBay CDN images from active
-    # listings (same product category, same query) so cards show actual photos.
+    # --- Enrich sold comps with images from active listings ---
+    # Sold listing gallery URLs expire after the listing ends on eBay.
+    # Active listing images are always valid — use them for all sold comps.
     if active_comps:
         active_images = [c.image_url for c in active_comps if c.image_url]
         if active_images:
             img_idx = 0
             for sc in sold_comps:
-                if not sc.image_url:
-                    sc.image_url = active_images[img_idx % len(active_images)]
-                    img_idx += 1
+                # Always overwrite with active listing image (sold images expire)
+                sc.image_url = active_images[img_idx % len(active_images)]
+                img_idx += 1
 
     # --- Aggregate ---
     # Use Gemini-extracted prices if richer than comp prices alone
