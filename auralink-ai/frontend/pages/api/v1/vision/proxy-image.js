@@ -8,8 +8,8 @@
 
 const ALLOWED_HOSTS = [
   "i.ebayimg.com",
-  "thumbs.ebaystatic.com",
-  "ir.ebaystatic.com",
+  "ebayimg.com",          // covers i.ebayimg.com, galleryplus.ebayimg.com, etc.
+  "ebaystatic.com",       // covers thumbs.ebaystatic.com, thumbs2.ebaystatic.com, ir.ebaystatic.com, etc.
   "galleryplus.ebayimg.com",
   "photos.zillowstatic.com", // future-proofing
 ];

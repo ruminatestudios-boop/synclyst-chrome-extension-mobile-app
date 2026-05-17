@@ -280,6 +280,7 @@ async def _finding_sold(
         "paginationInput.entriesPerPage": str(int(max(5, min(50, entries_per_page)))),
         "outputSelector(0)": "PictureURLLarge",
         "outputSelector(1)": "PictureURLSuperSize",
+        "outputSelector(2)": "GalleryInfo",
         "itemFilter(0).name": "SoldItemsOnly",
         "itemFilter(0).value": "true",
         "itemFilter(1).name": "ListingType",
