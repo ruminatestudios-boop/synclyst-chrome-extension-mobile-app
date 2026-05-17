@@ -27,6 +27,9 @@ export default async function handler(req, res) {
 
     const headers = { "Content-Type": "application/json" };
     if (req.headers.authorization) headers["Authorization"] = req.headers.authorization;
+    const anon =
+      req.headers["x-synclyst-anon-id"] || req.headers["X-SyncLyst-Anon-Id"];
+    if (anon) headers["X-SyncLyst-Anon-Id"] = anon;
     const r = await fetch(url, {
       method: "POST",
       headers,

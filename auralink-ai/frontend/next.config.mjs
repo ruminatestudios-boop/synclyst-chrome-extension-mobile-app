@@ -80,8 +80,11 @@ const nextConfig = {
         { source: "/flow-publishing", destination: "/flow-publishing.html" },
         { source: "/review", destination: "/flow-3.html" },
         { source: "/connect-store", destination: "/stores-connect-shopify.html" },
-        // Backend API proxy (avoid CORS in the browser). Requires NEXT_PUBLIC_API_URL or AURALINK_BACKEND_URL at build time.
-        ...(apiBase ? [{ source: "/api/v1/:path*", destination: `${apiBase}/api/v1/:path*` }] : []),
+        // NOTE: Do NOT add a catch-all /api/v1/:path* rewrite here.
+        // On Vercel the Edge rewrites fire before serverless functions, so a
+        // generic /api/v1/* rewrite would bypass pages/api/v1/vision/*.js proxy
+        // handlers (reseller-scan, extract) and send requests straight to Cloud
+        // Run without the per-route headers, timeout config, and error handling.
         {
           source: "/__synclyst_publishing/:path*",
           destination: `${pubBase}/:path*`,
