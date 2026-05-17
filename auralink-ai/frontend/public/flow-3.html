@@ -724,11 +724,19 @@
             var priceSource = (att.price_source || '').trim();
             if (priceSource === 'found_in_image' && att.price_value != null) {
               price = String(att.price_value).replace(/^\$|^£/, '');
-            } else if (priceSource === 'ai_suggested' && (att.price_confidence == null || att.price_confidence >= 0.7) && att.price_value != null) {
+            } else if (priceSource === 'ai_suggested' && att.price_value != null) {
+              // Use AI suggestion regardless of confidence — user can always adjust
               price = String(att.price_value).replace(/^\$|^£/, '');
             }
-            if (!price && (p.suggested_price != null) && priceSource !== 'not_found') {
+            // Always fall back to suggested_price (from flow-2 extraction), regardless of price_source.
+            // This ensures the price field is never blank — user sees an estimate to verify.
+            if (!price && p.suggested_price != null && parseFloat(p.suggested_price) > 0) {
               price = String(p.suggested_price).replace(/^\$|^£/, '');
+            }
+            // Last resort: £9.99 placeholder so the field is never empty
+            if (!price || parseFloat(price) <= 0) {
+              price = '9.99';
+              if (!priceSource) priceSource = 'estimated';
             }
             var priceDisplay = (att.price_display || '').trim();
             var compareAt = '';
@@ -1780,14 +1788,10 @@
           priceSourceLabel.textContent = 'AI estimate — verify';
           priceSourceLabel.className = 'text-[11px] mt-0.5 min-h-[14px] text-amber-600';
           priceSourceLabel.setAttribute('title', 'Price suggested from product. Verify before publishing.');
-        } else if (!priceInput.value.trim()) {
-          priceSourceLabel.textContent = 'Add your price';
+        } else if (priceSrc === 'not_found' || priceSrc === 'estimated') {
+          priceSourceLabel.textContent = 'Estimated — verify before listing';
           priceSourceLabel.className = 'text-[11px] mt-0.5 min-h-[14px] text-amber-600';
-          priceSourceLabel.setAttribute('title', 'Verify price before publishing.');
-        } else if (priceSrc === 'not_found') {
-          priceSourceLabel.textContent = 'Saved price — verify';
-          priceSourceLabel.className = 'text-[11px] mt-0.5 min-h-[14px] text-amber-600';
-          priceSourceLabel.setAttribute('title', 'Verify price before publishing.');
+          priceSourceLabel.setAttribute('title', 'AI could not confirm a price. Update this before publishing.');
         } else {
           priceSourceLabel.textContent = '';
           priceSourceLabel.className = 'text-[11px] mt-0.5 min-h-[14px]';
