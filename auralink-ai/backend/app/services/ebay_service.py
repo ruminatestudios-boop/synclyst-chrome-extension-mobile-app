@@ -322,7 +322,7 @@ Return ONLY a valid JSON object (no markdown, no explanation, no code fences):
 {
   "sold_prices": [12.99, 15.00, 9.50],
   "comps": [
-    {"title": "item title", "price": 12.99, "currency": "USD", "condition": "Used", "url": ""}
+    {"title": "item title", "price": 12.99, "currency": "USD", "condition": "Used", "url": "", "image_url": "https://..."}
   ],
   "source_note": "brief note e.g. AI market estimate based on Google Shopping / eBay"
 }
@@ -334,6 +334,7 @@ Rules:
 - If the search found no prices, use your knowledge of typical resale values for this item
 - Always return real price numbers — never return empty arrays if you have any knowledge of this item's value
 - source_note: mention data sources found (e.g. "Google Shopping, eBay active listings")
+- image_url: include a direct image URL for each comp if found in search results (eBay listing image, Google Shopping image, etc.) — leave as empty string if not found
 """
 
 
@@ -368,11 +369,15 @@ def _parse_gemini_sold_response(text: str) -> tuple[list[float], list[EbayComp],
         price = _safe_float(c.get("price"))
         if not title or not price or price <= 0:
             continue
+        raw_img = str(c.get("image_url") or "").strip()
+        # Filter out placeholder/fake URLs
+        img_url = raw_img if raw_img and "example.com" not in raw_img and "placeholder" not in raw_img else None
         comps.append(EbayComp(
             title=title[:180],
             price=float(price),
             currency=str(c.get("currency") or "USD"),
             url=str(c.get("url") or "").strip(),
+            image_url=img_url,
             condition_display=str(c.get("condition") or "") or None,
         ))
 
