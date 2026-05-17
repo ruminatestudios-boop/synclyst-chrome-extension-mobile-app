@@ -1,0 +1,71 @@
+/* --------------- Services --------------- */
+
+.services-ds{
+
+    .item{
+        padding: 30px;
+        border-top: 1px solid rgba(255,255,255,.1);
+        overflow: hidden;
+        transition: all .4s;
+
+        &:last-of-type{
+            border-bottom: 1px solid rgba(255,255,255,.1);
+        }
+
+        .title{
+
+            h2{
+                font-size: 128px;
+                line-height: 128px;
+                letter-spacing: -4px;
+            }
+        }
+
+        .text > .d-flex{
+            width: 100%;
+            justify-content: space-between;
+            gap: 24px;
+
+            > p {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+        }
+
+        .icon{
+            width: 60px;
+            height: 60px;
+            line-height: 60px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 50%;
+            margin-left: 0;
+
+            img{
+                width: 30px;
+            }
+        }
+
+        .title{
+            position: relative;
+            margin-bottom: -70px;
+            transition: all .4s;
+            flex-shrink: 0;
+            min-width: 580px;
+        }
+
+        .text.ml-auto{
+            flex: 1 1 auto;
+            margin-left: 48px !important;
+        }
+        
+        &:hover{
+            background: rgba(255,255,255,.05);
+
+            .title{
+                margin-bottom: 0;
+                color: $main-color;
+            }
+        }
+    }
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115">
+  <!-- Upper horseshoe (arc at top, opens downward) -->
+  <path fill="none" stroke="#111" stroke-width="11" stroke-linecap="round"
+    d="M 37,65 L 37,35 A 22,22 0 0,0 81,35 L 81,65"/>
+  <!-- Mask: upper link's left bar goes behind the lower link -->
+  <rect x="30" y="50" width="14" height="17" fill="white"/>
+  <!-- Lower horseshoe (arc at bottom, opens upward) -->
+  <path fill="none" stroke="#111" stroke-width="11" stroke-linecap="round"
+    d="M 63,50 L 63,80 A 22,22 0 0,1 19,80 L 19,50"/>
+</svg>

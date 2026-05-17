@@ -1,0 +1,75 @@
+/* --------------- header --------------- */
+
+.header-ds{
+    background-image: url(../imgs/header-bg.png);
+    background-size: cover;
+    background-position: bottom;
+    background-color: #fff;
+
+    .container{
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 180px 0 80px;
+        min-height: 800px;
+    }
+
+    .caption{
+
+        h1{
+            font-size: 96px;
+            line-height: 96px;
+            font-weight: 600;
+
+            span{
+                font-family: "Playfair Display", serif;
+                font-style: italic;
+                font-weight: 400;
+            }
+        }
+    }
+
+    .social-icon{
+
+        a{
+            width: 48px;
+            height: 48px;
+            line-height: 48px;
+            text-align: center;
+            color: #151515;
+            border: 1px solid #fff;
+            background: #fff;
+            border-radius: 50%;
+            font-size: 16px;
+            transition: all .4s;
+
+            &:hover{
+                color: #fff;
+                background: transparent;
+            }
+        }
+    }
+
+    .numb{
+        padding-top: 50px;
+        border-top: 1px solid rgba(255,255,255,.1);
+
+        > div{
+            width: min-content;
+        }
+
+        h2{
+            font-size: 96px;
+            line-height: 96px;
+            font-weight: 400;
+            margin-bottom: 10px;
+        }
+
+        span{
+            font-size: 14px;
+            line-height: 20px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+    }
+}
