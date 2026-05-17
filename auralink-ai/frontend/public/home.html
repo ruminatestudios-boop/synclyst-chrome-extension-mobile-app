@@ -6,7 +6,7 @@
       try {
         var q = window.location.search || "";
         var path = (window.location.pathname || "").replace(/\/+$/, "") || "/";
-        if (q.indexOf("mode=scan") !== -1 || path === "/scan") {
+        if (q.indexOf("mode=scan") !== -1 || path === "/scan" || path === "/list") {
           document.documentElement.classList.add("synclyst-scan-initial");
         }
       } catch (e) {}
