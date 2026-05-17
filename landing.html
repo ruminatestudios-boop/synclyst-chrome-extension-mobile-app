@@ -378,7 +378,7 @@
                     List in seconds from the mobile app or Chrome extension.<br />Scan anything <span class="text-orange-600 font-semibold">FREE</span> with SyncIQ to see if it's worth buying.
                 </p>
                 <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
-                    <a href="/home.html?mode=scan" class="scan-hero-btn text-white px-8 py-3.5 rounded-xl font-semibold border border-black transition-all flex items-center justify-center gap-2.5 group inline-flex bg-black sm:flex-1 sm:min-w-[200px]">
+                    <a href="/list" class="scan-hero-btn text-white px-8 py-3.5 rounded-xl font-semibold border border-black transition-all flex items-center justify-center gap-2.5 group inline-flex bg-black sm:flex-1 sm:min-w-[200px]">
                         <div class="relative flex items-center justify-center w-5 h-5 overflow-hidden">
                             <i data-lucide="camera" class="w-5 h-5 relative z-10"></i>
                             <div class="absolute left-0 right-0 h-[2px] bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] animate-scan-sweep z-20"></div>
@@ -416,7 +416,7 @@
                             <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">Live Now</span>
                         </div>
                         <p class="text-sm text-[#555] leading-relaxed vercel-body flex-1 mb-8">Open SyncLyst on your phone. Point your camera at any product — AI extracts the title, description, price and tags, then pushes it straight to your Shopify product page.</p>
-                        <a href="/home.html?mode=scan" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all text-center no-underline">
+                        <a href="/list" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all text-center no-underline">
                             Scan Your First Item
                         </a>
                     </div>
@@ -807,7 +807,7 @@
                 </div>
             </div>
             <div class="max-w-3xl mx-auto text-center">
-                <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-8 py-3.5 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all no-underline">
+                <a href="/scan" class="inline-flex items-center justify-center px-8 py-3.5 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all no-underline">
                     Try SyncIQ — 10 free scans/day
                 </a>
                 <p class="text-xs text-zinc-500 mt-4 vercel-body">No account needed · Same SyncLyst ecosystem · Paid limits coming later</p>
@@ -843,7 +843,7 @@
                 <div>
                     <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Get Started</h4>
                     <ul class="space-y-3 text-sm text-[#555]">
-                        <li><a href="/home.html?mode=scan" class="hover:text-[#111] transition-colors">Scan your first item</a></li>
+                        <li><a href="/list" class="hover:text-[#111] transition-colors">Scan your first item</a></li>
                         <li><a href="/flow-batch-upload.html" class="hover:text-[#111] transition-colors">Batch Upload <span class="text-[10px] font-semibold text-amber-600 uppercase">Premium</span></a></li>
                         <li><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors">Chrome Extension</a></li>
                         <li><a href="#synciq" onclick="handleNavigate(event, 'synciq')" class="hover:text-[#111] transition-colors">SyncIQ — Free Buy Scanner</a></li>
@@ -1169,7 +1169,7 @@
             const btn = document.createElement(isActive ? 'a' : 'button');
             btn.className = `vercel-card p-6 flex flex-col items-center justify-center text-center group transition-all duration-200 ${isActive ? 'cursor-pointer hover:scale-[1.02] hover:border-black hover:shadow-lg' : 'cursor-pointer hover:scale-[1.02]'}`;
             if (isActive) {
-                btn.href = window.synclystAppUrl('/home.html?mode=scan');
+                btn.href = window.synclystAppUrl('/list');
                 btn.setAttribute('aria-label', `List on ${c.name}`);
             }
             const gridIconBoxCls = 'inline-flex items-center justify-center w-10 h-10 rounded-lg border border-zinc-200 bg-zinc-50';
