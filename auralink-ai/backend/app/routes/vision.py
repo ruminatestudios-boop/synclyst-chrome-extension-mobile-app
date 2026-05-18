@@ -167,22 +167,39 @@ def _build_clean_title_and_query(extraction: dict) -> tuple[str, str]:
             clean_parts.append(kw[0])
     clean_title = " ".join(clean_parts).strip()[:160] or "Item from photo"
 
-    # eBay query: tight, keyword-based.
-    query_parts: list[str] = []
-    for p in (brand, exact_model, product_type, color, year):
-        if p and p.lower() not in ("unknown", "n/a"):
-            query_parts.append(p)
-    # Add 2 extra keywords max for specificity.
-    for k in kw[:6]:
-        if len(query_parts) >= 6:
-            break
-        kl = k.lower()
-        if any(kl == q.lower() for q in query_parts):
-            continue
-        if brand and kl == brand.lower():
-            continue
-        query_parts.append(k)
-    query = " ".join(query_parts).strip()[:140] or clean_title[:140]
+    # eBay query: use seo_title when it contains the brand and specific model info,
+    # since it's more descriptive than assembling from generic fields alone.
+    # This prevents "Represent t-shirt black" when the title says
+    # "Represent Great Ocean Road Tour Graphic Tee Black".
+    _generic = {"unknown", "n/a", "product", "item from photo", "item"}
+    title_has_brand = brand and title and brand.lower() in title.lower()
+    title_has_model = exact_model and title and exact_model.lower() in title.lower()
+    title_is_specific = (
+        title
+        and title.lower() not in _generic
+        and (title_has_brand or title_has_model)
+        # seo_title must add something beyond just brand + type
+        and len(title.split()) > 2
+    )
+    if title_is_specific:
+        # Use the seo_title (up to 8 words) — it already encodes brand + specific model.
+        query = " ".join(title.split()[:8]).strip()[:140]
+    else:
+        query_parts: list[str] = []
+        for p in (brand, exact_model, product_type, color, year):
+            if p and p.lower() not in _generic:
+                query_parts.append(p)
+        # Add extra keywords for specificity.
+        for k in kw[:6]:
+            if len(query_parts) >= 6:
+                break
+            kl = k.lower()
+            if any(kl == q.lower() for q in query_parts):
+                continue
+            if brand and kl == brand.lower():
+                continue
+            query_parts.append(k)
+        query = " ".join(query_parts).strip()[:140] or clean_title[:140]
     return clean_title, query
 
 
