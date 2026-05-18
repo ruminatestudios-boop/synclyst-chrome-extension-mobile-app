@@ -40,18 +40,16 @@
       '<p id="waitlist-quota-message" class="text-sm text-[#525252] mb-3"></p>' +
       '<a id="waitlist-quota-chrome-btn" href="' +
       DEFAULT_CHROME +
-      '" target="_blank" rel="noopener noreferrer" class="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0a0a0a] px-4 py-3 mb-3 text-white text-sm font-semibold no-underline shadow-sm hover:bg-black">' +
+      '" target="_blank" rel="noopener noreferrer" class="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0a0a0a] px-4 py-3 mb-4 text-white text-sm font-semibold no-underline shadow-sm hover:bg-black">' +
       'Get SyncLyst for Chrome</a>' +
-      '<button type="button" id="waitlist-quota-buy" class="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-3 mb-3 text-[#111] text-sm font-semibold shadow-sm hover:bg-zinc-50">' +
-      'Buy scan credits (Stripe)</button>' +
       '<p id="waitlist-quota-buy-status" class="hidden text-xs text-center mb-2"></p>' +
       '<p id="waitlist-quota-status" class="hidden text-xs mt-2"></p>' +
-      '<p id="waitlist-quota-footer-links" class="text-xs text-zinc-500 mt-4 mb-0">' +
+      '<div class="flex justify-center mt-1">' +
       '<a id="waitlist-quota-back" href="' +
       escapeAttr(fb) +
-      '" class="text-[#111] font-medium underline">' +
+      '" class="text-sm text-zinc-500 hover:text-zinc-800 transition-colors">' +
       escapeHtml(fbLabel) +
-      '</a></p></div></div>';
+      '</a></div></div></div>';
     document.body.insertAdjacentHTML('beforeend', html);
   }
 
