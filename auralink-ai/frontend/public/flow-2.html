@@ -497,10 +497,22 @@
        *  Use a generous timeout so slow backends don't silently kill the scan. */
       var EXTRACTION_TIMEOUT_MS = isResellerFlow ? 120000 : 60000;
       var DRAFT_INTRO_MS = 4000;
-      /** While waiting: faster initial rise (lower tau = quicker climb early on). */
-      var PENDING_TAU_MS = 3800;
-      /** Cap at 93 so the bar never looks "almost done but stuck" for a long time. */
-      var PENDING_CAP = 93;
+      /**
+       * Progress bar pacing.
+       * Reseller scans take ~20-25s. We spread the bar linearly over a window
+       * slightly longer than the expected time so it never stalls near the cap.
+       * When the result arrives the bar snaps up to 100% with a short ease.
+       *
+       * Linear formula:  pct = min(CAP, CAP * elapsed / WINDOW_MS)
+       * At elapsed = WINDOW_MS → bar reaches CAP (e.g. 82%).
+       * At elapsed = 20s (typical finish) → ~65% then jumps to 100%.
+       * This gives consistent, predictable movement instead of the old
+       * exponential that shot to 90% in 8s and then appeared frozen.
+       */
+      var PENDING_WINDOW_MS = isResellerFlow ? 28000 : 14000;
+      var PENDING_CAP = isResellerFlow ? 82 : 90;
+      /* kept for step-index pacing (uses same normalised phase) */
+      var PENDING_TAU_MS = isResellerFlow ? 28000 : 3800;
       /** When extraction returns: smooth glide from current % to 100 (no snap). */
       var COMPLETION_RAMP_MS = 600;
       var completionRamp = null;
@@ -583,7 +595,7 @@
 
         var visualPct;
         if (extractionInFlight && !extractionOk) {
-          var phase = 1 - Math.exp(-elapsed / PENDING_TAU_MS);
+          var phase = Math.min(1, elapsed / PENDING_WINDOW_MS);
           visualPct = Math.min(PENDING_CAP, PENDING_CAP * phase);
         } else if (!extractionInFlight) {
           visualPct = 0;
