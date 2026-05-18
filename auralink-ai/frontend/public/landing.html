@@ -145,13 +145,51 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 18px;
-            flex-wrap: wrap;
+            gap: 14px;
+            flex-wrap: nowrap;
         }
         .synclyst-hero-button-row .butn,
         .header-ds .text .synclyst-hero-button-row .butn {
             margin-left: 0;
             margin-right: 0;
+            flex: 1 1 0;
+            min-width: 0;
+        }
+        @media (max-width: 767px) {
+            .synclyst-hero-button-row {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .synclyst-hero-button-row .butn,
+            .header-ds .text .synclyst-hero-button-row .butn {
+                flex: 0 0 100%;
+                width: 100%;
+            }
+        }
+        .synclyst-hero-btn-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .synclyst-hero-btn-inner .btn-label {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.2;
+        }
+        .synclyst-hero-btn-inner .btn-sub {
+            font-size: 12px;
+            font-weight: 400;
+            color: rgba(255,255,255,0.55);
+            line-height: 1.2;
+        }
+        .synclyst-hero-btn-arrow {
+            font-size: 18px;
+            color: #fff;
+            line-height: 1;
+            font-style: normal;
+            flex-shrink: 0;
         }
         .synclyst-video {
             max-width: 1180px;
@@ -895,15 +933,30 @@
                                         <p>List in seconds from the mobile app or Chrome extension. Scan anything free with SyncIQ to see if it is worth buying.</p>
                                         <div class="synclyst-hero-button-row mt-40">
                                             <a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded">
-                                                <div class="d-flex align-items-center">
-                                                    <span>Open the Mobile App</span>
-                                                    <span class="icon ml-10" style="color:#ffffff;font-size:18px;line-height:1;font-style:normal;">↗</span>
+                                                <div class="d-flex align-items-center justify-content-center" style="gap:12px;width:100%;">
+                                                    <div class="synclyst-hero-btn-inner">
+                                                        <span class="btn-label">Open the Mobile App</span>
+                                                        <span class="btn-sub">Scan &amp; list on the go</span>
+                                                    </div>
+                                                    <span class="synclyst-hero-btn-arrow">↗</span>
                                                 </div>
                                             </a>
                                             <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded">
-                                                <div class="d-flex align-items-center">
-                                                    <span>Install Chrome Extension</span>
-                                                    <span class="icon ml-10" style="color:#ffffff;font-size:18px;line-height:1;font-style:normal;">↗</span>
+                                                <div class="d-flex align-items-center justify-content-center" style="gap:12px;width:100%;">
+                                                    <div class="synclyst-hero-btn-inner">
+                                                        <span class="btn-label" style="white-space:nowrap;">Install Chrome Extension</span>
+                                                        <span class="btn-sub">Auto-fill any listing</span>
+                                                    </div>
+                                                    <span class="synclyst-hero-btn-arrow">↗</span>
+                                                </div>
+                                            </a>
+                                            <a href="https://synclyst.app/scan" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded">
+                                                <div class="d-flex align-items-center justify-content-center" style="gap:12px;width:100%;">
+                                                    <div class="synclyst-hero-btn-inner">
+                                                        <span class="btn-label">Try SyncIQ Free</span>
+                                                        <span class="btn-sub">Check resale value instantly</span>
+                                                    </div>
+                                                    <span class="synclyst-hero-btn-arrow">↗</span>
                                                 </div>
                                             </a>
                                         </div>
@@ -1035,12 +1088,12 @@
                                         <div class="swiper-slide">
                                             <div class="item synclyst-video-card">
                                                 <div class="img">
-                                                    <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
+                                                    <a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
                                                         <video src="https://cdn.shopify.com/videos/c/o/v/16c8c969d72a432fbbff99c9ba713eb1.mp4" muted loop playsinline autoplay preload="metadata"></video>
                                                     </a>
                                                 </div>
                                                 <div class="cont">
-                                                    <h4><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">Sneakers &amp; Footwear</a></h4>
+                                                    <h4><a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer">Sneakers &amp; Footwear</a></h4>
                                                     <span class="sub-color">Snap a shoe and get a full listing — brand, model, size range, colourway and condition, ready to publish.</span>
                                                 </div>
                                             </div>
@@ -1048,12 +1101,12 @@
                                         <div class="swiper-slide">
                                             <div class="item synclyst-video-card">
                                                 <div class="img">
-                                                    <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
+                                                    <a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
                                                         <video src="https://cdn.shopify.com/videos/c/o/v/e83cc0a0285b4c21b458f396d427051f.mp4" muted loop playsinline autoplay preload="metadata"></video>
                                                     </a>
                                                 </div>
                                                 <div class="cont">
-                                                    <h4><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">Health &amp; Supplements</a></h4>
+                                                    <h4><a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer">Health &amp; Supplements</a></h4>
                                                     <span class="sub-color">Point at the label — SyncLyst reads the ingredients, serving size and flavour so you don't have to type a word.</span>
                                                 </div>
                                             </div>
@@ -1074,12 +1127,12 @@
                                         <div class="swiper-slide">
                                             <div class="item synclyst-video-card">
                                                 <div class="img">
-                                                    <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
+                                                    <a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
                                                         <video src="https://cdn.shopify.com/videos/c/o/v/57a6e2366c094d429af16859614a4133.mp4" muted loop playsinline autoplay preload="metadata"></video>
                                                     </a>
                                                 </div>
                                                 <div class="cont">
-                                                    <h4><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">Vintage Clothing &amp; Tees</a></h4>
+                                                    <h4><a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer">Vintage Clothing &amp; Tees</a></h4>
                                                     <span class="sub-color">Graphic, artist, era, fit and fabric — everything a vintage buyer searches for, written from one photo.</span>
                                                 </div>
                                             </div>
@@ -1820,9 +1873,9 @@
                                     <div class="col-md-3">
                                         <div class="item mb-40">
                                             <h6>Products</h6>
-                                            <p><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">Mobile App</a></p>
+                                            <p><a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer">Mobile App</a></p>
                                             <p><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer">Chrome Extension</a></p>
-                                            <p><a href="https://synclyst.app/?mode=scan" target="_blank" rel="noopener noreferrer">SyncIQ Scanner</a></p>
+                                            <p><a href="https://synclyst.app/scan" target="_blank" rel="noopener noreferrer">SyncIQ Scanner</a></p>
                                         </div>
                                     </div>
                                     <div class="col-md-3">

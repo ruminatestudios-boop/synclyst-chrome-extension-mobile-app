@@ -24,6 +24,7 @@ const publishingProxyTarget =
 const listingFlowRewrites = [
   { source: "/dashboard/home", destination: "/dashboard-home.html" },
   { source: "/flow/choose-platform", destination: "/flow-choose-platform.html" },
+  { source: "/flow/choose-listing", destination: "/flow-choose-listing.html" },
   { source: "/listing/review", destination: "/flow-3.html" },
   { source: "/flow/publish", destination: "/flow-publishing.html" },
   { source: "/listing/published", destination: "/flow-success.html" },
