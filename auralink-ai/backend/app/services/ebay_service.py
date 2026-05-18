@@ -343,16 +343,50 @@ def _build_structure_prompt(search_summary: str, query: str) -> str:
     return _GEMINI_STRUCTURE_PROMPT_PREFIX + (search_summary or f"No web results found for '{query}'.") + suffix
 
 
+def _extract_json_object(text: str) -> Optional[str]:
+    """Extract the first top-level balanced {...} JSON object from text.
+
+    The naive greedy regex r'\\{.*\\}' fails when Gemini appends prose after
+    the JSON that contains braces (e.g. 'based on {my knowledge}').  This
+    walks the string character-by-character respecting strings and nesting.
+    """
+    start = text.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    in_string = False
+    i = start
+    while i < len(text):
+        ch = text[i]
+        if in_string:
+            if ch == "\\" and i + 1 < len(text):
+                i += 2          # skip escaped character
+                continue
+            if ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+        i += 1
+    return None
+
+
 def _parse_gemini_sold_response(text: str) -> tuple[list[float], list[EbayComp], str]:
     """Parse JSON from Gemini response, return (prices, comps, note)."""
     # Strip markdown code fences if present
     clean = re.sub(r"```(?:json)?\s*", "", text or "").strip().rstrip("`").strip()
-    # Find first {...} block
-    m = re.search(r"\{.*\}", clean, re.DOTALL)
-    if not m:
+    # Extract first balanced {...} block (handles prose after the JSON)
+    json_str = _extract_json_object(clean)
+    if not json_str:
         return [], [], "Could not parse Gemini response"
     try:
-        data = json.loads(m.group())
+        data = json.loads(json_str)
     except Exception:
         return [], [], "JSON parse error"
 
