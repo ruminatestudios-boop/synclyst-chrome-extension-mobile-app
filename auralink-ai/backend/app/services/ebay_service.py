@@ -343,16 +343,50 @@ def _build_structure_prompt(search_summary: str, query: str) -> str:
     return _GEMINI_STRUCTURE_PROMPT_PREFIX + (search_summary or f"No web results found for '{query}'.") + suffix
 
 
+def _extract_json_object(text: str) -> Optional[str]:
+    """Extract the first top-level balanced {...} JSON object from text.
+
+    The naive greedy regex r'\\{.*\\}' fails when Gemini appends prose after
+    the JSON that contains braces (e.g. 'based on {my knowledge}').  This
+    walks the string character-by-character respecting strings and nesting.
+    """
+    start = text.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    in_string = False
+    i = start
+    while i < len(text):
+        ch = text[i]
+        if in_string:
+            if ch == "\\" and i + 1 < len(text):
+                i += 2          # skip escaped character
+                continue
+            if ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+        i += 1
+    return None
+
+
 def _parse_gemini_sold_response(text: str) -> tuple[list[float], list[EbayComp], str]:
     """Parse JSON from Gemini response, return (prices, comps, note)."""
     # Strip markdown code fences if present
     clean = re.sub(r"```(?:json)?\s*", "", text or "").strip().rstrip("`").strip()
-    # Find first {...} block
-    m = re.search(r"\{.*\}", clean, re.DOTALL)
-    if not m:
+    # Extract first balanced {...} block (handles prose after the JSON)
+    json_str = _extract_json_object(clean)
+    if not json_str:
         return [], [], "Could not parse Gemini response"
     try:
-        data = json.loads(m.group())
+        data = json.loads(json_str)
     except Exception:
         return [], [], "JSON parse error"
 
@@ -368,11 +402,15 @@ def _parse_gemini_sold_response(text: str) -> tuple[list[float], list[EbayComp],
         price = _safe_float(c.get("price"))
         if not title or not price or price <= 0:
             continue
+        raw_img = str(c.get("image_url") or "").strip()
+        # Filter out placeholder/fake URLs
+        img_url = raw_img if raw_img and "example.com" not in raw_img and "placeholder" not in raw_img else None
         comps.append(EbayComp(
             title=title[:180],
             price=float(price),
             currency=str(c.get("currency") or "USD"),
             url=str(c.get("url") or "").strip(),
+            image_url=img_url,
             condition_display=str(c.get("condition") or "") or None,
         ))
 
@@ -406,25 +444,36 @@ async def _gemini_sold_comps(
         client = genai.Client(api_key=gemini_api_key)
 
         # ---- Step 1: grounded search to gather price data ----
-        search_prompt = _GEMINI_SEARCH_PROMPT.format(query=q)
-        tools = [types.Tool(google_search=types.GoogleSearch())]
-        search_cfg = types.GenerateContentConfig(
-            temperature=0.1,
-            max_output_tokens=2048,
-            tools=tools,
-        )
-        search_resp = await asyncio.to_thread(
-            client.models.generate_content,
-            model="gemini-2.5-flash",
-            contents=search_prompt,
-            config=search_cfg,
-        )
-        search_summary = (getattr(search_resp, "text", None) or "").strip()
-        logger.debug("Gemini grounded search summary (%d chars): %s", len(search_summary), search_summary[:200])
+        # Cap at 18s: grounded search for niche items can take 60-90s.
+        # If it times out we fall back to knowledge-only in step 2.
+        search_summary = ""
+        try:
+            search_prompt = _GEMINI_SEARCH_PROMPT.format(query=q)
+            tools = [types.Tool(google_search=types.GoogleSearch())]
+            search_cfg = types.GenerateContentConfig(
+                temperature=0.1,
+                max_output_tokens=1024,
+                tools=tools,
+            )
+            search_resp = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.models.generate_content,
+                    model="gemini-2.5-flash",
+                    contents=search_prompt,
+                    config=search_cfg,
+                ),
+                timeout=18.0,
+            )
+            search_summary = (getattr(search_resp, "text", None) or "").strip()
+            logger.debug("Gemini grounded search summary (%d chars): %s", len(search_summary), search_summary[:200])
+        except asyncio.TimeoutError:
+            logger.info("Gemini grounded search timed out for %r — using knowledge-only fallback", q)
+        except Exception as se:
+            logger.debug("Gemini grounded search error: %s", se)
 
         # ---- Step 2: structure as JSON (no tools — pure generation) ----
-        # Even if search_summary is thin, the structure prompt asks Gemini
-        # to use its own knowledge as a fallback, so we always get prices.
+        # Even if search_summary is empty (timeout/error), the prompt asks
+        # Gemini to use its own knowledge as a fallback so we always get prices.
         # Built with safe concatenation — no .format() so curly braces in
         # the search summary can't cause KeyError/ValueError.
         structure_prompt = _build_structure_prompt(search_summary, q)
@@ -546,6 +595,8 @@ async def fetch_ebay_market_summary(
                     "keywords": q,
                     "paginationInput.entriesPerPage": str(max(10, max_comps * 2)),
                     "outputSelector(0)": "PictureURLLarge",
+                    "outputSelector(1)": "PictureURLSuperSize",
+                    "outputSelector(2)": "GalleryInfo",
                     "itemFilter(0).name": "ListingType",
                     "itemFilter(0).value(0)": "FixedPrice",
                     "itemFilter(0).value(1)": "Auction",
@@ -558,17 +609,17 @@ async def fetch_ebay_market_summary(
         except Exception as e:
             warnings.append(f"eBay active listings error: {str(e)[:120]}")
 
-    # --- Enrich sold comps with images from Browse API ---
-    # Gemini comps have no image_url.  Reuse real eBay CDN images from active
-    # listings (same product category, same query) so cards show actual photos.
+    # --- Enrich sold comps with images from active listings ---
+    # Sold listing gallery URLs expire after the listing ends on eBay.
+    # Active listing images are always valid — use them for all sold comps.
     if active_comps:
         active_images = [c.image_url for c in active_comps if c.image_url]
         if active_images:
             img_idx = 0
             for sc in sold_comps:
-                if not sc.image_url:
-                    sc.image_url = active_images[img_idx % len(active_images)]
-                    img_idx += 1
+                # Always overwrite with active listing image (sold images expire)
+                sc.image_url = active_images[img_idx % len(active_images)]
+                img_idx += 1
 
     # --- Aggregate ---
     # Use Gemini-extracted prices if richer than comp prices alone

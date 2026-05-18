@@ -200,6 +200,63 @@ def _fetch_checkout_session_direct(
     return body
 
 
+@router.post("/guest-checkout")
+async def guest_checkout(payload: dict):
+    """
+    Create a Stripe Checkout Session for the anonymous scan top-up pack.
+    Body: { anon_id: str (UUID) }
+    Returns: { url, credits }
+    """
+    import re
+    anon_id = str(payload.get("anon_id") or "").strip()
+    if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', anon_id, re.I):
+        raise HTTPException(status_code=400, detail="Invalid or missing anon_id (expected UUID)")
+
+    settings = get_settings()
+    price_id = (settings.stripe_price_scan_pack or "").strip()
+    if not price_id:
+        raise HTTPException(status_code=503, detail="Scan pack not configured (STRIPE_PRICE_SCAN_PACK)")
+
+    stripe_key = (settings.stripe_secret_key or "").strip()
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Stripe not configured")
+
+    # Use APP_BASE_URL for reseller-results (a public static page at the root domain).
+    # FRONTEND_URL points to /IQ which would make these URLs 404.
+    base_url = (settings.app_base_url or settings.frontend_url or "https://synclyst.app").rstrip("/")
+    # Strip any path suffix so we always get the root domain (e.g. synclyst.app not synclyst.app/IQ)
+    from urllib.parse import urlparse as _up
+    _parsed = _up(base_url)
+    base_url = f"{_parsed.scheme}://{_parsed.netloc}"
+    success_url = f"{base_url}/reseller-results?checkout=success&anon_id={anon_id}"
+    cancel_url = f"{base_url}/reseller-results?checkout=cancel"
+
+    data = {
+        "mode": "payment",
+        "line_items[0][price]": price_id,
+        "line_items[0][quantity]": "1",
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata[anon_id]": anon_id,
+        "metadata[credits]": "20",
+        "payment_intent_data[metadata][anon_id]": anon_id,
+        "payment_intent_data[metadata][credits]": "20",
+    }
+    resp = _stripe_http_request(
+        method="POST",
+        url="https://api.stripe.com/v1/checkout/sessions",
+        stripe_secret_key=stripe_key,
+        data=data,
+    )
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Stripe error: {resp.text}")
+    body = resp.json()
+    url = body.get("url")
+    if not isinstance(url, str) or not url:
+        raise HTTPException(status_code=502, detail="Stripe error: missing checkout URL")
+    return {"url": url, "credits": 20}
+
+
 @router.post("/checkout-session")
 async def create_checkout_session(payload: dict, _auth: dict = Depends(verify_clerk)):
     """

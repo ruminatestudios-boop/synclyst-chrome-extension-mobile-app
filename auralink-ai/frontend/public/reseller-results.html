@@ -162,7 +162,6 @@
         <div class="flex items-start justify-between gap-3">
           <div>
             <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">Recent sold comps</p>
-            <p class="text-[11px] text-zinc-500 mt-1 leading-snug">Real sales that match your scan (eBay).</p>
           </div>
           <span id="ri-comps-pill" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded-full border border-zinc-200 bg-zinc-50 text-zinc-700 shrink-0">—</span>
         </div>
@@ -287,10 +286,13 @@
       <!-- Image -->
       <div id="ri-comp-img-wrap" class="w-full bg-zinc-100 flex items-center justify-center overflow-hidden" style="height:200px;">
         <img id="ri-comp-img" src="" alt="" class="w-full h-full object-contain" style="display:none;" />
-        <div id="ri-comp-img-fallback" class="flex flex-col items-center justify-center gap-1 w-full h-full">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" class="text-zinc-300" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-          <span class="text-[11px] font-semibold text-zinc-400">No image available</span>
-          <span class="text-[10px] text-zinc-400">eBay sold listing</span>
+        <div id="ri-comp-img-fallback" class="w-full h-full overflow-hidden relative bg-zinc-100">
+          <img id="ri-comp-img-fallback-scan" src="" alt="" class="w-full h-full object-cover" style="display:none;" />
+          <div id="ri-comp-img-fallback-icon" class="flex flex-col items-center justify-center gap-1 w-full h-full">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" class="text-zinc-300" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            <span class="text-[11px] font-semibold text-zinc-400">No image available</span>
+            <span class="text-[10px] text-zinc-400">eBay sold listing</span>
+          </div>
         </div>
       </div>
       <!-- Details -->
@@ -554,15 +556,68 @@
       } catch (eStCur) {}
       var S = sym(displayCurrency);
 
+      // ── FX rates (open.er-api.com, free, no key, ~hourly Google-aligned) ─────
+      var fxRates = { USD: 1 };
+      var fxLoaded = false;
+      var fxCallbacks = [];
+
+      function fxRate() {
+        var r = fxRates[displayCurrency];
+        return (r != null && isFinite(r) && r > 0) ? r : 1;
+      }
+
+      function loadFxRates(cb) {
+        if (cb) fxCallbacks.push(cb);
+        if (fxLoaded) {
+          var cbs = fxCallbacks.splice(0);
+          cbs.forEach(function(f) { try { f(); } catch(e) {} });
+          return;
+        }
+        if (fxCallbacks.length > 1) return; // already in-flight
+        // sessionStorage cache — 1-hour TTL
+        try {
+          var cached = sessionStorage.getItem('synclyst_fx_rates_v1');
+          if (cached) {
+            var parsed = JSON.parse(cached);
+            if (parsed && parsed._ts && (Date.now() - parsed._ts) < 3600000) {
+              fxRates = parsed;
+              fxLoaded = true;
+              var cbs2 = fxCallbacks.splice(0);
+              cbs2.forEach(function(f) { try { f(); } catch(e) {} });
+              return;
+            }
+          }
+        } catch(eFxCache) {}
+        fetch('https://open.er-api.com/v6/latest/USD')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data && data.rates && typeof data.rates === 'object') {
+              fxRates = data.rates;
+              fxRates['USD'] = 1;
+              fxRates['_ts'] = Date.now();
+              fxLoaded = true;
+              try { sessionStorage.setItem('synclyst_fx_rates_v1', JSON.stringify(fxRates)); } catch(eFxSv) {}
+            }
+          })
+          .catch(function() { fxLoaded = true; /* fail open — stay USD */ })
+          .then(function() {
+            var cbs3 = fxCallbacks.splice(0);
+            cbs3.forEach(function(f) { try { f(); } catch(e) {} });
+          });
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       function money(v) {
         if (v == null || isNaN(v)) return '—';
-        if (displayCurrency === 'JPY' || displayCurrency === 'KRW') return S + Math.round(v);
-        return S + Math.round(v);
+        var cv = v * fxRate();
+        if (displayCurrency === 'JPY' || displayCurrency === 'KRW') return S + Math.round(cv).toLocaleString();
+        return S + Math.round(cv).toLocaleString();
       }
       function money2(v) {
         if (v == null || isNaN(v)) return '—';
-        if (displayCurrency === 'JPY' || displayCurrency === 'KRW') return S + Math.round(v);
-        return S + (Math.round(v * 100) / 100).toFixed(2);
+        var cv = v * fxRate();
+        if (displayCurrency === 'JPY' || displayCurrency === 'KRW') return S + Math.round(cv).toLocaleString();
+        return S + (Math.round(cv * 100) / 100).toFixed(2);
       }
 
       var titleEl = document.getElementById('ri-title');
@@ -746,21 +801,36 @@
             imgWrap.appendChild(im);
           }
           // Fallback (shown when no image_url or image fails to load)
+          // Use the original scanned photo so every comp card has a real image.
+          var scanThumb = payload && payload.imageDataUrl ? payload.imageDataUrl : null;
           var fallback = document.createElement('div');
-          fallback.className = 'img-fallback absolute inset-0 flex flex-col items-center justify-center gap-1 bg-zinc-50';
-          fallback.style.display = (src && !isFakeUrl) ? 'none' : 'flex';
-          var titleText = String(c.title || '').trim();
-          var initials = titleText
-            ? titleText.split(/\s+/).slice(0, 2).map(function(w){ return w[0] || ''; }).join('').toUpperCase()
-            : '?';
-          var fbInner = document.createElement('div');
-          fbInner.className = 'text-center px-2';
-          fbInner.innerHTML =
-            '<div class="w-10 h-10 rounded-xl bg-zinc-200 flex items-center justify-center mx-auto mb-1.5">' +
-              '<span class="text-[13px] font-bold text-zinc-500">' + initials + '</span>' +
-            '</div>' +
-            '<span class="text-[9px] font-bold tracking-widest text-zinc-400 uppercase">eBay sold</span>';
-          fallback.appendChild(fbInner);
+          fallback.className = 'img-fallback absolute inset-0 bg-zinc-100 overflow-hidden';
+          fallback.style.display = (src && !isFakeUrl) ? 'none' : '';
+          if (scanThumb) {
+            var scanImg = document.createElement('img');
+            scanImg.src = scanThumb;
+            scanImg.alt = '';
+            scanImg.className = 'w-full h-full object-cover';
+            var badge = document.createElement('div');
+            badge.className = 'absolute bottom-1 right-1.5';
+            badge.innerHTML = '<span class="text-[7px] font-bold tracking-widest text-white uppercase bg-black/40 px-1.5 py-0.5 rounded-full">eBay sold</span>';
+            fallback.appendChild(scanImg);
+            fallback.appendChild(badge);
+          } else {
+            fallback.className += ' flex flex-col items-center justify-center gap-1 bg-zinc-50';
+            var titleText = String(c.title || '').trim();
+            var initials = titleText
+              ? titleText.split(/\s+/).slice(0, 2).map(function(w){ return w[0] || ''; }).join('').toUpperCase()
+              : '?';
+            var fbInner = document.createElement('div');
+            fbInner.className = 'text-center px-2';
+            fbInner.innerHTML =
+              '<div class="w-10 h-10 rounded-xl bg-zinc-200 flex items-center justify-center mx-auto mb-1.5">' +
+                '<span class="text-[13px] font-bold text-zinc-500">' + initials + '</span>' +
+              '</div>' +
+              '<span class="text-[9px] font-bold tracking-widest text-zinc-400 uppercase">eBay sold</span>';
+            fallback.appendChild(fbInner);
+          }
           imgWrap.appendChild(fallback);
 
           var body = document.createElement('div');
@@ -1031,23 +1101,29 @@
       function recalcDealMath() {
         var buyInput = document.getElementById('ri-buy');
         var buyStr = buyInput ? String(buyInput.value || '').trim() : '';
-        var buyPrice = buyStr ? parseFloat(buyStr) : 0;
-        if (!isFinite(buyPrice) || buyPrice < 0) buyPrice = 0;
-        var resale = getResaleForMath();
-        if (resale == null || isNaN(resale)) {
+        var buyPriceDisplay = buyStr ? parseFloat(buyStr) : 0;
+        if (!isFinite(buyPriceDisplay) || buyPriceDisplay < 0) buyPriceDisplay = 0;
+        var resaleUSD = getResaleForMath(); // always USD anchor
+        if (resaleUSD == null || isNaN(resaleUSD)) {
           renderProfit(null, 'no_resale');
           return;
         }
-        var feeRate = 0.13, payRate = 0.029, payFixed = 0.30, ship = 8.0;
-        var fees = resale * feeRate + (resale * payRate + payFixed);
-        var net = resale - fees - ship - buyPrice;
-        var roi = buyPrice > 0 ? (net / buyPrice) * 100 : null;
+        // Convert all values to display currency before math so the profit
+        // figure is meaningful in the user's currency.
+        var rate = fxRate();
+        var resaleD = resaleUSD * rate;
+        var feeRate = 0.13, payRate = 0.029;
+        var payFixed = 0.30 * rate;  // Stripe fixed fee scaled
+        var ship = 8.0 * rate;       // shipping estimate scaled
+        var fees = resaleD * feeRate + (resaleD * payRate + payFixed);
+        var net = resaleD - fees - ship - buyPriceDisplay;
+        var roi = buyPriceDisplay > 0 ? (net / buyPriceDisplay) * 100 : null;
         renderProfit({
-          estimated_resale_price: resale,
+          estimated_resale_price: resaleD,
           estimated_net_profit: Math.round(net * 100) / 100,
-          estimated_roi_pct: buyPrice > 0 && roi != null ? Math.round(roi * 10) / 10 : null,
+          estimated_roi_pct: buyPriceDisplay > 0 && roi != null ? Math.round(roi * 10) / 10 : null,
         });
-        if (!buyStr || buyPrice <= 0) {
+        if (!buyStr || buyPriceDisplay <= 0) {
           document.getElementById('ri-roi').textContent = 'Add your cost above for ROI';
         }
       }
@@ -1073,13 +1149,28 @@
         }
       }
 
-      function applyDisplayCurrency() {
+      function _applyDisplayCurrencyNow() {
         S = sym(displayCurrency);
         syncCurrencyPickerUI();
         updateResaleRangeDisplay();
         renderSoldComps();
         renderMarketplaces();
         recalcDealMath();
+      }
+
+      function applyDisplayCurrency() {
+        S = sym(displayCurrency);
+        syncCurrencyPickerUI();
+        if (displayCurrency === 'USD' || fxLoaded) {
+          _applyDisplayCurrencyNow();
+        } else {
+          // Show "…" placeholder while rates load
+          var rangeEl = document.getElementById('ri-range');
+          var profitEl = document.getElementById('ri-profit');
+          if (rangeEl) rangeEl.textContent = '…';
+          if (profitEl) profitEl.textContent = '…';
+          loadFxRates(function() { _applyDisplayCurrencyNow(); });
+        }
       }
 
       (function initRiCurrencyPicker() {
@@ -1146,7 +1237,15 @@
         syncCurrencyPickerUI();
       })();
 
-      recalcDealMath();
+      // Pre-fetch FX rates in the background so the first currency switch is instant.
+      // If the user's saved currency is non-USD, wait for rates before rendering prices.
+      if (displayCurrency !== 'USD') {
+        loadFxRates(function() { _applyDisplayCurrencyNow(); });
+      } else {
+        recalcDealMath();
+        // Quietly warm the cache for future switches
+        loadFxRates(function() {});
+      }
 
       var buyInput = document.getElementById('ri-buy');
       ;['input', 'keyup', 'paste', 'change'].forEach(function (ev) {
@@ -1486,8 +1585,10 @@
         var compSheet    = document.getElementById('ri-comp-sheet');
         var compBackdrop = document.getElementById('ri-comp-backdrop');
         var compClose    = document.getElementById('ri-comp-close');
-        var compImg      = document.getElementById('ri-comp-img');
-        var compImgFall  = document.getElementById('ri-comp-img-fallback');
+        var compImg          = document.getElementById('ri-comp-img');
+        var compImgFall      = document.getElementById('ri-comp-img-fallback');
+        var compImgFallScan  = document.getElementById('ri-comp-img-fallback-scan');
+        var compImgFallIcon  = document.getElementById('ri-comp-img-fallback-icon');
         var compTitle    = document.getElementById('ri-comp-title');
         var compPrice    = document.getElementById('ri-comp-price');
         var compCond     = document.getElementById('ri-comp-cond');
@@ -1510,11 +1611,34 @@
             compImgFall.style.display = 'none';
             compImg.onerror = function () {
               this.style.display = 'none';
-              compImgFall.style.display = 'block';
+              compImgFall.style.display = '';
+              var scanThumbErr = payload && payload.imageDataUrl ? payload.imageDataUrl : null;
+              if (compImgFallScan && compImgFallIcon) {
+                if (scanThumbErr) {
+                  compImgFallScan.src = scanThumbErr;
+                  compImgFallScan.style.display = '';
+                  compImgFallIcon.style.display = 'none';
+                } else {
+                  compImgFallScan.style.display = 'none';
+                  compImgFallIcon.style.display = '';
+                }
+              }
             };
           } else {
             compImg.style.display = 'none';
-            compImgFall.style.display = 'block';
+            compImgFall.style.display = '';
+            // Show scanned photo in modal fallback if available
+            var scanThumbModal = payload && payload.imageDataUrl ? payload.imageDataUrl : null;
+            if (compImgFallScan && compImgFallIcon) {
+              if (scanThumbModal) {
+                compImgFallScan.src = scanThumbModal;
+                compImgFallScan.style.display = '';
+                compImgFallIcon.style.display = 'none';
+              } else {
+                compImgFallScan.style.display = 'none';
+                compImgFallIcon.style.display = '';
+              }
+            }
           }
 
           // Text
