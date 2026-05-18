@@ -145,13 +145,57 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 18px;
-            flex-wrap: wrap;
+            gap: 14px;
+            flex-wrap: nowrap;
         }
         .synclyst-hero-button-row .butn,
         .header-ds .text .synclyst-hero-button-row .butn {
             margin-left: 0;
             margin-right: 0;
+            flex: 1 1 0;
+            min-width: 0;
+        }
+        @media (max-width: 767px) {
+            .synclyst-hero-button-row {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .synclyst-hero-button-row .butn,
+            .header-ds .text .synclyst-hero-button-row .butn {
+                flex: 0 0 calc(50% - 6px);
+                min-width: calc(50% - 6px);
+            }
+            .synclyst-hero-button-row .butn:last-child,
+            .header-ds .text .synclyst-hero-button-row .butn:last-child {
+                flex: 0 0 auto;
+                min-width: 0;
+                width: auto;
+            }
+        }
+        .synclyst-hero-btn-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+        }
+        .synclyst-hero-btn-inner .btn-label {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.2;
+        }
+        .synclyst-hero-btn-inner .btn-sub {
+            font-size: 12px;
+            font-weight: 400;
+            color: rgba(255,255,255,0.55);
+            line-height: 1.2;
+        }
+        .synclyst-hero-btn-arrow {
+            font-size: 18px;
+            color: #fff;
+            line-height: 1;
+            font-style: normal;
+            flex-shrink: 0;
         }
         .synclyst-video {
             max-width: 1180px;
@@ -895,15 +939,30 @@
                                         <p>List in seconds from the mobile app or Chrome extension. Scan anything free with SyncIQ to see if it is worth buying.</p>
                                         <div class="synclyst-hero-button-row mt-40">
                                             <a href="https://synclyst.app/list" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded">
-                                                <div class="d-flex align-items-center">
-                                                    <span>Open the Mobile App</span>
-                                                    <span class="icon ml-10" style="color:#ffffff;font-size:18px;line-height:1;font-style:normal;">↗</span>
+                                                <div class="d-flex align-items-center" style="gap:12px;">
+                                                    <div class="synclyst-hero-btn-inner">
+                                                        <span class="btn-label">Open the Mobile App</span>
+                                                        <span class="btn-sub">Scan &amp; list on the go</span>
+                                                    </div>
+                                                    <span class="synclyst-hero-btn-arrow">↗</span>
                                                 </div>
                                             </a>
                                             <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded">
-                                                <div class="d-flex align-items-center">
-                                                    <span>Install Chrome Extension</span>
-                                                    <span class="icon ml-10" style="color:#ffffff;font-size:18px;line-height:1;font-style:normal;">↗</span>
+                                                <div class="d-flex align-items-center" style="gap:12px;">
+                                                    <div class="synclyst-hero-btn-inner">
+                                                        <span class="btn-label">Install Chrome Extension</span>
+                                                        <span class="btn-sub">Auto-fill any listing</span>
+                                                    </div>
+                                                    <span class="synclyst-hero-btn-arrow">↗</span>
+                                                </div>
+                                            </a>
+                                            <a href="https://synclyst.app/scan" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded">
+                                                <div class="d-flex align-items-center" style="gap:12px;">
+                                                    <div class="synclyst-hero-btn-inner">
+                                                        <span class="btn-label">Try SyncIQ Free</span>
+                                                        <span class="btn-sub">Check resale value instantly</span>
+                                                    </div>
+                                                    <span class="synclyst-hero-btn-arrow">↗</span>
                                                 </div>
                                             </a>
                                         </div>
