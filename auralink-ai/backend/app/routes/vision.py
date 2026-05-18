@@ -307,14 +307,17 @@ async def reseller_scan(
     raw_b64 = _resize_image_if_large(rs.image_base64, rs.mime_type or "image/jpeg")
     mime = rs.mime_type or "image/jpeg"
 
-    # Use existing product extraction path (optionally skipping web enrichment for speed)
+    # Use existing product extraction path.
+    # Always skip web enrichment for reseller scans — it adds 10-20s and the
+    # enriched SEO copy isn't needed here; the raw vision extraction is enough
+    # to build a tight eBay query and resale estimate.
     extraction = await extract(
         http_request,
         VisionExtractionRequest(
             image_base64=raw_b64,
             mime_type=mime,
             include_ocr=bool(rs.include_ocr),
-            skip_web_enrichment=bool(rs.skip_web_enrichment),
+            skip_web_enrichment=True,
             extraction_type="product",
         ),
         _auth,

@@ -444,25 +444,36 @@ async def _gemini_sold_comps(
         client = genai.Client(api_key=gemini_api_key)
 
         # ---- Step 1: grounded search to gather price data ----
-        search_prompt = _GEMINI_SEARCH_PROMPT.format(query=q)
-        tools = [types.Tool(google_search=types.GoogleSearch())]
-        search_cfg = types.GenerateContentConfig(
-            temperature=0.1,
-            max_output_tokens=2048,
-            tools=tools,
-        )
-        search_resp = await asyncio.to_thread(
-            client.models.generate_content,
-            model="gemini-2.5-flash",
-            contents=search_prompt,
-            config=search_cfg,
-        )
-        search_summary = (getattr(search_resp, "text", None) or "").strip()
-        logger.debug("Gemini grounded search summary (%d chars): %s", len(search_summary), search_summary[:200])
+        # Cap at 18s: grounded search for niche items can take 60-90s.
+        # If it times out we fall back to knowledge-only in step 2.
+        search_summary = ""
+        try:
+            search_prompt = _GEMINI_SEARCH_PROMPT.format(query=q)
+            tools = [types.Tool(google_search=types.GoogleSearch())]
+            search_cfg = types.GenerateContentConfig(
+                temperature=0.1,
+                max_output_tokens=1024,
+                tools=tools,
+            )
+            search_resp = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.models.generate_content,
+                    model="gemini-2.5-flash",
+                    contents=search_prompt,
+                    config=search_cfg,
+                ),
+                timeout=18.0,
+            )
+            search_summary = (getattr(search_resp, "text", None) or "").strip()
+            logger.debug("Gemini grounded search summary (%d chars): %s", len(search_summary), search_summary[:200])
+        except asyncio.TimeoutError:
+            logger.info("Gemini grounded search timed out for %r — using knowledge-only fallback", q)
+        except Exception as se:
+            logger.debug("Gemini grounded search error: %s", se)
 
         # ---- Step 2: structure as JSON (no tools — pure generation) ----
-        # Even if search_summary is thin, the structure prompt asks Gemini
-        # to use its own knowledge as a fallback, so we always get prices.
+        # Even if search_summary is empty (timeout/error), the prompt asks
+        # Gemini to use its own knowledge as a fallback so we always get prices.
         # Built with safe concatenation — no .format() so curly braces in
         # the search summary can't cause KeyError/ValueError.
         structure_prompt = _build_structure_prompt(search_summary, q)
