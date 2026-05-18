@@ -221,9 +221,15 @@ async def guest_checkout(payload: dict):
     if not stripe_key:
         raise HTTPException(status_code=503, detail="Stripe not configured")
 
-    frontend_url = (settings.frontend_url or "https://synclyst.app").rstrip("/")
-    success_url = f"{frontend_url}/reseller-results?checkout=success&anon_id={anon_id}"
-    cancel_url = f"{frontend_url}/reseller-results?checkout=cancel"
+    # Use APP_BASE_URL for reseller-results (a public static page at the root domain).
+    # FRONTEND_URL points to /IQ which would make these URLs 404.
+    base_url = (settings.app_base_url or settings.frontend_url or "https://synclyst.app").rstrip("/")
+    # Strip any path suffix so we always get the root domain (e.g. synclyst.app not synclyst.app/IQ)
+    from urllib.parse import urlparse as _up
+    _parsed = _up(base_url)
+    base_url = f"{_parsed.scheme}://{_parsed.netloc}"
+    success_url = f"{base_url}/reseller-results?checkout=success&anon_id={anon_id}"
+    cancel_url = f"{base_url}/reseller-results?checkout=cancel"
 
     data = {
         "mode": "payment",
