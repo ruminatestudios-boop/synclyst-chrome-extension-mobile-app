@@ -251,7 +251,7 @@
       }
       function redirectToFlow3() {
         try { sessionStorage.removeItem(PENDING_SCAN_KEY); } catch (e) {}
-        var next = '/flow/choose-listing';
+        var next = '/review';
         if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(next);
         else window.location.href = next;
       }
