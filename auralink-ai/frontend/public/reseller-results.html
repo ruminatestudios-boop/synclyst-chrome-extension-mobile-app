@@ -556,15 +556,68 @@
       } catch (eStCur) {}
       var S = sym(displayCurrency);
 
+      // ── FX rates (open.er-api.com, free, no key, ~hourly Google-aligned) ─────
+      var fxRates = { USD: 1 };
+      var fxLoaded = false;
+      var fxCallbacks = [];
+
+      function fxRate() {
+        var r = fxRates[displayCurrency];
+        return (r != null && isFinite(r) && r > 0) ? r : 1;
+      }
+
+      function loadFxRates(cb) {
+        if (cb) fxCallbacks.push(cb);
+        if (fxLoaded) {
+          var cbs = fxCallbacks.splice(0);
+          cbs.forEach(function(f) { try { f(); } catch(e) {} });
+          return;
+        }
+        if (fxCallbacks.length > 1) return; // already in-flight
+        // sessionStorage cache — 1-hour TTL
+        try {
+          var cached = sessionStorage.getItem('synclyst_fx_rates_v1');
+          if (cached) {
+            var parsed = JSON.parse(cached);
+            if (parsed && parsed._ts && (Date.now() - parsed._ts) < 3600000) {
+              fxRates = parsed;
+              fxLoaded = true;
+              var cbs2 = fxCallbacks.splice(0);
+              cbs2.forEach(function(f) { try { f(); } catch(e) {} });
+              return;
+            }
+          }
+        } catch(eFxCache) {}
+        fetch('https://open.er-api.com/v6/latest/USD')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data && data.rates && typeof data.rates === 'object') {
+              fxRates = data.rates;
+              fxRates['USD'] = 1;
+              fxRates['_ts'] = Date.now();
+              fxLoaded = true;
+              try { sessionStorage.setItem('synclyst_fx_rates_v1', JSON.stringify(fxRates)); } catch(eFxSv) {}
+            }
+          })
+          .catch(function() { fxLoaded = true; /* fail open — stay USD */ })
+          .then(function() {
+            var cbs3 = fxCallbacks.splice(0);
+            cbs3.forEach(function(f) { try { f(); } catch(e) {} });
+          });
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       function money(v) {
         if (v == null || isNaN(v)) return '—';
-        if (displayCurrency === 'JPY' || displayCurrency === 'KRW') return S + Math.round(v);
-        return S + Math.round(v);
+        var cv = v * fxRate();
+        if (displayCurrency === 'JPY' || displayCurrency === 'KRW') return S + Math.round(cv).toLocaleString();
+        return S + Math.round(cv).toLocaleString();
       }
       function money2(v) {
         if (v == null || isNaN(v)) return '—';
-        if (displayCurrency === 'JPY' || displayCurrency === 'KRW') return S + Math.round(v);
-        return S + (Math.round(v * 100) / 100).toFixed(2);
+        var cv = v * fxRate();
+        if (displayCurrency === 'JPY' || displayCurrency === 'KRW') return S + Math.round(cv).toLocaleString();
+        return S + (Math.round(cv * 100) / 100).toFixed(2);
       }
 
       var titleEl = document.getElementById('ri-title');
@@ -1048,23 +1101,29 @@
       function recalcDealMath() {
         var buyInput = document.getElementById('ri-buy');
         var buyStr = buyInput ? String(buyInput.value || '').trim() : '';
-        var buyPrice = buyStr ? parseFloat(buyStr) : 0;
-        if (!isFinite(buyPrice) || buyPrice < 0) buyPrice = 0;
-        var resale = getResaleForMath();
-        if (resale == null || isNaN(resale)) {
+        var buyPriceDisplay = buyStr ? parseFloat(buyStr) : 0;
+        if (!isFinite(buyPriceDisplay) || buyPriceDisplay < 0) buyPriceDisplay = 0;
+        var resaleUSD = getResaleForMath(); // always USD anchor
+        if (resaleUSD == null || isNaN(resaleUSD)) {
           renderProfit(null, 'no_resale');
           return;
         }
-        var feeRate = 0.13, payRate = 0.029, payFixed = 0.30, ship = 8.0;
-        var fees = resale * feeRate + (resale * payRate + payFixed);
-        var net = resale - fees - ship - buyPrice;
-        var roi = buyPrice > 0 ? (net / buyPrice) * 100 : null;
+        // Convert all values to display currency before math so the profit
+        // figure is meaningful in the user's currency.
+        var rate = fxRate();
+        var resaleD = resaleUSD * rate;
+        var feeRate = 0.13, payRate = 0.029;
+        var payFixed = 0.30 * rate;  // Stripe fixed fee scaled
+        var ship = 8.0 * rate;       // shipping estimate scaled
+        var fees = resaleD * feeRate + (resaleD * payRate + payFixed);
+        var net = resaleD - fees - ship - buyPriceDisplay;
+        var roi = buyPriceDisplay > 0 ? (net / buyPriceDisplay) * 100 : null;
         renderProfit({
-          estimated_resale_price: resale,
+          estimated_resale_price: resaleD,
           estimated_net_profit: Math.round(net * 100) / 100,
-          estimated_roi_pct: buyPrice > 0 && roi != null ? Math.round(roi * 10) / 10 : null,
+          estimated_roi_pct: buyPriceDisplay > 0 && roi != null ? Math.round(roi * 10) / 10 : null,
         });
-        if (!buyStr || buyPrice <= 0) {
+        if (!buyStr || buyPriceDisplay <= 0) {
           document.getElementById('ri-roi').textContent = 'Add your cost above for ROI';
         }
       }
@@ -1090,13 +1149,28 @@
         }
       }
 
-      function applyDisplayCurrency() {
+      function _applyDisplayCurrencyNow() {
         S = sym(displayCurrency);
         syncCurrencyPickerUI();
         updateResaleRangeDisplay();
         renderSoldComps();
         renderMarketplaces();
         recalcDealMath();
+      }
+
+      function applyDisplayCurrency() {
+        S = sym(displayCurrency);
+        syncCurrencyPickerUI();
+        if (displayCurrency === 'USD' || fxLoaded) {
+          _applyDisplayCurrencyNow();
+        } else {
+          // Show "…" placeholder while rates load
+          var rangeEl = document.getElementById('ri-range');
+          var profitEl = document.getElementById('ri-profit');
+          if (rangeEl) rangeEl.textContent = '…';
+          if (profitEl) profitEl.textContent = '…';
+          loadFxRates(function() { _applyDisplayCurrencyNow(); });
+        }
       }
 
       (function initRiCurrencyPicker() {
@@ -1163,7 +1237,15 @@
         syncCurrencyPickerUI();
       })();
 
-      recalcDealMath();
+      // Pre-fetch FX rates in the background so the first currency switch is instant.
+      // If the user's saved currency is non-USD, wait for rates before rendering prices.
+      if (displayCurrency !== 'USD') {
+        loadFxRates(function() { _applyDisplayCurrencyNow(); });
+      } else {
+        recalcDealMath();
+        // Quietly warm the cache for future switches
+        loadFxRates(function() {});
+      }
 
       var buyInput = document.getElementById('ri-buy');
       ;['input', 'keyup', 'paste', 'change'].forEach(function (ev) {
