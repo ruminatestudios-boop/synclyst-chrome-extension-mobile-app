@@ -132,15 +132,29 @@
       </div>
     </main>
     <div id="proc-error-wrap" class="hidden px-5 pb-6">
-      <p id="proc-error-msg" class="text-sm text-red-600 mb-3"></p>
-      <div class="flex flex-col gap-2">
-        <button id="proc-retry-btn" type="button" class="w-full rounded-xl bg-[#0a0a0a] text-white text-sm font-semibold px-4 py-2.5">
-          Retry scan
+      <div class="rounded-2xl border border-red-100 bg-red-50 p-5 mb-4">
+        <div class="flex items-start gap-3">
+          <span class="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Z" fill="#dc2626"/>
+              <path d="M8 4.25a.75.75 0 0 1 .75.75v3.25a.75.75 0 0 1-1.5 0V5A.75.75 0 0 1 8 4.25ZM8 10.5a.875.875 0 1 1 0 1.75.875.875 0 0 1 0-1.75Z" fill="#dc2626"/>
+            </svg>
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-red-800 mb-0.5">Scan didn't complete</p>
+            <p id="proc-error-msg" class="text-sm text-red-700 leading-snug"></p>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2.5">
+        <button id="proc-retry-btn" type="button" class="w-full rounded-xl bg-[#0a0a0a] text-white text-sm font-semibold px-4 py-3 flex items-center justify-center gap-2 hover:bg-zinc-800 active:scale-[0.98] transition-all">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12.25 7A5.25 5.25 0 1 1 7 1.75" stroke="white" stroke-width="1.5" stroke-linecap="round"/><path d="M7 1.75 9.625 4.375 7 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Try again
         </button>
-        <button id="proc-continue-btn" type="button" class="w-full rounded-xl border border-[#e5e5e5] bg-white text-[#111] text-sm font-semibold px-4 py-2.5">
-          Continue without AI (edit manually)
+        <button id="proc-continue-btn" type="button" class="w-full rounded-xl border border-[#e5e5e5] bg-white text-[#111] text-sm font-semibold px-4 py-3 hover:bg-zinc-50 active:scale-[0.98] transition-all">
+          Continue &amp; edit manually
         </button>
-        <a href="/scan" class="text-sm font-semibold text-[#111] underline text-center mt-2">Back to scan</a>
+        <a href="/scan" class="text-sm text-zinc-500 hover:text-zinc-700 text-center mt-1 transition-colors">← Back to scan</a>
       </div>
     </div>
     <div class="p-4 pt-3 border-t border-[#e5e5e5] shrink-0 bg-white">
