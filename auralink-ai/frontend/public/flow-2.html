@@ -495,7 +495,7 @@
       var start = Date.now();
       /** Reseller-scan runs vision + eBay comps; listing extract is faster (~30s).
        *  Use a generous timeout so slow backends don't silently kill the scan. */
-      var EXTRACTION_TIMEOUT_MS = isResellerFlow ? 90000 : 45000;
+      var EXTRACTION_TIMEOUT_MS = isResellerFlow ? 75000 : 28000;
       var DRAFT_INTRO_MS = 4000;
       /** Linear progress: bar fills at a steady pace over this window, then holds at PENDING_CAP. */
       var EXPECTED_DURATION_MS = isResellerFlow ? 38000 : 22000;
@@ -633,7 +633,7 @@
             image_base64: pending.base64,
             mime_type: (pending && pending.mime_type) ? String(pending.mime_type) : 'image/jpeg',
             include_ocr: true,
-            skip_web_enrichment: false
+            skip_web_enrichment: true
           })
         })
           .then(function(r) {
