@@ -145,13 +145,32 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 18px;
-            flex-wrap: wrap;
+            gap: 14px;
+            flex-wrap: nowrap;
         }
         .synclyst-hero-button-row .butn,
         .header-ds .text .synclyst-hero-button-row .butn {
             margin-left: 0;
             margin-right: 0;
+            flex: 1 1 0;
+            min-width: 0;
+        }
+        @media (max-width: 767px) {
+            .synclyst-hero-button-row {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .synclyst-hero-button-row .butn,
+            .header-ds .text .synclyst-hero-button-row .butn {
+                flex: 0 0 calc(50% - 6px);
+                min-width: calc(50% - 6px);
+            }
+            .synclyst-hero-button-row .butn:last-child,
+            .header-ds .text .synclyst-hero-button-row .butn:last-child {
+                flex: 0 0 auto;
+                min-width: 0;
+                width: auto;
+            }
         }
         .synclyst-hero-btn-inner {
             display: flex;
