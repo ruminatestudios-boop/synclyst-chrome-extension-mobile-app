@@ -16,7 +16,15 @@ import httpx
 
 from app.auth import optional_verify_clerk
 from app.config import get_settings
-from app.db import get_supabase, get_scan_usage_unified, consume_one_scan, is_valid_anon_uuid
+from app.db import (
+    get_supabase,
+    get_scan_usage_unified,
+    consume_one_scan,
+    is_valid_anon_uuid,
+    get_ip_scan_count,
+    increment_ip_scan,
+    starter_monthly_limit,
+)
 from app.schemas.vision import (
     VisionExtractionRequest,
     VisionExtractionResponse,
@@ -52,6 +60,30 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _processor = MultimodalProcessor()
+
+
+def _get_client_ip(request: Request) -> str:
+    """
+    Real client IP — respects X-Forwarded-For set by Cloud Run / GCP load balancer.
+    The left-most entry is the original client; subsequent entries are proxies.
+    """
+    forwarded = (
+        request.headers.get("x-forwarded-for") or
+        request.headers.get("X-Forwarded-For") or ""
+    ).strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return (request.client.host if request.client else "unknown") or "unknown"
+
+
+def _consume_scan(supabase, qk: str, http_request: Request) -> None:
+    """Consume one scan against the anon quota AND the IP daily counter."""
+    consume_one_scan(supabase, qk)
+    # Also tick the IP counter so other browsers on the same network
+    # share the same daily budget and can't bypass by clearing cookies.
+    if qk and qk.startswith("anon:"):
+        ip = _get_client_ip(http_request)
+        increment_ip_scan(supabase, ip)
 
 
 def _resolve_quota_key(http_request: Request, _auth: dict | None) -> str | None:
@@ -94,6 +126,24 @@ def _maybe_scan_quota_block(http_request: Request, _auth: dict | None) -> JSONRe
                 "bonus_credits": int(usage.get("bonus_credits") or 0),
             },
         )
+    # IP-based rate limit: applies to free guest scans only (not paid credits).
+    # Prevents multi-browser abuse — every browser on the same IP shares one pool.
+    if qk.startswith("anon:"):
+        bonus = int(usage.get("bonus_credits") or 0)
+        if bonus == 0:  # Paid credits bypass the IP check
+            client_ip = _get_client_ip(http_request)
+            ip_count = get_ip_scan_count(supabase, client_ip)
+            daily_limit = starter_monthly_limit()
+            if ip_count >= daily_limit:
+                return JSONResponse(
+                    status_code=402,
+                    content={
+                        "detail": "Scan limit reached. Buy scan credits or try again tomorrow.",
+                        "scans_limit": daily_limit,
+                        "quota_window": "daily",
+                        "bonus_credits": 0,
+                    },
+                )
     return None
 
 
@@ -558,7 +608,7 @@ async def extract(
             supabase = get_supabase()
             qk = _resolve_quota_key(http_request, _auth)
             if qk and supabase:
-                consume_one_scan(supabase, qk)
+                _consume_scan(supabase, qk, http_request)
             return dummy.model_dump()
         if settings.vision_provider == "gemini" and not bool(settings.gemini_api_key):
             raise HTTPException(
@@ -589,7 +639,7 @@ async def extract(
         supabase = get_supabase()
         qk = _resolve_quota_key(http_request, _auth)
         if qk and supabase:
-            consume_one_scan(supabase, qk)
+            _consume_scan(supabase, qk, http_request)
         return result.model_dump()
 
     # Product path (existing)
@@ -600,7 +650,7 @@ async def extract(
         supabase = get_supabase()
         qk = _resolve_quota_key(http_request, _auth)
         if qk and supabase:
-            consume_one_scan(supabase, qk)
+            _consume_scan(supabase, qk, http_request)
         return get_dummy_extraction().model_dump()
     if settings.vision_provider == "gemini" and not has_gemini:
         raise HTTPException(
@@ -704,7 +754,7 @@ async def extract(
             supabase = get_supabase()
             qk = _resolve_quota_key(http_request, _auth)
             if qk and supabase:
-                consume_one_scan(supabase, qk)
+                _consume_scan(supabase, qk, http_request)
             return fallback.model_dump()
         raise HTTPException(status_code=503, detail=err_msg) from None
     except Exception as e:
@@ -743,7 +793,7 @@ async def extract(
             supabase = get_supabase()
             qk = _resolve_quota_key(http_request, _auth)
             if qk and supabase:
-                consume_one_scan(supabase, qk)
+                _consume_scan(supabase, qk, http_request)
             return fallback.model_dump()
         raise HTTPException(status_code=500, detail=f"Extraction failed: {err_msg}")
 
@@ -801,7 +851,7 @@ async def extract(
     supabase = get_supabase()
     qk = _resolve_quota_key(http_request, _auth)
     if qk and supabase:
-        consume_one_scan(supabase, qk)
+        _consume_scan(supabase, qk, http_request)
 
     # Return as dict to avoid FastAPI re-validating and triggering "copy" validation errors
     return result.model_dump()

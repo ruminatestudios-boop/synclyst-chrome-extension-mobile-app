@@ -1,6 +1,7 @@
 """
 Supabase/PostgreSQL: Universal_Products and Channel_Adapters.
 """
+import hashlib
 import os
 import re
 from urllib.parse import urlparse
@@ -685,6 +686,47 @@ def get_scan_usage_unified(supabase, quota_key: Optional[str]) -> dict:
     base = get_scan_usage(supabase, quota_key)
     base["bonus_credits"] = 0
     return base
+
+
+_LOCALHOST_IPS = {"127.0.0.1", "::1", "localhost", "unknown", ""}
+
+
+def _hash_ip(ip: str) -> str:
+    """SHA-256 of the IP address, first 24 hex chars — privacy-safe DB key."""
+    return hashlib.sha256(ip.encode()).hexdigest()[:24]
+
+
+def get_ip_scan_count(supabase, ip: str) -> int:
+    """Return how many scans this IP has used today (quota window bucket)."""
+    if not supabase or not ip or ip in _LOCALHOST_IPS:
+        return 0
+    ip_key = f"ip:{_hash_ip(ip)}"
+    key = _quota_period_key()
+    try:
+        r = (
+            supabase.table("user_scan_usage_monthly")
+            .select("scans_used")
+            .eq("clerk_user_id", ip_key)
+            .eq("month_key", key)
+            .limit(1)
+            .execute()
+        )
+        if r.data and len(r.data) > 0:
+            return int(r.data[0].get("scans_used") or 0)
+    except Exception:
+        pass
+    return 0
+
+
+def increment_ip_scan(supabase, ip: str) -> None:
+    """Increment today's scan counter for this IP address."""
+    if not supabase or not ip or ip in _LOCALHOST_IPS:
+        return
+    ip_key = f"ip:{_hash_ip(ip)}"
+    try:
+        increment_scan(supabase, ip_key)
+    except Exception:
+        pass
 
 
 def consume_one_scan(supabase, quota_key: str) -> None:
