@@ -841,10 +841,13 @@ async def extract(
     if not result.attributes.brand and result.tags.category and ">" in result.tags.category:
         result.attributes.brand = result.tags.category.split(">")[0].strip()
 
-    # Internet-backed enrichment: fetch exact product name and full listing details from the web
+    # Internet-backed enrichment: fetch exact product name and full listing details from the web.
+    # Hard-capped at 10 s so a slow Google search never blocks the whole response.
     if not vreq.skip_web_enrichment and settings.enable_web_enrichment and settings.gemini_api_key:
         try:
-            result = await enrich_from_web(result, settings)
+            result = await asyncio.wait_for(enrich_from_web(result, settings), timeout=10.0)
+        except asyncio.TimeoutError:
+            logger.warning("Web enrichment timed out after 10 s — using image-only result")
         except Exception as e:
             logger.warning("Web enrichment failed (using image-only result): %s", e)
 
