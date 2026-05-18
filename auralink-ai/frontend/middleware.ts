@@ -3,18 +3,34 @@ import { NextResponse } from "next/server";
 import type { NextFetchEvent } from "next/server";
 import type { NextRequest } from "next/server";
 
+/**
+ * Required for `auth()` in Route Handlers (e.g. `/api/billing/checkout-redirect`).
+ * Without this, Clerk throws: auth() was called but Clerk can't detect clerkMiddleware().
+ *
+ * When Clerk env is incomplete (publishable + secret), pass through unchanged so
+ * local HTML-only experiments work without a full `.env.local`.
+ */
+const clerkConfigured = Boolean(
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() && process.env.CLERK_SECRET_KEY?.trim()
+);
+
 const clerk = clerkMiddleware();
 
-/**
- * Shopify App URL must not go through Clerk’s auth handshake (no session yet).
- * Relying on `matcher` negative lookahead is unreliable with Next’s path matching on Vercel.
- */
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
   const p = request.nextUrl.pathname;
+
+  // Serve marketing landing page at root without a URL change.
+  // beforeFiles rewrites can't override the App Router root, so we do it here.
+  if (p === "/") {
+    return NextResponse.rewrite(new URL("/landing.html", request.url));
+  }
+
+  if (!clerkConfigured) {
+    return NextResponse.next();
+  }
   if (p === "/shopify/launch" || p === "/shopify/launch/") {
     return NextResponse.next();
   }
-  // Shopify webhooks are sent server-to-server and must not be blocked by Clerk.
   if (p.startsWith("/api/shopify/webhooks/")) {
     return NextResponse.next();
   }
@@ -23,8 +39,7 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
 
 export const config = {
   matcher: [
-    // Same as before, without shopify/launch in the lookahead — we skip Clerk in code above.
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpg|jpeg|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
   ],
 };

@@ -16,7 +16,9 @@
     "build": "node scripts/inject-api-url.js && next build",
     "start": "next start",
     "lint": "next lint",
-    "verify:shopify-webhooks": "node scripts/verify-shopify-gdpr-webhooks.mjs"
+    "verify:shopify-webhooks": "node scripts/verify-shopify-gdpr-webhooks.mjs",
+    "verify:shopify:full": "node scripts/shopify-compliance-full-check.mjs",
+    "verify:shopify:hmac": "node scripts/test-shopify-hmac-against-prod.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.0.0",
@@ -25,13 +27,15 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
+    "@supabase/supabase-js": "^2.104.0",
     "@vercel/functions": "^2.2.13",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^0.577.0",
     "motion": "^12.35.2",
     "next": "^15.2.3",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "stripe": "^22.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",

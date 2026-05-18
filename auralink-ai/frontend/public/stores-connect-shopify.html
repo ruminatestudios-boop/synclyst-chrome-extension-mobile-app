@@ -658,7 +658,7 @@
               clearTimeout(timeoutId);
               var msg = PUBLISH_UNREACHABLE_MSG;
               if (err && String(err.message || '') === 'unauthorized') {
-                try { window.location.href = '/sign-in?redirect_url=' + encodeURIComponent('/connect-store'); } catch (e) {}
+                try { window.location.href = '/sign-up?redirect_url=' + encodeURIComponent('/connect-store'); } catch (e) {}
                 return;
               }
               if (err && String(err.message || '') === 'updating') {
@@ -766,7 +766,7 @@
             .catch(function(err) {
               var msg = String(err && err.message ? err.message : err);
               if (msg === 'unauthorized') {
-                try { window.location.href = '/sign-in?redirect_url=' + encodeURIComponent('/connect-store'); } catch (e) {}
+                try { window.location.href = '/sign-up?redirect_url=' + encodeURIComponent('/connect-store'); } catch (e) {}
                 return;
               }
               showConnectError('<p class="mb-0">Couldn’t verify that token for this store. Double-check you copied the <strong>Admin API access token</strong> from a custom app installed on this store, with products/inventory access.</p>', msg);
@@ -905,7 +905,7 @@
                 .catch(function(err) {
                   var msg = String(err && err.message ? err.message : err);
                   showConnectError(
-                    '<p class="mb-0"><strong>Could not start demo session.</strong> Confirm the publishing API is running (local: port <strong>8001</strong>) and refresh. If you are on the live site, <a href="/sign-in?redirect_url=' + encodeURIComponent('/connect-store') + '" class="font-semibold underline">sign in</a> and try again.</p>',
+                    '<p class="mb-0"><strong>Could not start demo session.</strong> Confirm the publishing API is running (local: port <strong>8001</strong>) and refresh. If you are on the live site, <a href="/sign-up?redirect_url=' + encodeURIComponent('/connect-store') + '" class="font-semibold underline">create an account or sign in</a> and try again.</p>',
                     msg
                   );
                   devBypassBtn.disabled = false;

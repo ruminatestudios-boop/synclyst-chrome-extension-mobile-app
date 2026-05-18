@@ -377,15 +377,81 @@
           .catch(function() { showFallbackMenu(); });
       }
 
-      var token = getToken();
-      (token ? Promise.resolve(token) : fetchToken()).then(function(t) {
-        if (!t) {
-          try { window.location.href = '/sign-in?redirect_url=' + encodeURIComponent('/dashboard/home'); } catch (e) {}
-          var el = document.getElementById('dashboard-listed-count');
-          if (el) el.textContent = '—';
-          if (typeof lucide !== 'undefined') lucide.createIcons();
-          return;
+      function wait(ms) {
+        return new Promise(function(res) { setTimeout(res, ms); });
+      }
+
+      function fetchClerkSummary() {
+        return fetch('/api/clerk/user-summary', { credentials: 'include', cache: 'no-store' })
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .catch(function() { return null; });
+      }
+
+      /** So tier-bridge.js (injected on synclyst.app) can mirror into chrome.storage for the extension popup. */
+      function mirrorAuthToExtension(s) {
+        if (!s || !s.signedIn) return;
+        try {
+          localStorage.setItem('synclyst_signed_in', '1');
+          if (s.email) localStorage.setItem('synclyst_email', String(s.email).trim());
+          localStorage.setItem('synclyst_auth_at', String(Date.now()));
+        } catch (e) {}
+      }
+
+      /**
+       * After OAuth, the Clerk session cookie can land a beat before /api/publishing/token succeeds.
+       * The old "no token => redirect" path caused a signed-in ↔ dashboard redirect loop (flicker).
+       * We retry, then use user-summary: only send anonymous users to sign-up (new merchants).
+       */
+      function fetchTokenWithRetries(maxAttempts) {
+        var i = 0;
+        var delays = [0, 120, 250, 500, 900, 1400, 2000];
+        function step() {
+          return fetchToken().then(function(t) {
+            if (t) return t;
+            if (i >= maxAttempts - 1) return null;
+            var d = delays[Math.min(i, delays.length - 1)] | 0;
+            i += 1;
+            return wait(d).then(step);
+          });
         }
+        return step();
+      }
+
+      var token0 = getToken();
+      (token0 ? Promise.resolve(token0) : fetchTokenWithRetries(7)).then(function(t) {
+        if (t) return t;
+        return fetchClerkSummary().then(function(s) {
+          if (s && s.signedIn) {
+            return fetchTokenWithRetries(5);
+          }
+          return null;
+        });
+      }).then(function(t) {
+        if (!t) {
+          return fetchClerkSummary().then(function(s) {
+            if (s && s.signedIn) {
+              mirrorAuthToExtension(s);
+              var body = document.getElementById('dashboard-connected-body');
+              if (body) {
+                body.innerHTML = '<p class="vercel-body mb-0">We couldn’t reach the publishing service yet. ' +
+                  '<a href="javascript:location.reload()" class="text-sm font-semibold text-[#0a0a0a] no-underline hover:underline">Refresh</a> ' +
+                  'or return to the SyncLyst extension — you’re still signed in.</p>';
+              }
+              var el = document.getElementById('dashboard-listed-count');
+              if (el) el.textContent = '—';
+              if (typeof lucide !== 'undefined') lucide.createIcons();
+              return;
+            }
+            try {
+              window.location.href = '/sign-up?redirect_url=' + encodeURIComponent('/dashboard/home');
+            } catch (e) {}
+            var el2 = document.getElementById('dashboard-listed-count');
+            if (el2) el2.textContent = '—';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        });
+        }
+        fetchClerkSummary().then(mirrorAuthToExtension);
         var base = getPublishingUrl();
         return fetch(base + '/api/listings', { headers: { 'Authorization': 'Bearer ' + t } })
           .then(function(r) { return r.ok ? r.json() : null; })

@@ -5,11 +5,21 @@
     "build": "if [ \"$VERCEL\" = \"1\" ]; then cd auralink-ai/frontend && npm ci && npm run build; else cd auto-entry && npm ci && npm run setup && npm run build; fi",
     "start": "cd auto-entry && npm run start",
     "deploy": "npm run deploy --prefix auto-entry",
+    "dev:backend": "cd auralink-ai/backend && (.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 || python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
     "dev:auralink": "cd auralink-ai/frontend && NEXT_PUBLIC_API_URL=http://localhost:8000 NEXT_PUBLIC_PUBLISHING_API_URL=http://localhost:8001 PUBLISHING_JWT_SECRET=dev-secret-change-in-production JWT_SECRET=dev-secret-change-in-production npm run dev",
+    "dev:synclyst": "concurrently -n backend,frontend -c blue,green \"cd auralink-ai/backend && (.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 || python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)\" \"cd auralink-ai/frontend && NEXT_PUBLIC_API_URL=http://localhost:8000 NEXT_PUBLIC_PUBLISHING_API_URL=http://localhost:8001 PUBLISHING_JWT_SECRET=dev-secret-change-in-production JWT_SECRET=dev-secret-change-in-production npm run dev\"",
     "dev:publishing": "cd auralink-ai/publishing && npm start",
     "dev:all": "concurrently -n backend,frontend,publishing -c blue,green,magenta \"cd auralink-ai/backend && (.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 || python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)\" \"cd auralink-ai/frontend && NEXT_PUBLIC_API_URL=http://localhost:8000 NEXT_PUBLIC_PUBLISHING_API_URL=http://localhost:8001 PUBLISHING_JWT_SECRET=dev-secret-change-in-production JWT_SECRET=dev-secret-change-in-production npm run dev\" \"cd auralink-ai/publishing && npm run dev:serve\"",
     "dev:all:https": "concurrently -n backend,frontend,publishing -c blue,green,magenta \"cd auralink-ai/backend && (.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 || python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)\" \"cd auralink-ai/frontend && NEXT_PUBLIC_API_URL=http://localhost:8000 NEXT_PUBLIC_PUBLISHING_API_URL=http://localhost:8001 PUBLISHING_JWT_SECRET=dev-secret-change-in-production JWT_SECRET=dev-secret-change-in-production npm run dev:https:no-open\" \"cd auralink-ai/publishing && npm run dev:serve\"",
-    "dev:all:clean": "sh -c 'for port in 8000 8001 3000 3001; do for p in $(lsof -ti :$port 2>/dev/null); do kill -9 $p 2>/dev/null; done; done' && npm run dev:all"
+    "dev:all:clean": "sh -c 'for port in 8000 8001 3000 3001; do for p in $(lsof -ti :$port 2>/dev/null); do kill -9 $p 2>/dev/null; done; done' && npm run dev:all",
+    "extension:manifest": "node extension/build-manifest.mjs && node extension/verify-store-manifest.mjs",
+    "extension:manifest:dev": "node extension/build-manifest.mjs --dev && node extension/verify-dev-manifest.mjs",
+    "extension:package": "MANIFEST_MODE=prod bash scripts/build-extension.sh",
+    "extension:package:dev": "MANIFEST_MODE=dev bash scripts/build-extension.sh",
+    "extension:qa": "node scripts/extension-tier2-qa.mjs prod",
+    "extension:qa:dev": "node scripts/extension-tier2-qa.mjs dev",
+    "local:synclyst:ready": "npm run extension:manifest:dev && node scripts/ready-local-synclyst.mjs",
+    "local:synclyst:stack": "npm run dev:synclyst"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

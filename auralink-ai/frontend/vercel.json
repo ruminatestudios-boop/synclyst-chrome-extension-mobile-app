@@ -1,14 +1,6 @@
 {
-  "redirects": [
-    {
-      "source": "/shopify/launch",
-      "destination": "/api/shopify/oauth-start",
-      "permanent": false
-    },
-    {
-      "source": "/shopify/launch/",
-      "destination": "/api/shopify/oauth-start",
-      "permanent": false
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build"
 }

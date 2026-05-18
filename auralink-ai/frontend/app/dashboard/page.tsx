@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { RedirectToSignIn, SignedIn, SignedOut } from "@clerk/nextjs";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { RedirectToAppSignUp } from "@/components/RedirectToAppSignUp";
 
 const clerkPublishableKey =
   typeof process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY === "string"
@@ -46,7 +47,7 @@ export default function DashboardPage() {
         <DashboardClient />
       </SignedIn>
       <SignedOut>
-        <RedirectToSignIn redirectUrl="/dashboard/home" />
+        <RedirectToAppSignUp redirectUrl="/dashboard/home" />
       </SignedOut>
     </>
   );

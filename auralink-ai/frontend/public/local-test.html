@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Local extension test — SyncLyst®</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1.25rem;
+        color: #18181b;
+        line-height: 1.5;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+      }
+      .muted {
+        color: #71717a;
+        font-size: 0.875rem;
+      }
+      pre {
+        background: #f4f4f5;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+        font-size: 0.8rem;
+      }
+      button {
+        margin-top: 0.5rem;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+        border-radius: 0.375rem;
+        border: 1px solid #18181b;
+        background: #18181b;
+        color: #fff;
+      }
+      button:active {
+        opacity: 0.9;
+      }
+      ol.steps {
+        padding-left: 1.25rem;
+      }
+      ol.steps li {
+        margin-bottom: 0.65rem;
+      }
+      code {
+        font-size: 0.85em;
+      }
+      a {
+        color: #2563eb;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Connect the extension to localhost</h1>
+    <p class="muted">
+      The extension talks to <strong>Next</strong> (this app). Photo extraction uses the <strong>Python API on port
+      8000</strong> on your machine — even when you open <code>/snap</code> from your phone, Next on your Mac calls
+      <code>localhost:8000</code>. You must run the backend and Next together (see below).
+    </p>
+
+    <h2 style="font-size: 1rem; margin-top: 1.25rem">Do this once</h2>
+    <ol class="steps">
+      <li>
+        From the <strong>repo root</strong>, start <strong>backend + Next</strong> in one terminal (needs
+        <code>auralink-ai/backend/.venv</code> with deps installed):
+        <pre>npm run dev:synclyst</pre>
+        Wait until you see both the API and Next ready. This page should load on
+        <code>http://127.0.0.1:3000/local-test</code> (or <code>:3001</code> if 3000 is busy).
+      </li>
+      <li>
+        Generate the Chrome <strong>dev</strong> manifest (localhost + LAN):
+        <pre>npm run extension:manifest:dev</pre>
+      </li>
+      <li>
+        Chrome → <a href="chrome://extensions" target="_blank" rel="noreferrer">chrome://extensions</a> →
+        <strong>Load unpacked</strong> → choose the <code>extension</code> folder → <strong>Reload</strong> after each
+        manifest change.
+      </li>
+      <li>
+        If you ever pointed the extension at production, reset storage (popup → right‑click → Inspect → Console):
+        <pre>chrome.storage.local.remove(["synclyst_origin","synclyst_origin_auto"])</pre>
+        Then reload the extension.
+      </li>
+    </ol>
+
+    <p>
+      <strong>This page:</strong>
+      <a href="/local-test" id="bookmark-link">http://127.0.0.1:3000/local-test</a>
+    </p>
+    <p class="muted">Resolved origin: <code id="origin"></code></p>
+
+    <h2 style="font-size: 1rem; margin-top: 1.5rem">Optional: force a specific origin</h2>
+    <p class="muted">
+      Usually not needed. Use if the popup still shows the wrong URL — paste in the <strong>popup</strong> console
+      (not this tab), then reload the extension:
+    </p>
+    <pre id="snippet"></pre>
+    <button type="button" id="copy">Copy snippet</button>
+
+    <h2 style="font-size: 1rem; margin-top: 1.5rem">Pair and upload</h2>
+    <ol class="steps">
+      <li>Open the SyncLyst popup — copy the pair URL or scan the QR.</li>
+      <li>Open that URL (here or on your phone on the same Wi‑Fi if the QR uses your LAN IP).</li>
+      <li>Upload a photo — the popup updates (polling if Supabase isn’t configured locally).</li>
+      <li>Open a marketplace tab and use <strong>Magic Fill</strong>.</li>
+    </ol>
+
+    <script>
+      (function () {
+        var o = window.location.origin;
+        var bm = document.getElementById("bookmark-link");
+        if (bm) {
+          bm.href = o + "/local-test";
+          bm.textContent = o + "/local-test";
+        }
+        document.getElementById("origin").textContent = o;
+        var text =
+          'chrome.storage.local.set({ synclyst_origin: "' + o.replace(/"/g, '\\"') + '" });';
+        document.getElementById("snippet").textContent = text;
+        document.getElementById("copy").addEventListener("click", function () {
+          navigator.clipboard.writeText(text).then(
+            function () {
+              document.getElementById("copy").textContent = "Copied";
+              setTimeout(function () {
+                document.getElementById("copy").textContent = "Copy snippet";
+              }, 2000);
+            },
+            function () {
+              alert("Copy failed — select the code above manually.");
+            }
+          );
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SignUp } from "@clerk/nextjs";
+import { synclystClerkAppearance } from "@/lib/synclyst-clerk-appearance";
 
 const clerkPublishableKey =
   typeof process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY === "string"
@@ -44,19 +45,34 @@ export function SignUpForm({
     );
   }
 
+  const embeddedAppearance = {
+    ...synclystClerkAppearance,
+    elements: {
+      ...(synclystClerkAppearance.elements ?? {}),
+      rootBox: "w-full",
+      cardBox: "shadow-none border-0 bg-transparent p-0",
+      card: "shadow-none border-0 rounded-none bg-transparent p-0",
+      footer: "shadow-none border-0",
+    },
+  };
+
   return (
     <SignUp
       forceRedirectUrl={forceRedirectUrl}
+      afterSignUpUrl={forceRedirectUrl}
+      redirectUrl={forceRedirectUrl}
       signInUrl={signInUrl}
       appearance={
         hideSocialAuth
           ? {
+              ...embeddedAppearance,
               elements: {
+                ...(embeddedAppearance.elements ?? {}),
                 socialButtonsBlockButton: "hidden",
                 dividerRow: "hidden",
               },
             }
-          : undefined
+          : embeddedAppearance
       }
     />
   );

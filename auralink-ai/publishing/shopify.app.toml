@@ -5,7 +5,7 @@
 # Compliance webhooks belong on the same subscription as app/uninstalled (see Shopify docs).
 
 name = "SyncLyst"
-client_id = "9689201284b5118b5ed9dc84416f3952"
+client_id = "a907e83507f284fd9cd84d520194dce9"
 application_url = "https://synclyst.app/shopify/launch"
 embedded = false
 

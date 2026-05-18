@@ -1,0 +1,76 @@
+/* --------------- Works --------------- */
+
+.works-ds{
+    overflow: hidden;
+
+    .work-box{
+        clip-path: inset(-100vw -100vw -100vw 0);
+    }
+
+    .swiper-container {
+        overflow: visible;
+    }
+
+    .swiper-slide {
+        width: 75%;
+    }
+
+    .sec-head{
+
+        .butn{
+
+            &.butn-bord{
+                border: 1px solid rgba(0,0,0,.3);
+        
+                &:hover{
+                    background: $main-color;
+                    color: #fff;
+                }
+            }
+        }
+    }
+
+    .item{
+
+        &:hover{
+
+            .cont{
+
+                h4{
+                    color: $main-color;
+                }
+            }
+        }
+
+        .img{
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .cont{
+            margin-top: 40px;
+
+            span{
+                font-size: 14px;
+            }
+        }
+    }
+
+    .swiper-wrapper{
+        padding-bottom: 60px;
+    }
+
+    .swiper-pagination{
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: auto;
+        padding: 2px 25px 4px;
+        border: 1px solid rgba(0,0,0,.15);
+        border-radius: 30px;
+
+        .swiper-pagination-bullet-active{
+            background: $main-color;
+        }
+    }
+}

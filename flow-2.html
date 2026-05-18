@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="view-transition" content="same-origin" />
-  <meta name="auralink-api-url" content="http://localhost:8000" />
+  <meta name="auralink-api-url" content="https://auralink-api-299567386855.us-central1.run.app" />
   <meta name="synclyst-backend-url" content="https://auralink-api-299567386855.us-central1.run.app" />
   <title>Processing | Listing Flow | SyncLyst</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -86,6 +86,7 @@
       <a href="/landing.html" class="inline-flex items-center justify-self-center no-underline text-[#111]"><span class="text-lg font-semibold tracking-tight">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
       <div aria-hidden="true"></div>
     </header>
+    <p id="dev-api-hint" class="hidden shrink-0 px-4 py-1.5 text-center text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-100" aria-live="polite"></p>
     <main class="flex-1 px-5 pt-6 pb-6 overflow-auto">
       <h1 class="vercel-headline text-xl font-bold text-[#0a0a0a] mb-1 text-center">Reading your product</h1>
       <p class="text-center text-sm text-[#525252] mb-6 vercel-body">AI is working its magic…</p>
@@ -126,7 +127,15 @@
     </main>
     <div id="proc-error-wrap" class="hidden px-5 pb-6">
       <p id="proc-error-msg" class="text-sm text-red-600 mb-3"></p>
-      <a href="/scan" class="text-sm font-semibold text-[#111] underline">Back to scan</a>
+      <div class="flex flex-col gap-2">
+        <button id="proc-retry-btn" type="button" class="w-full rounded-xl bg-[#0a0a0a] text-white text-sm font-semibold px-4 py-2.5">
+          Retry scan
+        </button>
+        <button id="proc-continue-btn" type="button" class="w-full rounded-xl border border-[#e5e5e5] bg-white text-[#111] text-sm font-semibold px-4 py-2.5">
+          Continue without AI (edit manually)
+        </button>
+        <a href="/scan" class="text-sm font-semibold text-[#111] underline text-center mt-2">Back to scan</a>
+      </div>
     </div>
     <div class="p-4 pt-3 border-t border-[#e5e5e5] shrink-0 bg-white">
       <div class="flex items-center justify-between">
@@ -250,7 +259,50 @@
         extractionDone = true;
         if (cardEl) cardEl.classList.add('hidden');
         if (errorWrap) errorWrap.classList.remove('hidden');
-        if (errorMsg) errorMsg.textContent = message || 'Extraction failed. Try again.';
+        var msg = message || 'Extraction failed. Try again.';
+        var lower = String(msg || '').toLowerCase();
+        if (lower.indexOf('quota') !== -1 || lower.indexOf('resource exhausted') !== -1 || lower.indexOf('429') !== -1) {
+          msg = 'Gemini quota exceeded. Try again in a minute, or continue without AI and edit the draft manually.';
+        }
+        if (errorMsg) errorMsg.textContent = msg;
+      }
+
+      function continueWithoutAiDraft() {
+        extractionDone = true;
+        extractionInFlight = false;
+        extractionOk = false;
+        setWaiting(false);
+        try { sessionStorage.removeItem(PENDING_SCAN_KEY); } catch (e) {}
+        try {
+          var imageDataUrl = pending && pending.base64 ? ('data:image/jpeg;base64,' + pending.base64) : '';
+          var extraction = {
+            extraction_copy: {
+              seo_title: 'Item from photo',
+              description: 'AI could not run for this scan. Please edit the title, description, price, and details before publishing.',
+              bullet_points: ['Photo captured', 'Edit details before publishing']
+            },
+            attributes: {
+              brand: '',
+              product_type: '',
+              category: '',
+              price_source: 'not_found',
+              price_value: null,
+              price_display: '',
+              weight_grams: 500,
+              weight_source: 'estimated'
+            },
+            tags: {
+              category: '',
+              search_keywords: ['scanned']
+            },
+            sources: {},
+            raw_ocr_snippets: []
+          };
+          var payload = { extraction: extraction, suggested_price: '', imageDataUrl: imageDataUrl };
+          sessionStorage.removeItem('auralink_review_draft');
+          sessionStorage.setItem(DRAFT_LISTING_KEY, JSON.stringify(payload));
+        } catch (e2) {}
+        redirectToFlow3();
       }
 
       var pending = null;
@@ -277,14 +329,19 @@
       var host = window.location.hostname;
       var prodBackend = document.querySelector('meta[name="synclyst-backend-url"]');
       var fallbackApiUrl = (prodBackend && prodBackend.getAttribute('content')) ? prodBackend.getAttribute('content').trim().replace(/\/$/, '') : '';
-      // On localhost go directly to backend (avoids Next.js proxy timeouts).
-      // Backend CORS is configured for local dev.
-      if (host === 'localhost' || host === '127.0.0.1') {
+      // Local dev: include file:// (empty host) so we keep auralink-api-url instead of Cloud Run.
+      var isLocalBrowserHost = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || !host || window.location.protocol === 'file:';
+      if (isLocalBrowserHost) {
         apiUrl = apiUrl || 'http://localhost:8000';
       } else if (prodBackend && prodBackend.getAttribute('content')) {
         apiUrl = prodBackend.getAttribute('content').trim().replace(/\/$/, '');
       } else if (host) {
         apiUrl = window.location.origin;
+      }
+      var devHint = document.getElementById('dev-api-hint');
+      if (devHint && isLocalBrowserHost) {
+        devHint.textContent = 'Local dev — vision API: ' + apiUrl;
+        devHint.classList.remove('hidden');
       }
 
       // If you're on localhost but want Cloud Run, we can auto-fallback on network failure.
@@ -461,6 +518,26 @@
         }
         showError(msg);
       });
+
+      (function wireErrorActions() {
+        var retryBtn = document.getElementById('proc-retry-btn');
+        var contBtn = document.getElementById('proc-continue-btn');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', function() {
+            if (!pending || !pending.base64) {
+              window.location.href = '/scan';
+              return;
+            }
+            // Reload re-runs extract + progress animation using existing pending scan data.
+            window.location.reload();
+          });
+        }
+        if (contBtn) {
+          contBtn.addEventListener('click', function() {
+            continueWithoutAiDraft();
+          });
+        }
+      })();
     })();
   </script>
 </body>

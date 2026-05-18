@@ -6,7 +6,7 @@
       try {
         var q = window.location.search || "";
         var path = (window.location.pathname || "").replace(/\/+$/, "") || "/";
-        if (q.indexOf("mode=scan") !== -1 || path === "/scan") {
+        if (q.indexOf("mode=scan") !== -1 || path === "/scan" || path === "/list") {
           document.documentElement.classList.add("synclyst-scan-initial");
         }
       } catch (e) {}
@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="/css/synclyst-flow.css" />
   <link rel="stylesheet" href="/css/flow-page-transition.css" />
   <script src="/js/flow-page-transition.js"></script>
+  <script src="/js/synclyst-anon-id.js"></script>
 
 
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -147,29 +148,50 @@
             left: 50%;
             width: min(48vw, 180px);
             height: min(48vw, 180px);
-            transform: translate(-50%, -52%);
+            transform: translate(-50%, -50%);
             border: 1px dashed rgba(255, 255, 255, 0.45);
             border-radius: 16px;
             pointer-events: none;
+            box-sizing: border-box;
+            background: transparent;
+            box-shadow: none;
+            z-index: 2;
         }
-        .scan-frame-guide::before,
-        .scan-frame-guide::after {
-            content: "";
+        .scan-frame-guide__corner {
             position: absolute;
-            width: 30px;
-            height: 30px;
-            border: 2px solid rgba(255, 255, 255, 0.75);
-            border-right: 0;
-            border-bottom: 0;
+            width: 28px;
+            height: 28px;
+            border: 0 solid rgba(255, 255, 255, 0.82);
+            pointer-events: none;
+            box-sizing: border-box;
         }
-        .scan-frame-guide::before {
-            top: 12px;
-            left: 12px;
+        .scan-frame-guide__corner--tl {
+            top: 11px;
+            left: 11px;
+            border-top-width: 2px;
+            border-left-width: 2px;
+            border-top-left-radius: 4px;
         }
-        .scan-frame-guide::after {
-            top: 12px;
-            right: 12px;
-            transform: scaleX(-1);
+        .scan-frame-guide__corner--tr {
+            top: 11px;
+            right: 11px;
+            border-top-width: 2px;
+            border-right-width: 2px;
+            border-top-right-radius: 4px;
+        }
+        .scan-frame-guide__corner--br {
+            bottom: 11px;
+            right: 11px;
+            border-bottom-width: 2px;
+            border-right-width: 2px;
+            border-bottom-right-radius: 4px;
+        }
+        .scan-frame-guide__corner--bl {
+            bottom: 11px;
+            left: 11px;
+            border-bottom-width: 2px;
+            border-left-width: 2px;
+            border-bottom-left-radius: 4px;
         }
         /* Review-flow aligned: light zinc chrome + frosted “glass” icon tiles (gallery / rotate style) */
         .scan-control-bar {
@@ -213,6 +235,17 @@
             width: 1.25rem;
             height: 1.25rem;
             stroke-width: 1.75;
+        }
+        .scan-upload-label {
+            width: auto;
+            min-width: 3rem;
+            padding: 0 0.75rem;
+            gap: 0.45rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            line-height: 1;
+            cursor: pointer;
+            user-select: none;
         }
         .scan-capture-btn {
             width: 4.25rem;
@@ -274,23 +307,41 @@
     <!-- Header: same logo + white band as flow-3.html (min-height + safe-area; no fixed h-14 + extra padding clash) -->
     <div class="scan-view-header shrink-0 w-full box-border border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 grid grid-cols-3 items-center min-h-14 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
       <div></div>
-      <a href="/landing.html" id="scan-view-exit" class="inline-flex items-center justify-self-center no-underline text-[#111] leading-none py-0.5"><span class="text-lg font-semibold tracking-tight">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
+      <a href="/list" id="scan-view-exit" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none" title="SyncIQ®" aria-label="SyncIQ"><span id="scan-view-brand">SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
       <div class="justify-self-end"></div>
     </div>
 
     <div id="scan-step-camera" class="flex-1 flex flex-col items-center justify-center p-0 overflow-hidden relative bg-white">
       <div class="scan-camera-viewport bg-zinc-100 overflow-hidden relative">
         <video id="scan-video" class="w-full h-full object-cover" playsinline="" muted="" autoplay=""></video>
-        <div class="scan-frame-guide" aria-hidden="true"></div>
+        <div class="scan-frame-guide" aria-hidden="true">
+          <span class="scan-frame-guide__corner scan-frame-guide__corner--tl"></span>
+          <span class="scan-frame-guide__corner scan-frame-guide__corner--tr"></span>
+          <span class="scan-frame-guide__corner scan-frame-guide__corner--br"></span>
+          <span class="scan-frame-guide__corner scan-frame-guide__corner--bl"></span>
+        </div>
       </div>
       <div id="scan-camera-error" class="text-red-600 text-sm mt-4 hidden max-w-md text-center rounded-2xl bg-red-50 border border-red-100 p-3"></div>
       
+      <!-- Scan quota counter -->
+      <div id="scan-quota-bar" class="hidden w-full max-w-md mx-auto px-4 py-2 text-center">
+        <p id="scan-quota-text" class="text-xs text-zinc-500 font-medium"></p>
+        <button type="button" id="scan-buy-more-btn" class="hidden mt-2 w-full py-2.5 px-4 rounded-xl bg-[#0a0a0a] text-white font-semibold text-sm hover:bg-zinc-800 transition-colors">
+          Get 20 extra scans — $1.99
+        </button>
+        <p id="scan-buy-error" class="hidden text-xs text-red-600 mt-1"></p>
+      </div>
+      <!-- Success toast for returning from Stripe -->
+      <div id="scan-credits-toast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium text-sm shadow-lg">
+        ✅ 20 scans added! You're good to go.
+      </div>
+
       <input type="file" id="scan-upload-input" accept="image/*" class="hidden">
       <div class="scan-control-bar">
         <div class="justify-self-start">
-          <button type="button" id="scan-upload-btn" class="scan-control-btn" aria-label="Upload from photos">
+          <label for="scan-upload-input" id="scan-upload-btn" class="scan-control-btn scan-upload-label" aria-label="Upload from photos">
             <i data-lucide="images" class="shrink-0"></i>
-          </button>
+          </label>
         </div>
         <div class="justify-self-center">
           <button type="button" id="scan-capture-btn" aria-label="Capture photo" class="scan-capture-btn hover:scale-[0.99] active:scale-95 transition-transform"></button>
@@ -398,7 +449,7 @@
   <div id="batch-view" class="fixed inset-0 z-[80] hidden flex-col bg-zinc-50 text-zinc-900">
     <div class="flex items-center justify-between px-6 h-16 border-b border-zinc-200 bg-white/80 backdrop-blur-md shrink-0">
       <div></div>
-      <a href="/landing.html" id="batch-view-exit" class="text-xl font-semibold tracking-tight text-zinc-900 uppercase no-underline">SYNCLYST</a>
+      <a href="/list" id="batch-view-exit" class="text-xl font-semibold tracking-tight text-zinc-900 uppercase no-underline">SYNCLYST</a>
       <a href="/scan" class="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors no-underline">Scan</a>
     </div>
     <main class="flex-1 px-5 pt-6 pb-6 overflow-auto max-w-md mx-auto w-full">
@@ -434,7 +485,7 @@
                     <a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors">Pricing</a>
                 </div>
             </div>
-            <a href="/landing.html" class="flex items-center gap-2 flex-shrink-0 absolute left-1/2 -translate-x-1/2 no-underline">
+            <a href="/" class="flex items-center gap-2 flex-shrink-0 absolute left-1/2 -translate-x-1/2 no-underline">
                 <span class="text-lg font-semibold tracking-tight text-zinc-900">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span>
             </a>
             <div class="hidden md:flex items-center gap-4 flex-1 justify-end min-w-0">
@@ -467,7 +518,7 @@
                     Everything you need to sell — title, description, price &amp; tags — done for you instantly.
                 </p>
                 <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <a href="/scan" id="hero-scan-btn" class="bg-zinc-900 text-white px-8 py-4 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-zinc-900/10 w-full sm:w-auto relative overflow-hidden group no-underline">
+                    <a href="/list" id="hero-scan-btn" class="bg-zinc-900 text-white px-8 py-4 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-zinc-900/10 w-full sm:w-auto relative overflow-hidden group no-underline">
                         <span class="scan-icon-wrap relative inline-flex items-center justify-center w-5 h-5 shrink-0">
                             <i data-lucide="camera" stroke-width="1.5" class="w-5 h-5 relative z-10 text-white/90"></i>
                             <span class="scan-line"></span>
@@ -797,7 +848,7 @@
         <div class="max-w-6xl mx-auto">
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-10 md:gap-12 mb-16">
                 <div class="col-span-2">
-                    <a href="/landing.html" class="inline-flex items-center gap-2 mb-6">
+                    <a href="/" class="inline-flex items-center gap-2 mb-6">
                         <span class="text-lg font-semibold tracking-tight text-zinc-900 uppercase">SYNCLYST</span>
                     </a>
                     <p class="text-base text-zinc-500 max-w-xs leading-relaxed font-medium">
@@ -877,7 +928,7 @@
         (function() {
           var host = window.location.hostname;
           if (host === 'localhost' || host === '127.0.0.1') {
-            // Local dev: use same origin so Next.js proxy (/api/v1/vision/extract) forwards to production backend
+            // Local dev: same-origin so Pages route /api/v1/vision/extract proxies to NEXT_PUBLIC_API_URL (default localhost:8000)
             window.AURALINK_CONFIG.API_URL = window.location.origin;
             return;
           }
@@ -1081,7 +1132,7 @@
                 const btn = document.createElement(isActive ? 'a' : 'button');
                 btn.className = `bg-white border border-zinc-200 rounded-xl p-6 flex flex-col items-center justify-center text-center group transition-all duration-300 ${isActive ? 'cursor-pointer hover:-translate-y-1 hover:border-zinc-400 hover:shadow-md' : 'cursor-pointer hover:bg-zinc-50'}`;
                 if (isActive) {
-                    btn.href = '/scan';
+                    btn.href = '/list';
                     btn.setAttribute('aria-label', `List on ${c.name}`);
                 }
                 const gridIconBoxCls = 'inline-flex items-center justify-center w-10 h-10 rounded-xl border border-zinc-200 bg-white shrink-0';
@@ -1177,17 +1228,30 @@
         window.openModal = openModal;
         window.closeModal = closeModal;
 
-        // Scan mode: ?mode=scan on home.html, or pretty URL /scan (Next rewrites to this file)
+        // Scan mode: ?mode=scan on home.html, or pretty URL /scan or /list (Next rewrites to this file)
         var urlParams = new URLSearchParams(window.location.search);
         var pathNorm = (window.location.pathname || '').replace(/\/+$/, '') || '/';
         var isScanPath = pathNorm === '/scan';
-        if (urlParams.get('mode') === 'scan' || isScanPath) {
+        var isListPath = pathNorm === '/list';
+        if (urlParams.get('mode') === 'scan' || isScanPath || isListPath) {
           var mainLanding = document.getElementById('main-landing');
           if (mainLanding) mainLanding.style.display = 'none';
           var mainHeader = document.getElementById('main-header');
           if (mainHeader) mainHeader.style.display = 'none';
           var scanView = document.getElementById('scan-view');
           if (scanView) { scanView.classList.remove('hidden'); scanView.classList.add('flex'); }
+          var scanBrand = document.getElementById('scan-view-brand');
+          var scanExit = document.getElementById('scan-view-exit');
+          var scanModeParam = (urlParams.get('mode') || '').toLowerCase();
+          // /scan → always SyncIQ® reseller flow; /list → always Synclyst® listing flow
+          if (isListPath || scanModeParam === 'listing') {
+            if (scanBrand) scanBrand.innerHTML = 'Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
+            if (scanExit) { scanExit.title = 'Synclyst®'; scanExit.setAttribute('aria-label', 'Synclyst'); scanExit.href = '/'; }
+          } else {
+            // /scan or mode=reseller → SyncIQ®
+            if (scanBrand) scanBrand.innerHTML = 'SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
+            if (scanExit) { scanExit.href = '/reseller-results'; scanExit.title = 'SyncIQ®'; scanExit.setAttribute('aria-label', 'SyncIQ'); }
+          }
           document.documentElement.classList.remove('synclyst-scan-initial');
 
           var video = document.getElementById('scan-video');
@@ -1211,6 +1275,94 @@
           var cameraFacing = 'environment';
           var apiUrl = (window.AURALINK_CONFIG && window.AURALINK_CONFIG.API_URL) || 'http://localhost:8000';
 
+          // --- Scan quota counter ---
+          (function initScanQuota() {
+            var quotaBar = document.getElementById('scan-quota-bar');
+            var quotaText = document.getElementById('scan-quota-text');
+            var buyMoreBtn = document.getElementById('scan-buy-more-btn');
+            var buyError = document.getElementById('scan-buy-error');
+
+            // Handle return from Stripe with ?scan_credits=success
+            try {
+              var searchParams = new URLSearchParams(window.location.search || '');
+              if (searchParams.get('scan_credits') === 'success') {
+                var toast = document.getElementById('scan-credits-toast');
+                if (toast) {
+                  toast.classList.remove('hidden');
+                  setTimeout(function() { toast.classList.add('hidden'); }, 5000);
+                }
+                // Clean up the URL param
+                var cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete('scan_credits');
+                cleanUrl.searchParams.delete('session_id');
+                window.history.replaceState({}, '', cleanUrl.pathname + (cleanUrl.search || ''));
+              }
+            } catch (e) {}
+
+            function getAnonId() {
+              try {
+                return localStorage.getItem('synclyst_anon_id_v1') || '';
+              } catch (e) { return ''; }
+            }
+
+            function fetchQuota() {
+              var anonId = getAnonId();
+              if (!anonId) {
+                // Generate via SyncLystAnon helper if available
+                if (window.SyncLystAnon) anonId = window.SyncLystAnon.get();
+                if (!anonId) return;
+              }
+              fetch(apiUrl + '/api/v1/usage/guest', {
+                headers: { 'X-SyncLyst-Anon-Id': anonId }
+              })
+              .then(function(r) { return r.ok ? r.json() : null; })
+              .then(function(u) {
+                if (!u) return;
+                var used = typeof u.scans_used === 'number' ? u.scans_used : (typeof u.free_scans_used === 'number' ? u.free_scans_used : 0);
+                var limit = typeof u.scans_limit === 'number' ? u.scans_limit : (typeof u.free_scans_limit === 'number' ? u.free_scans_limit : 10);
+                var remaining = Math.max(0, limit - used);
+                if (quotaText) quotaText.textContent = remaining > 0
+                  ? remaining + ' free scan' + (remaining === 1 ? '' : 's') + ' left today'
+                  : 'Daily free scans used up — top up below';
+                if (quotaBar) quotaBar.classList.remove('hidden');
+                if (used >= limit) {
+                  if (buyMoreBtn) buyMoreBtn.classList.remove('hidden');
+                } else {
+                  if (buyMoreBtn) buyMoreBtn.classList.add('hidden');
+                }
+              })
+              .catch(function() {});
+            }
+
+            fetchQuota();
+
+            if (buyMoreBtn) {
+              buyMoreBtn.addEventListener('click', function() {
+                var anonId = getAnonId();
+                if (!anonId && window.SyncLystAnon) anonId = window.SyncLystAnon.get();
+                buyMoreBtn.disabled = true;
+                buyMoreBtn.textContent = 'Redirecting…';
+                if (buyError) buyError.classList.add('hidden');
+                fetch(apiUrl + '/api/v1/billing/guest-checkout', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ anon_id: anonId })
+                })
+                .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+                .then(function(res) {
+                  if (!res.ok || !res.data.url) throw new Error(res.data.detail || 'No checkout URL');
+                  window.location.href = res.data.url;
+                })
+                .catch(function(e) {
+                  if (buyError) { buyError.textContent = e.message || 'Could not start checkout. Try again.'; buyError.classList.remove('hidden'); }
+                  buyMoreBtn.disabled = false;
+                  buyMoreBtn.textContent = 'Get 20 extra scans — $1.99';
+                });
+              });
+            }
+          })();
+          // --- End scan quota counter ---
+
           function exitScanView() {
             var u = new URL(window.location.href);
             u.searchParams.delete('mode');
@@ -1231,6 +1383,7 @@
 
           function showExtractError(msg) {
             if (scanExtractErrorEl) { scanExtractErrorEl.textContent = msg || 'Extraction failed.'; scanExtractErrorEl.classList.remove('hidden'); }
+            if (cameraErrorEl) { cameraErrorEl.textContent = msg || 'Upload failed. Try again.'; cameraErrorEl.classList.remove('hidden'); }
             if (seoTitleEl) seoTitleEl.textContent = 'Extraction failed';
             if (extractAgainBtn) extractAgainBtn.classList.remove('hidden');
           }
@@ -1280,9 +1433,30 @@
           }
 
           /** Store image and go to /reading-product (progress + “Reading your product”). */
-          function goToFlow2(base64) {
+          function goToFlow2(base64, mimeType) {
+            // /scan → reseller flow (SyncIQ®); /list → listing flow (Synclyst®)
+            var pathN = (window.location.pathname || '').replace(/\/+$/, '');
+            var scanMode = (pathN === '/list') ? 'listing' : 'reseller';
+            try {
+              var params = new URLSearchParams(window.location.search || '');
+              var m = (params.get('mode') || '').toLowerCase();
+              if (m === 'reseller' || m === 'resell') scanMode = 'reseller';
+              if (m === 'listing') scanMode = 'listing';
+            } catch (e) {}
             var rawB64 = base64.indexOf(',') >= 0 ? base64.split(',')[1] : base64;
-            var dataUrl = (base64.indexOf('data:') === 0) ? base64 : ('data:image/jpeg;base64,' + base64);
+            var mime = (mimeType || 'image/jpeg').split(';')[0] || 'image/jpeg';
+            var dataUrl = (base64.indexOf('data:') === 0) ? base64 : ('data:' + mime + ';base64,' + rawB64);
+            var navigated = false;
+            function saveAndNavigate(b64) {
+              if (navigated) return;
+              navigated = true;
+              try {
+                sessionStorage.setItem('auralink_pending_scan', JSON.stringify({ base64: b64, flow: scanMode, mime_type: mime }));
+                window.location.href = '/reading-product';
+              } catch (e) {
+                showExtractError('Could not save image. Try a smaller photo.');
+              }
+            }
             var img = new Image();
             img.onload = function() {
               var maxPx = 720;
@@ -1298,36 +1472,56 @@
                 ctx.drawImage(img, 0, 0, c.width, c.height);
                 b64 = c.toDataURL('image/jpeg', 0.82).split(',')[1];
               }
-              try {
-                sessionStorage.setItem('auralink_pending_scan', JSON.stringify({ base64: b64 }));
-                if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate('/reading-product');
-                else window.location.href = '/reading-product';
-              } catch (e) {
-                showExtractError('Could not save image. Try again.');
-              }
+              saveAndNavigate(b64);
             };
             img.onerror = function() {
-              try {
-                sessionStorage.setItem('auralink_pending_scan', JSON.stringify({ base64: rawB64 }));
-                if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate('/reading-product');
-                else window.location.href = '/reading-product';
-              } catch (e) {
-                showExtractError('Invalid image. Try again.');
-              }
+              saveAndNavigate(rawB64);
             };
             img.src = dataUrl;
+            setTimeout(function() { saveAndNavigate(rawB64); }, 2500);
           }
 
+          function attachStream(s) {
+            stream = s;
+            if (video) video.srcObject = s;
+          }
+          function cameraErrorMessage(err) {
+            var n = err && err.name ? String(err.name) : '';
+            if (n === 'NotAllowedError' || n === 'SecurityError')
+              return 'Camera blocked — allow camera for this site (lock icon → Site settings) or use Upload photo.';
+            if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'ConstraintNotSatisfiedError')
+              return 'No matching camera — try Rotate or use Upload photo.';
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+              return 'This browser doesn’t support camera here — use Upload photo or HTTPS.';
+            return 'Camera unavailable — try Upload photo below.';
+          }
           function startCamera() {
             if (cameraErrorEl) { cameraErrorEl.textContent = ''; cameraErrorEl.classList.add('hidden'); }
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-              if (cameraErrorEl) { cameraErrorEl.textContent = 'Camera needs HTTPS or use Upload photo.'; cameraErrorEl.classList.remove('hidden'); }
+              if (cameraErrorEl) {
+                cameraErrorEl.textContent = cameraErrorMessage(null);
+                cameraErrorEl.classList.remove('hidden');
+              }
               return;
             }
             if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
+            var fallbackErr = null;
             navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
-              .then(function(s) { stream = s; video.srcObject = s; })
-              .catch(function(e) { if (cameraErrorEl) { cameraErrorEl.textContent = 'Camera unavailable. Use Upload photo below.'; cameraErrorEl.classList.remove('hidden'); } });
+              .then(attachStream)
+              .catch(function(e1) {
+                fallbackErr = e1;
+                return navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing }, audio: false }).then(attachStream);
+              })
+              .catch(function(e2) {
+                fallbackErr = e2;
+                return navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(attachStream);
+              })
+              .catch(function(e3) {
+                if (cameraErrorEl) {
+                  cameraErrorEl.textContent = cameraErrorMessage(e3 || fallbackErr);
+                  cameraErrorEl.classList.remove('hidden');
+                }
+              });
           }
           startCamera();
 
@@ -1345,23 +1539,34 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             var base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
             if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
-            goToFlow2(base64);
+            goToFlow2(base64, 'image/jpeg');
           });
 
           var uploadInput = document.getElementById('scan-upload-input');
           var uploadBtn = document.getElementById('scan-upload-btn');
           if (uploadBtn && uploadInput) {
-            uploadBtn.addEventListener('click', function() { uploadInput.click(); });
+            uploadBtn.addEventListener('click', function() {
+              uploadInput.value = '';
+              if (cameraErrorEl) { cameraErrorEl.textContent = ''; cameraErrorEl.classList.add('hidden'); }
+            });
+            if (String(uploadBtn.tagName || '').toLowerCase() !== 'label') {
+              uploadBtn.addEventListener('click', function() { uploadInput.click(); });
+            }
             uploadInput.addEventListener('change', function() {
               var file = uploadInput.files && uploadInput.files[0];
               if (!file || !file.type.match(/^image\//)) return;
+              if (cameraErrorEl) { cameraErrorEl.textContent = 'Uploading photo…'; cameraErrorEl.classList.remove('hidden'); }
               var reader = new FileReader();
               reader.onload = function() {
                 var dataUrl = reader.result;
                 var base64 = dataUrl.indexOf(',') >= 0 ? dataUrl.split(',')[1] : dataUrl;
                 uploadInput.value = '';
                 if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
-                goToFlow2(base64);
+                goToFlow2(base64, file.type || 'image/jpeg');
+              };
+              reader.onerror = function() {
+                uploadInput.value = '';
+                showExtractError('Could not read this image. Try another photo.');
               };
               reader.readAsDataURL(file);
             });
@@ -1389,7 +1594,7 @@
           });
 
           if (extractAgainBtn) extractAgainBtn.addEventListener('click', function() {
-            if (lastCapturedBase64) goToFlow2(lastCapturedBase64);
+            if (lastCapturedBase64) goToFlow2(lastCapturedBase64, 'image/jpeg');
           });
 
           var closeBtn = document.getElementById('conversion-popup-close');
