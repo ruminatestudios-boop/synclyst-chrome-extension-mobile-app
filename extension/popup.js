@@ -3561,6 +3561,25 @@ window.addEventListener("beforeunload", () => {
     if (initial && !initial.empty && initial.listing && sessionListingHasContent(initial.listing)) {
       applyListing(initial.listing);
     }
+
+    // Check for a pending product saved by Claude Desktop (MCP magic_fill).
+    // Runs in background — doesn't block the UI. Only applies if snap session has no content.
+    (async () => {
+      try {
+        const mcpOrigin = SYNCLYST_ORIGIN_LIVE.replace(/\/$/, "");
+        const r = await fetchWithTimeout(`${mcpOrigin}/api/mcp-pending`, { credentials: "include" }, 5000);
+        if (!r || !r.ok) return;
+        const j = await r.json();
+        if (!j || !j.found || !j.listing) return;
+        // Only apply MCP product if snap session didn't already load content
+        if (listingHydrated && sessionListingHasContent(lastPayload)) return;
+        applyListing(j.listing);
+        setStatus("✨ Loaded from Claude Desktop");
+      } catch {
+        /* MCP pending check failed silently — snap session is the primary flow */
+      }
+    })();
+
     refreshLoadedSubstate();
 
     let savedPlatform = normalizeLegacyPlatformId(uiPrefs[STORAGE_LAST_PLATFORM]);
