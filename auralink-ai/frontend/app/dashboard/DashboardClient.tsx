@@ -324,7 +324,6 @@ export default function DashboardClient() {
               </button>
             </section>
           )}
-          <ApiKeyPanel />
           <section id="connect-marketplaces" className="glass-card" style={{ padding: "1.5rem", gridColumn: "1 / -1" }}>
             <h3 className="section-label">Connect your marketplaces</h3>
             <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginBottom: "1rem" }}>
