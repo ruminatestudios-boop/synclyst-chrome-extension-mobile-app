@@ -6,9 +6,9 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { apiFetch } from "@/lib/api";
 
 const CLERK_JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE?.trim();
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://synclyst.app";
 
 async function getAuthToken(
   getToken: ReturnType<typeof useAuth>["getToken"]
@@ -44,9 +44,7 @@ export default function ApiKeyPanel() {
   const fetchKeys = useCallback(async () => {
     try {
       const token = await getAuthToken(getToken);
-      const r = await fetch(`${API_URL}/api/v1/api-keys`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const r = await apiFetch("/api/v1/api-keys", { token });
       if (r.ok) setKeys(await r.json());
     } catch {}
     setLoading(false);
@@ -60,12 +58,9 @@ export default function ApiKeyPanel() {
     setNewKey(null);
     try {
       const token = await getAuthToken(getToken);
-      const r = await fetch(`${API_URL}/api/v1/api-keys`, {
+      const r = await apiFetch("/api/v1/api-keys", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        token,
         body: JSON.stringify({ label }),
       });
       if (!r.ok) {
@@ -88,10 +83,7 @@ export default function ApiKeyPanel() {
     setRevoking(id);
     try {
       const token = await getAuthToken(getToken);
-      await fetch(`${API_URL}/api/v1/api-keys/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await apiFetch(`/api/v1/api-keys/${id}`, { method: "DELETE", token });
       await fetchKeys();
     } catch {}
     setRevoking(null);
