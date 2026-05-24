@@ -22,6 +22,26 @@ const MARKETPLACES = [
 
 const CLERK_JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE?.trim();
 
+/**
+ * Get a Clerk JWT, trying the named template first and falling back to the
+ * default session token. This prevents 401s when the JWT template doesn't
+ * exist in the Clerk dashboard (e.g. new environments or misconfigured keys).
+ */
+async function getAuthToken(
+  getToken: ReturnType<typeof useAuth>["getToken"]
+): Promise<string | null> {
+  if (!getToken) return null;
+  if (CLERK_JWT_TEMPLATE) {
+    try {
+      const t = await getToken({ template: CLERK_JWT_TEMPLATE });
+      if (t) return t;
+    } catch {
+      // Template not found — fall through to default
+    }
+  }
+  return getToken();
+}
+
 export default function DashboardClient() {
   const { user } = useUser();
   const { isLoaded, getToken } = useAuth();
@@ -44,7 +64,7 @@ export default function DashboardClient() {
 
   const fetchUsage = async () => {
     try {
-      const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+      const token = await getAuthToken(getToken);
       const r = await apiFetch("/api/v1/usage", { token });
       setUsage(r.ok ? await r.json() : null);
     } catch {
@@ -99,7 +119,7 @@ export default function DashboardClient() {
 
     (async () => {
       try {
-        const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+        const token = await getAuthToken(getToken);
         const res = await apiFetch("/api/v1/billing/confirm", {
           method: "POST",
           token,
@@ -119,7 +139,7 @@ export default function DashboardClient() {
       for (let i = 0; i < 15; i++) {
         await new Promise((r) => setTimeout(r, 2000));
         try {
-          const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+          const token = await getAuthToken(getToken);
           const r = await apiFetch("/api/v1/usage", { token });
           if (r.ok) {
             const u = await r.json();
@@ -139,7 +159,7 @@ export default function DashboardClient() {
 
   useEffect(() => {
     if (!pushProductId || !getToken) return;
-    getToken(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined)
+    getAuthToken(getToken)
       .then((token) => apiFetch(`/api/v1/products/${pushProductId}`, { token }))
       .then((r) => (r.ok ? r.json() : null))
       .then((p: { copy_seo_title?: string } | null) => setPushProductTitle(p?.copy_seo_title ?? "Draft"))
@@ -158,7 +178,7 @@ export default function DashboardClient() {
     setPushLoading(true);
     setPushMessage(null);
     try {
-      const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+      const token = await getAuthToken(getToken);
       const res = await apiFetch(`/api/v1/products/${pushProductId}/push-drafts`, {
         method: "POST",
         token,
