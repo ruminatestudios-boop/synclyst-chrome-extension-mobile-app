@@ -10,6 +10,7 @@ import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
+import ApiKeyPanel from "./ApiKeyPanel";
 
 const MARKETPLACES = [
   { id: "shopify", name: "Shopify", logo: "https://www.google.com/s2/favicons?domain=shopify.com&sz=128", connect: true },
@@ -323,6 +324,7 @@ export default function DashboardClient() {
               </button>
             </section>
           )}
+          <ApiKeyPanel />
           <section id="connect-marketplaces" className="glass-card" style={{ padding: "1.5rem", gridColumn: "1 / -1" }}>
             <h3 className="section-label">Connect your marketplaces</h3>
             <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginBottom: "1rem" }}>
