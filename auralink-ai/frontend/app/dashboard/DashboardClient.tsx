@@ -324,66 +324,6 @@ export default function DashboardClient() {
               </button>
             </section>
           )}
-          <ApiKeyPanel />
-          <section id="connect-marketplaces" className="glass-card" style={{ padding: "1.5rem", gridColumn: "1 / -1" }}>
-            <h3 className="section-label">Connect your marketplaces</h3>
-            <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginBottom: "1rem" }}>
-              Choose where to sync your listings. Click a channel to connect.
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "0.75rem" }}>
-              {MARKETPLACES.map((m) => {
-                const isShopify = m.id === "shopify";
-                const connected = isShopify && shopifyConnected;
-                const available = isShopify;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => available && setSelectedChannel(m.id)}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "1rem 0.75rem",
-                      background: selectedChannel === m.id ? "#f4f4f5" : "var(--surface)",
-                      color: selectedChannel === m.id ? "var(--text)" : "var(--text)",
-                      border: `1px solid ${selectedChannel === m.id ? "#a1a1aa" : "var(--border)"}`,
-                      borderRadius: "12px",
-                      cursor: available ? "pointer" : "default",
-                      opacity: available ? 1 : 0.45,
-                    }}
-                    title={available ? (connected ? `Connected: ${shopifyShopDomain || "Shopify"}` : "Connect") : "Coming soon"}
-                  >
-                    <img src={m.logo} alt="" width={32} height={32} style={{ objectFit: "contain", marginBottom: "0.5rem" }} />
-                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>{m.name}</span>
-                    {connected && <span style={{ fontSize: "0.65rem", marginTop: "0.25rem", opacity: 0.9 }}>Connected</span>}
-                    {!available && <span style={{ fontSize: "0.65rem", marginTop: "0.25rem", opacity: 0.7 }}>Coming soon</span>}
-                  </button>
-                );
-              })}
-            </div>
-            {selectedChannel === "shopify" && (
-              <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
-                <h4 style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text)", marginBottom: "0.5rem" }}>Connect Shopify</h4>
-                {shopifyConnected ? (
-                  <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
-                    Connected: {shopifyShopDomain || "Shopify"}. Add another store below.
-                  </p>
-                ) : null}
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.75rem" }}>
-                  <button
-                    type="button"
-                    onClick={connectShopify}
-                    className="glass-cta"
-                    style={{ padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 600, cursor: "pointer", color: "#fff", width: "100%" }}
-                  >
-                    {shopifyConnected ? "Connect another store" : "Connect store"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
         </div>
       </main>
     </div>
