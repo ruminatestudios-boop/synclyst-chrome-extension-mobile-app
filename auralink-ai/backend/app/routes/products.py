@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.schemas.product import UniversalProductCreate, UniversalProductResponse, ChannelAdapterRecord
 from app.schemas.vision import VisionExtractionResponse
-from app.db import get_supabase, create_product, get_product, list_products, get_shopify_store, get_valid_shopify_access_token, upsert_description_variation, list_shopify_stores
+from app.db import get_supabase, create_product, get_product, list_products, get_shopify_store, get_valid_shopify_access_token, upsert_description_variation, list_shopify_stores, get_latest_mcp_product
 from app.demo_store import create_product_demo, get_product_demo, list_products_demo
 from app.auth import verify_clerk, optional_verify_clerk
 
@@ -114,12 +114,62 @@ async def list_universal_products(limit: int = 50, offset: int = 0, _auth: dict 
     return list_products_demo(limit=limit, offset=offset)
 
 
+@router.get("/mcp-latest", response_model=dict)
+async def get_mcp_latest_product(_auth: dict = Depends(verify_clerk)):
+    """
+    Returns the most recently created MCP product for this user.
+    Called by the Chrome extension when it opens on a listing page.
+    Returns the product in the extension's expected listing format.
+    """
+    supabase = get_supabase()
+    clerk_user_id = _auth.get("sub")
+    if not supabase or not clerk_user_id:
+        return {"found": False}
+
+    row = get_latest_mcp_product(supabase, clerk_user_id)
+    if not row:
+        return {"found": False}
+
+    # Map backend product to the extension's listing format
+    tags = row.get("tags_search_keywords") or []
+    bullet_points = row.get("copy_bullet_points") or []
+    description = row.get("copy_description") or ""
+    if bullet_points:
+        description = description + "\n\n" + "\n".join(f"• {b}" for b in bullet_points)
+
+    return {
+        "found": True,
+        "product_id": row["id"],
+        "listing": {
+            "title": row.get("copy_seo_title") or "",
+            "description": description.strip(),
+            "price": "",  # let user set price
+            "image_url": row.get("image_url") or "",
+            "listing_extra": {
+                "depop": {
+                    "description": description.strip() + (
+                        ("\n\n" + " ".join(f"#{t.replace(' ', '')}" for t in tags[:10])) if tags else ""
+                    ),
+                },
+                "ebay": {"title": row.get("copy_seo_title") or ""},
+                "etsy": {"title": row.get("copy_seo_title") or "", "tags": tags[:13]},
+                "vinted": {"title": (row.get("copy_seo_title") or "")[:60]},
+            },
+        },
+    }
+
+
 @router.post("/from-extraction", response_model=dict)
 async def create_product_from_extraction(extraction: VisionExtractionResponse, _auth: dict = Depends(optional_verify_clerk)):
     """
     One-shot: create a Universal Product from a Vision extraction result.
     When DB not configured (demo mode), saves to in-memory store only.
     """
+    clerk_user_id = (_auth or {}).get("sub")
+    auth_method = (_auth or {}).get("auth_method", "clerk")
+    # Products created via MCP API key are tagged so the extension can find them
+    source = "mcp" if auth_method == "api_key" else "snap"
+
     payload = UniversalProductCreate(
         attributes_material=extraction.attributes.material,
         attributes_color=extraction.attributes.color,
@@ -137,8 +187,28 @@ async def create_product_from_extraction(extraction: VisionExtractionResponse, _
         tags_search_keywords=extraction.tags.search_keywords,
         status="DRAFT",
     )
-    response = await create_universal_product(payload)
-    product_id = response["id"]
+    # Create directly so we can pass clerk_user_id + source without going through the route
+    supabase = get_supabase()
+    if supabase:
+        try:
+            row = create_product(supabase, payload, clerk_user_id=clerk_user_id, source=source)
+            product_id = str(row["id"])
+            from app.config import get_settings
+            from app.services.ucp_manifest import build_and_upsert_ucp_manifest
+            build_and_upsert_ucp_manifest(supabase, product_id, get_settings().app_base_url)
+            response = {"id": product_id, "created_at": row["created_at"]}
+        except Exception as e:
+            if _is_missing_table_error(e):
+                row = create_product_demo(payload)
+                product_id = row["id"]
+                response = {"id": product_id, "created_at": row["created_at"], "demo": True}
+            else:
+                raise HTTPException(status_code=400, detail=str(e))
+    else:
+        row = create_product_demo(payload)
+        product_id = row["id"]
+        response = {"id": product_id, "created_at": row["created_at"], "demo": True}
+
     supabase = get_supabase()
     if supabase and extraction.extraction_copy.description_fact_feel_proof:
         ffp = extraction.extraction_copy.description_fact_feel_proof
