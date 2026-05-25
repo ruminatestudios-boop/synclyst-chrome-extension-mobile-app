@@ -427,6 +427,21 @@ async def stripe_webhook(request: Request):
                     stripe_subscription_id=subscription_id,
                 )
 
+        # Developer API plan webhooks
+        if etype in ("customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"):
+            md = obj.get("metadata") or {}
+            if md.get("product") == "developer_api":
+                developer_id = (md.get("developer_id") or "").strip()
+                plan = (md.get("plan") or "free").strip().lower()
+                status = (obj.get("status") or "").strip().lower() or ("canceled" if etype.endswith("deleted") else "active")
+                if developer_id and supabase:
+                    try:
+                        supabase.table("developer_api_keys").update(
+                            {"plan": plan if status in ("active", "trialing") else "free"}
+                        ).eq("developer_id", developer_id).eq("status", "active").execute()
+                    except Exception:
+                        pass
+
         if etype in ("customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"):
             md = obj.get("metadata") or {}
             clerk_user_id = (md.get("clerk_user_id") or "").strip()
