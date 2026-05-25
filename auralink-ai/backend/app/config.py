@@ -113,6 +113,16 @@ class Settings(BaseSettings):
     guest_scan_pack_credits: int = 20
     stripe_customer_portal_return_url: str = ""
 
+    # ── Developer Public API — Stripe plan Price IDs ──────────────────────────
+    # Create these as separate Products in Stripe Dashboard.
+    # Free plan has no Stripe price (no card required).
+    # Starter: £19/month, 1,000 calls included + £0.07 overage
+    stripe_price_dev_starter: str = ""
+    # Pro: £49/month, 10,000 calls included + £0.05 overage
+    stripe_price_dev_pro: str = ""
+    # Enterprise: custom — set manually via Stripe Dashboard
+    stripe_price_dev_enterprise: str = ""
+
     def get_cors_origins_list(self) -> List[str]:
         """Return CORS origins as a list. Empty or '*' means allow all origins.
         Note: main.py sets allow_credentials=False when this is ['*'] (browser requirement)."""

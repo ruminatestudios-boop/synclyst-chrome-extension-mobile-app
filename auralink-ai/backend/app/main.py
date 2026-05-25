@@ -13,6 +13,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.config import get_settings
 from app.routes import vision, products, audit, shopify, feedback, ucp, integrations, usage, billing, api_keys
+from app.routes.public_api import router as public_router, sandbox_router, PublicAPIError
+from app.routes.developer_keys import router as dev_keys_router
 
 
 @asynccontextmanager
@@ -68,6 +70,23 @@ def create_app() -> FastAPI:
             bucket.append(now)
         return await call_next(request)
 
+    @app.exception_handler(PublicAPIError)
+    async def public_api_error_handler(request: Request, exc: PublicAPIError):
+        """Structured JSON errors for the public /v1/ API."""
+        content: dict = {
+            "error": True,
+            "code": exc.code,
+            "message": exc.message,
+            "docs": "https://synclyst.app/developers",
+        }
+        if exc.field:
+            content["field"] = exc.field
+        content.update(exc.extra)
+        resp = JSONResponse(status_code=exc.status_code, content=content)
+        for k, v in (exc.headers or {}).items():
+            resp.headers[k] = v
+        return resp
+
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         """Return 500 with a clear message instead of unhandled exception."""
@@ -87,6 +106,15 @@ def create_app() -> FastAPI:
     app.include_router(usage.router, prefix="/api/v1/usage", tags=["Usage"])
     app.include_router(billing.router, prefix="/api/v1/billing", tags=["Billing"])
     app.include_router(api_keys.router, prefix="/api/v1/api-keys", tags=["API Keys"])
+
+    # ── Public Developer API ──────────────────────────────────────────────────
+    # /v1/ — main API (sk_live_ keys)
+    # /sandbox/v1/ — sandbox (sk_test_ keys, fake data)
+    # /v1/developers/ — key management (Clerk JWT auth)
+    app.include_router(public_router, prefix="/v1", tags=["Public API"])
+    app.include_router(sandbox_router, prefix="/sandbox/v1", tags=["Sandbox API"])
+    app.include_router(dev_keys_router, prefix="/v1/developers/keys", tags=["Developer Keys"])
+
     return app
 
 
