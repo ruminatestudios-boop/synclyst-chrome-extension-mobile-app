@@ -60,35 +60,35 @@ const CURL_VALUE = `curl -X POST https://api.synclyst.app/v1/value \\
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = {
-  page: "min-h-screen bg-[#0a0a0b] text-white font-sans",
-  nav: "border-b border-white/10 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto",
+  page: "min-h-screen text-white font-sans",
+  nav: "px-6 py-4 flex items-center justify-between max-w-6xl mx-auto",
   logo: "font-bold text-lg tracking-tight",
-  navLinks: "flex items-center gap-6 text-sm text-zinc-400",
+  navLinks: "flex items-center gap-5 text-sm text-white/50",
   hero: "max-w-4xl mx-auto px-6 pt-24 pb-16 text-center",
-  badge: "inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium px-3 py-1 rounded-full mb-6",
+  badge: "inline-flex items-center gap-2 text-emerald-400 text-xs font-medium px-3 py-1 rounded-full mb-6",
   h1: "text-4xl sm:text-5xl font-bold tracking-tight mb-4",
-  sub: "text-zinc-400 text-lg max-w-2xl mx-auto mb-10",
-  btnPrimary: "bg-white text-black font-semibold px-6 py-3 rounded-lg hover:bg-zinc-100 transition text-sm",
-  btnOutline: "border border-white/20 text-white font-semibold px-6 py-3 rounded-lg hover:bg-white/5 transition text-sm",
+  sub: "text-white/40 text-lg max-w-2xl mx-auto mb-10",
+  btnPrimary: "bg-white text-black font-semibold px-6 py-3 rounded-full hover:bg-zinc-100 transition text-sm",
+  btnOutline: "text-white font-semibold px-6 py-3 rounded-full transition text-sm",
   section: "max-w-5xl mx-auto px-6 py-16",
   sectionTitle: "text-2xl font-bold mb-2",
-  sectionSub: "text-zinc-400 mb-10",
-  card: "bg-zinc-900 border border-white/10 rounded-xl overflow-hidden",
-  tabBar: "flex border-b border-white/10",
+  sectionSub: "text-white/40 mb-10",
+  card: "rounded-2xl overflow-hidden",
+  tabBar: "flex",
   tab: (active: boolean) =>
-    `px-4 py-2.5 text-sm font-medium transition cursor-pointer ${active ? "text-white border-b-2 border-white" : "text-zinc-500 hover:text-zinc-300"}`,
-  code: "bg-[#111] rounded-b-xl p-4 text-xs text-zinc-300 font-mono overflow-x-auto whitespace-pre leading-relaxed",
-  endpointCard: "bg-zinc-900 border border-white/10 rounded-xl p-5 mb-4",
+    `px-4 py-2.5 text-sm font-medium transition cursor-pointer ${active ? "text-white border-b-2 border-[#6c2bd9]" : "text-white/30 hover:text-white/60"}`,
+  code: "rounded-b-2xl p-4 text-xs text-white/60 font-mono overflow-x-auto whitespace-pre leading-relaxed",
+  endpointCard: "rounded-2xl p-5 mb-4",
   method: (m: string) =>
     m === "POST"
-      ? "bg-blue-500/20 text-blue-400 text-xs font-bold px-2 py-0.5 rounded"
-      : "bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2 py-0.5 rounded",
-  price: "bg-amber-500/10 text-amber-400 text-xs font-medium px-2 py-0.5 rounded border border-amber-500/20",
+      ? "bg-[#6c2bd9]/20 text-[#a78bfa] text-xs font-bold px-2 py-0.5 rounded-full"
+      : "bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2 py-0.5 rounded-full",
+  price: "text-amber-300 text-xs font-medium px-2 py-0.5 rounded-full",
   pricingGrid: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4",
   pricingCard: (highlighted: boolean) =>
-    `rounded-xl border p-6 flex flex-col ${highlighted ? "border-white bg-white/5" : "border-white/10 bg-zinc-900"}`,
+    `rounded-2xl p-6 flex flex-col ${highlighted ? "" : ""}`,
   faqQ: "text-white font-medium mb-1 text-sm",
-  faqA: "text-zinc-400 text-sm",
+  faqA: "text-white/40 text-sm",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -217,41 +217,84 @@ export default function DevelopersPage() {
     },
   ];
 
+  const cardStyle = {
+    background: "rgba(255,255,255,0.035)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: "20px",
+  };
+
+  const codeBlockStyle = {
+    background: "rgba(0,0,0,0.4)",
+    border: "1px solid rgba(255,255,255,0.06)",
+    borderRadius: "0 0 16px 16px",
+  };
+
   return (
-    <div className={s.page}>
+    <div className={s.page} style={{ background: "#07050d", fontFamily: "Inter, system-ui, sans-serif" }}>
+
       {/* Nav */}
-      <nav className={s.nav}>
-        <Link href="/" className={s.logo}>
-          <span style={{ color: "#fff" }}>Sync</span>
-          <span style={{ color: "#a78bfa" }}>Lyst</span>
-        </Link>
-        <div className={s.navLinks}>
-          <a href="#endpoints" className="hover:text-white transition">Endpoints</a>
-          <a href="#pricing" className="hover:text-white transition">Pricing</a>
-          <a href="#faq" className="hover:text-white transition">FAQ</a>
-          <Link href="/developers/dashboard" className="hover:text-white transition">Dashboard</Link>
-          <Link href="/developers/dashboard" className={s.btnPrimary} style={{ padding: "8px 18px" }}>
+      <nav
+        className="sticky top-0 z-40 backdrop-blur-md"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(7,5,13,0.85)" }}
+      >
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <Link href="/" className="font-bold text-lg tracking-tight">
+            SyncLyst<sup className="text-[10px] font-medium ml-0.5 opacity-60">®</sup>
+          </Link>
+          <div
+            className="hidden sm:flex items-center gap-1 px-1 py-1"
+            style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: "28px" }}
+          >
+            {[
+              { label: "Endpoints", href: "#endpoints" },
+              { label: "Pricing", href: "#pricing" },
+              { label: "FAQ", href: "#faq" },
+              { label: "Dashboard", href: "/developers/dashboard" },
+            ].map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                className="px-4 py-1 text-sm text-white/50 hover:text-white transition-colors rounded-full"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+          <Link
+            href="/developers/dashboard"
+            className="text-sm font-semibold px-5 py-2 rounded-full transition-colors bg-white text-black hover:bg-zinc-100"
+          >
             Get API Key
           </Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className={s.hero}>
-        <div className={s.badge}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", display: "inline-block" }} />
+      <section className="max-w-4xl mx-auto px-6 pt-24 pb-16 text-center">
+        <div
+          className="inline-flex items-center gap-2 text-emerald-400 text-xs font-medium px-3 py-1 rounded-full mb-6"
+          style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
           Public API — Live
         </div>
-        <h1 className={s.h1}>Build with Synclyst API</h1>
-        <p className={s.sub}>
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">Build with Synclyst API</h1>
+        <p className="text-white/40 text-lg max-w-2xl mx-auto mb-10">
           Add AI product extraction to your app. Extract titles, descriptions, prices, categories,
           and market values from any product photo. Free to start. Live in minutes.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
-          <Link href="/developers/dashboard" className={s.btnPrimary}>
+          <Link
+            href="/developers/dashboard"
+            className="bg-white text-black font-semibold px-6 py-3 rounded-full hover:bg-zinc-100 transition text-sm"
+          >
             Get free API key
           </Link>
-          <a href="#endpoints" className={s.btnOutline}>
+          <a
+            href="#endpoints"
+            className="text-white font-semibold px-6 py-3 rounded-full transition text-sm"
+            style={{ border: "1px solid rgba(255,255,255,0.18)" }}
+          >
             View endpoints
           </a>
         </div>
@@ -262,22 +305,25 @@ export default function DevelopersPage() {
         <h2 className={s.sectionTitle}>Quick start</h2>
         <p className={s.sectionSub}>Make your first API call in under 60 seconds.</p>
 
-        <div className={s.card}>
-          <div className={s.tabBar}>
+        <div style={cardStyle}>
+          <div
+            className="flex"
+            style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+          >
             {(["curl", "js", "python"] as const).map((t) => (
               <button key={t} onClick={() => setQuickTab(t)} className={s.tab(quickTab === t)}>
                 {t === "js" ? "JavaScript" : t === "python" ? "Python" : "curl"}
               </button>
             ))}
           </div>
-          <pre className={s.code}>
+          <pre className="p-4 text-xs text-white/60 font-mono overflow-x-auto whitespace-pre leading-relaxed" style={{ borderRadius: "0 0 20px 20px" }}>
             {quickTab === "curl" ? CURL_EXTRACT : quickTab === "js" ? JS_EXTRACT : PY_EXTRACT}
           </pre>
         </div>
 
-        <div className="mt-6 bg-zinc-900 border border-white/10 rounded-xl p-5">
-          <p className="text-sm text-zinc-400 mb-3 font-medium">Example response</p>
-          <pre className="text-xs text-zinc-300 font-mono overflow-x-auto whitespace-pre leading-relaxed">
+        <div className="mt-4 p-5 rounded-2xl" style={cardStyle}>
+          <p className="text-sm text-white/40 mb-3 font-medium">Example response</p>
+          <pre className="text-xs text-white/60 font-mono overflow-x-auto whitespace-pre leading-relaxed">
 {`{
   "success": true,
   "data": {
@@ -306,23 +352,31 @@ export default function DevelopersPage() {
         <h2 className={s.sectionTitle}>Endpoints</h2>
         <p className={s.sectionSub}>
           All endpoints require{" "}
-          <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-xs font-mono">
+          <code
+            className="px-1.5 py-0.5 rounded-lg text-xs font-mono text-[#a78bfa]"
+            style={{ background: "rgba(108,43,217,0.15)" }}
+          >
             Authorization: Bearer sk_live_YOUR_KEY
           </code>
         </p>
 
         {endpoints.map((ep) => (
-          <div key={ep.path} className={s.endpointCard}>
+          <div key={ep.path} className="p-5 mb-4 rounded-2xl" style={cardStyle}>
             <div className="flex items-center gap-3 mb-3 flex-wrap">
               <span className={s.method(ep.method)}>{ep.method}</span>
               <code className="text-sm font-mono text-white">{ep.path}</code>
-              <span className={s.price}>{ep.price}</span>
+              <span
+                className="text-amber-300 text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)" }}
+              >
+                {ep.price}
+              </span>
             </div>
-            <p className="text-zinc-400 text-sm mb-4">{ep.desc}</p>
+            <p className="text-white/40 text-sm mb-4">{ep.desc}</p>
 
             <table className="w-full text-xs mb-4">
               <thead>
-                <tr className="text-left text-zinc-600 border-b border-white/5">
+                <tr className="text-left text-white/20" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                   <th className="pb-1 pr-4 font-medium">Parameter</th>
                   <th className="pb-1 pr-4 font-medium">Type</th>
                   <th className="pb-1 pr-4 font-medium">Required</th>
@@ -331,23 +385,25 @@ export default function DevelopersPage() {
               </thead>
               <tbody>
                 {ep.params.map((p) => (
-                  <tr key={p.name} className="border-b border-white/5">
-                    <td className="py-1.5 pr-4 font-mono text-zinc-300">{p.name}</td>
-                    <td className="py-1.5 pr-4 text-zinc-500">{p.type}</td>
+                  <tr key={p.name} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <td className="py-1.5 pr-4 font-mono text-white/60">{p.name}</td>
+                    <td className="py-1.5 pr-4 text-white/30">{p.type}</td>
                     <td className="py-1.5 pr-4">
-                      {p.req ? (
-                        <span className="text-emerald-400">required</span>
-                      ) : (
-                        <span className="text-zinc-600">optional</span>
-                      )}
+                      {p.req
+                        ? <span className="text-emerald-400">required</span>
+                        : <span className="text-white/20">optional</span>
+                      }
                     </td>
-                    <td className="py-1.5 text-zinc-400">{p.desc}</td>
+                    <td className="py-1.5 text-white/40">{p.desc}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
-            <pre className="bg-[#111] rounded-lg p-3 text-xs text-zinc-300 font-mono overflow-x-auto whitespace-pre leading-relaxed">
+            <pre
+              className="p-3 text-xs text-white/50 font-mono overflow-x-auto whitespace-pre leading-relaxed rounded-xl"
+              style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)" }}
+            >
               {ep.codeExample}
             </pre>
           </div>
@@ -355,10 +411,10 @@ export default function DevelopersPage() {
       </section>
 
       {/* Error reference */}
-      <section className={s.section}>
+      <section className={s.section} id="errors">
         <h2 className={s.sectionTitle}>Error codes</h2>
         <p className={s.sectionSub}>All errors return consistent JSON with a machine-readable code.</p>
-        <div className="bg-zinc-900 border border-white/10 rounded-xl overflow-hidden">
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
           {[
             { status: "401", code: "MISSING_API_KEY", desc: "Authorization header not provided" },
             { status: "401", code: "INVALID_API_KEY", desc: "Key not found, revoked, or suspended" },
@@ -371,29 +427,33 @@ export default function DevelopersPage() {
           ].map((e, i) => (
             <div
               key={e.code}
-              className={`flex items-start gap-4 px-5 py-3 text-sm ${i % 2 === 0 ? "bg-white/[0.02]" : ""}`}
+              className="flex items-start gap-4 px-5 py-3 text-sm"
+              style={{ background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent" }}
             >
-              <span className="text-zinc-500 font-mono w-8 shrink-0">{e.status}</span>
-              <code className="text-amber-400 font-mono w-48 shrink-0 text-xs">{e.code}</code>
-              <span className="text-zinc-400">{e.desc}</span>
+              <span className="text-white/25 font-mono w-8 shrink-0">{e.status}</span>
+              <code className="text-amber-300 font-mono w-48 shrink-0 text-xs">{e.code}</code>
+              <span className="text-white/40">{e.desc}</span>
             </div>
           ))}
         </div>
       </section>
 
       {/* Sandbox */}
-      <section className={s.section}>
+      <section className={s.section} id="sandbox">
         <h2 className={s.sectionTitle}>Sandbox</h2>
         <p className={s.sectionSub}>
           Test without calling AI or consuming credits. Generate a{" "}
-          <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-xs font-mono">sk_test_</code> key in
+          <code className="text-[#a78bfa] px-1.5 py-0.5 rounded-lg text-xs font-mono" style={{ background: "rgba(108,43,217,0.15)" }}>sk_test_</code> key in
           your dashboard, then use{" "}
-          <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-xs font-mono">
+          <code className="text-[#a78bfa] px-1.5 py-0.5 rounded-lg text-xs font-mono" style={{ background: "rgba(108,43,217,0.15)" }}>
             api.synclyst.app/sandbox/v1/
           </code>{" "}
           endpoints.
         </p>
-        <pre className="bg-[#111] border border-white/10 rounded-xl p-4 text-xs text-zinc-300 font-mono overflow-x-auto whitespace-pre leading-relaxed">
+        <pre
+          className="p-4 text-xs text-white/50 font-mono overflow-x-auto whitespace-pre leading-relaxed rounded-2xl"
+          style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
 {`# Sandbox — use sk_test_ key and /sandbox/v1/ path
 curl -X POST https://api.synclyst.app/sandbox/v1/extract \\
   -H "Authorization: Bearer sk_test_YOUR_TEST_KEY" \\
@@ -407,39 +467,44 @@ curl -X POST https://api.synclyst.app/sandbox/v1/extract \\
       {/* Pricing */}
       <section className={s.section} id="pricing">
         <h2 className={s.sectionTitle}>Pricing</h2>
-        <p className={s.sectionSub}>
-          Start free, no card required. Upgrade when you need more.
-        </p>
-        <div className={s.pricingGrid}>
+        <p className={s.sectionSub}>Start free, no card required. Upgrade when you need more.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {plans.map((plan) => (
-            <div key={plan.name} className={s.pricingCard(plan.highlight)}>
+            <div
+              key={plan.name}
+              className="p-6 flex flex-col rounded-2xl"
+              style={{
+                background: plan.highlight ? "rgba(108,43,217,0.15)" : "rgba(255,255,255,0.035)",
+                border: plan.highlight ? "1px solid rgba(108,43,217,0.4)" : "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
               <div className="mb-4">
-                <p className="text-sm text-zinc-400 mb-1">{plan.name}</p>
+                <p className="text-sm text-white/40 mb-1">{plan.name}</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-bold">{plan.price}</span>
-                  <span className="text-zinc-500 text-sm">{plan.period}</span>
+                  <span className="text-white/30 text-sm">{plan.period}</span>
                 </div>
               </div>
-              <ul className="text-sm text-zinc-400 space-y-2 flex-1 mb-6">
+              <ul className="text-sm text-white/40 space-y-2 flex-1 mb-6">
                 <li className="text-white font-medium">{plan.calls}</li>
                 <li>{plan.rate}</li>
                 <li className="text-xs">{plan.overage}</li>
               </ul>
               <Link
                 href="/developers/dashboard"
-                className={`text-center py-2.5 px-4 rounded-lg font-medium text-sm transition ${
+                className="text-center py-2.5 px-4 rounded-full font-medium text-sm transition"
+                style={
                   plan.highlight
-                    ? "bg-white text-black hover:bg-zinc-100"
-                    : "border border-white/20 text-white hover:bg-white/5"
-                }`}
+                    ? { background: "#6c2bd9", color: "#fff" }
+                    : { border: "1px solid rgba(255,255,255,0.15)", color: "#fff" }
+                }
               >
                 {plan.cta}
               </Link>
             </div>
           ))}
         </div>
-
-        <p className="text-center text-zinc-500 text-sm mt-6">
+        <p className="text-center text-white/25 text-sm mt-6">
           Per-call pricing: extract $0.05 · market-value $0.10 · classify $0.02 · value $0.03
         </p>
       </section>
@@ -447,30 +512,43 @@ curl -X POST https://api.synclyst.app/sandbox/v1/extract \\
       {/* FAQ */}
       <section className={s.section} id="faq">
         <h2 className={s.sectionTitle}>FAQ</h2>
-        <div className="space-y-6 mt-8">
+        <div className="space-y-5 mt-8">
           {faqs.map((f) => (
-            <div key={f.q}>
-              <p className={s.faqQ}>{f.q}</p>
-              <p className={s.faqA}>{f.a}</p>
+            <div
+              key={f.q}
+              className="p-5 rounded-2xl"
+              style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <p className="text-white font-medium mb-1 text-sm">{f.q}</p>
+              <p className="text-white/40 text-sm">{f.a}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Footer CTA */}
-      <section className="max-w-5xl mx-auto px-6 py-16 text-center border-t border-white/10">
+      <section
+        className="max-w-5xl mx-auto px-6 py-16 text-center"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+      >
         <h2 className="text-2xl font-bold mb-3">Ready to build?</h2>
-        <p className="text-zinc-400 mb-8">Free API key. No card required. First 100 calls on us.</p>
-        <Link href="/developers/dashboard" className={s.btnPrimary}>
+        <p className="text-white/40 mb-8">Free API key. No card required. First 100 calls on us.</p>
+        <Link
+          href="/developers/dashboard"
+          className="bg-white text-black font-semibold px-8 py-3 rounded-full hover:bg-zinc-100 transition text-sm"
+        >
           Get your free API key
         </Link>
       </section>
 
-      <footer className="border-t border-white/10 py-8 text-center text-zinc-600 text-sm">
+      <footer
+        className="py-8 text-center text-sm"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.2)" }}
+      >
         © {new Date().getFullYear()} Synclyst ·{" "}
-        <Link href="/privacy" className="hover:text-zinc-400 transition">Privacy</Link>
+        <Link href="/privacy" className="hover:text-white/50 transition">Privacy</Link>
         {" · "}
-        <Link href="/terms" className="hover:text-zinc-400 transition">Terms</Link>
+        <Link href="/terms" className="hover:text-white/50 transition">Terms</Link>
       </footer>
     </div>
   );
