@@ -253,6 +253,46 @@ export default function DashboardClient() {
             </div>
           )}
         </div>
+        {/* Shopify connection status */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem", marginBottom: "1.5rem" }}>
+          <section className="glass-card" style={{ padding: "1.5rem", gridColumn: "1 / -1" }}>
+            <h3 className="section-label" style={{ marginBottom: "0.75rem" }}>Shopify Store</h3>
+            {shopifyConnected ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ fontSize: "1.25rem" }}>✅</span>
+                <div>
+                  <p style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.875rem" }}>Connected</p>
+                  {shopifyShopDomain && (
+                    <p style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>{shopifyShopDomain}</p>
+                  )}
+                </div>
+                <a
+                  href={`https://${shopifyShopDomain}/admin/products`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ marginLeft: "auto", fontSize: "0.8125rem", color: "var(--accent)", fontWeight: 600 }}
+                >
+                  View products →
+                </a>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.875rem", flex: 1 }}>
+                  Connect your Shopify store to publish products directly from Claude Desktop.
+                </p>
+                <button
+                  type="button"
+                  onClick={connectShopify}
+                  className="glass-cta"
+                  style={{ padding: "0.5rem 1.25rem", borderRadius: "8px", fontWeight: 600, cursor: "pointer", color: "#fff", whiteSpace: "nowrap" }}
+                >
+                  Connect Shopify
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem" }}>
           {pushProductId && (
             <section className="glass-card" style={{ padding: "1.5rem", gridColumn: "1 / -1" }}>
