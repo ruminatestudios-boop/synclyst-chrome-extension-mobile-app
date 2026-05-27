@@ -28,6 +28,7 @@
     />
     <script src="/vendor/qrcode-generator.js"></script>
     <script src="/vendor/qrcode-expose.js"></script>
+    <script src="/js/synclyst-anon-id.js"></script>
     <style>
       :root {
         --radius-btn-outline: 12px;
@@ -2168,7 +2169,7 @@
           if (!b64) return cb("");
           var req = {
             method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            headers: Object.assign({ "Content-Type": "application/json", Accept: "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
             credentials: "include",
             body: JSON.stringify({
               session_id: sessionId,
@@ -2198,7 +2199,7 @@
         function appendImageToSession(b64, mime, cb, opSig) {
           var req = {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: Object.assign({ "Content-Type": "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
             credentials: "include",
             body: JSON.stringify({
               session_id: sessionId,
@@ -2261,7 +2262,7 @@
               if (extraImages && extraImages.length) body.extra_images = extraImages;
               fetch("/api/snap-pair/push", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: Object.assign({ "Content-Type": "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
                 credentials: "include",
                 signal: opSig,
                 body: JSON.stringify(body),
@@ -2437,7 +2438,7 @@
                   if (origUrl) body.original_image_urls = [origUrl];
                   fetch("/api/snap-pair/push", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: Object.assign({ "Content-Type": "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
                     credentials: "include",
                     signal: opSig,
                     body: JSON.stringify(body),
@@ -2528,7 +2529,7 @@
                                     if (opSig.aborted) return;
                                 fetch("/api/snap-pair/push", {
                                   method: "POST",
-                                  headers: { "Content-Type": "application/json" },
+                                  headers: Object.assign({ "Content-Type": "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
                                   credentials: "include",
                                   signal: opSig,
                                   body: JSON.stringify({
