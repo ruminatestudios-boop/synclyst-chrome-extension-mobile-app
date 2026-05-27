@@ -391,8 +391,10 @@ async function handleSnapPairPush(request: NextRequest) {
   }
   const visionUrl = `${base}/api/v1/vision/extract`;
   const auth = request.headers.get("authorization");
+  const anonId = request.headers.get("x-synclyst-anon-id") || request.headers.get("X-SyncLyst-Anon-Id");
   const visionHeaders: HeadersInit = { "Content-Type": "application/json" };
   if (auth) visionHeaders.Authorization = auth;
+  if (anonId) visionHeaders["X-SyncLyst-Anon-Id"] = anonId;
 
   const visionBody = JSON.stringify({
     image_base64: imageBase64,
