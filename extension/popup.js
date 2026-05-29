@@ -672,16 +672,15 @@ async function upsertDraftLibraryItem(item) {
   };
   const list = await readDraftLibrary();
   const out = [next];
-  // Use sessionId+stamp as the composite unique key so each new scan (different stamp)
-  // creates a separate draft entry even when reusing the same pairing session ID.
-  const nextStamp = safeTrimStr(next.stamp);
+  // Deduplicate by sessionId — one entry per session, latest version wins.
+  // Each phone scan produces a new session ID (synced via background.js SNAP_PAIR_COMPLETE),
+  // so one scan = one entry. Older entries with the same session are replaced.
   for (const it of list) {
     if (!it || typeof it !== "object") continue;
     const s0 = safeTrimStr(it.sessionId);
     if (!s0) continue;
-    const itStamp = safeTrimStr(it.stamp);
-    // Skip only if BOTH session ID and stamp match (same exact scan, not just same session)
-    if (s0.toLowerCase() === sid.toLowerCase() && itStamp === nextStamp) continue;
+    // Drop any older entry for the same session — `next` (at index 0) is already the latest.
+    if (s0.toLowerCase() === sid.toLowerCase()) continue;
     out.push(it);
     if (out.length >= DRAFT_LIBRARY_MAX_ITEMS) break;
   }
