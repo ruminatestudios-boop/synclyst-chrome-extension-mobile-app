@@ -64,6 +64,7 @@
     "https://www.facebook.com/*",
     "https://www.instagram.com/*",
     "https://synclyst.app/*",
+    "https://app.synclyst.app/*",
     "https://*.vercel.app/*",
     "https://*.supabase.co/*"
   ],
@@ -80,7 +81,7 @@
     "service_worker": "background.js"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://synclyst.app https://*.vercel.app https://*.supabase.co wss://*.supabase.co"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://synclyst.app https://app.synclyst.app https://*.vercel.app https://*.supabase.co wss://*.supabase.co"
   },
   "content_scripts": [
     {
@@ -142,6 +143,8 @@
       "matches": [
         "https://synclyst.app/snap*",
         "https://synclyst.app/extension-review*",
+        "https://app.synclyst.app/snap*",
+        "https://app.synclyst.app/extension-review*",
         "https://*.vercel.app/snap*",
         "https://*.vercel.app/extension-review*"
       ],
@@ -152,7 +155,8 @@
     },
     {
       "matches": [
-        "https://synclyst.app/*"
+        "https://synclyst.app/*",
+        "https://app.synclyst.app/*"
       ],
       "js": [
         "tier-bridge.js"

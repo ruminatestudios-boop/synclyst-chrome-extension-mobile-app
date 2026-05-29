@@ -954,12 +954,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       } catch {
         /* ignore */
       }
+      // If the snap page reported a session ID (e.g. generated fresh on /snap without ?s=),
+      // update storage so the popup polls the correct session and shows the right product.
+      const incomingSessionId =
+        message && typeof message.sessionId === "string" && /^[a-f0-9]{12,32}$/i.test(message.sessionId.trim())
+          ? message.sessionId.trim()
+          : null;
       try {
         await chrome.storage.local.set({
           synclyst_prefers_qr_home: false,
           synclyst_snap_listing_ready_at: Date.now(),
           /** Popup polls `/api/snap-pair/session/:id` on this origin — must match the /snap page (e.g. 127.0.0.1:3000). */
           ...(originAuto ? { synclyst_origin_auto: originAuto } : {}),
+          /** Sync session ID from the snap page so popup always polls the right session. */
+          ...(incomingSessionId ? { snap_pair_session_id: incomingSessionId } : {}),
         });
       } catch {
         /* ignore */
