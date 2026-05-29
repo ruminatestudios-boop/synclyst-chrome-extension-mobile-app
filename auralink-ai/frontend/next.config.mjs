@@ -63,8 +63,7 @@ const nextConfig = {
         { source: "/demo", destination: "/demo.html" },
         { source: "/snap", destination: "/snap.html" },
         { source: "/snap/", destination: "/snap.html" },
-        { source: "/extension-review", destination: "/extension-review.html" },
-        { source: "/extension-review/", destination: "/extension-review.html" },
+        // /extension-review is handled by the App Router page (app/extension-review/page.tsx)
       ],
       afterFiles: [
         ...listingFlowRewrites,
