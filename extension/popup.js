@@ -2929,7 +2929,9 @@ function openFullReviewInBrowser() {
     setStatus("Choose a marketplace in step 2 first.");
     return;
   }
-  const u = new URL("/extension-review", SYNCLYST_ORIGIN);
+  // Always open extension-review on app.synclyst.app — it's live there and served correctly.
+  const reviewBase = "https://app.synclyst.app";
+  const u = new URL("/extension-review", reviewBase);
   u.searchParams.set("s", snapPairSessionId);
   u.searchParams.set("platform", platform);
   chrome.tabs.create({ url: u.toString() });
