@@ -730,8 +730,10 @@ function openLibrarySession(sessionId, cachedRow) {
     try {
       chrome.storage.local.set({ snap_pair_session_id: sid, [STORAGE_PREFERS_QR_HOME]: false });
       snapPairSessionId = sid;
-      listingHydrated = false;
-      lastPayload = null;
+      // Pre-load the cached listing BEFORE continueToListing() so refreshLoadedSubstate()
+      // sees a hydrated listing and goes straight to the listing screen (not the QR/waiting screen).
+      lastPayload = cachedRow;
+      listingHydrated = true;
       lastAppliedListingStamp = null;
       lastAppliedImageUrl = null;
       // Close the library overlay if open.
