@@ -213,6 +213,10 @@ export function buildEbayListingExtraFromVision(visionJson: VisionPayload): Reco
   return Object.fromEntries(Object.entries(out).filter(([, v]) => !isEmptyVal(v)));
 }
 
+/** Fields that represent the product's textual content — always overwrite with new extraction data
+ * so descriptions from previous scans don't bleed into new product scans. */
+const EBAY_ALWAYS_OVERWRITE = new Set(["item_description", "title", "category_leaf", "category_breadcrumb"]);
+
 export function mergeEbayIntoListingExtra(
   prevListingExtra: unknown,
   incomingEbay: Record<string, unknown>
@@ -224,7 +228,9 @@ export function mergeEbayIntoListingExtra(
   for (const [k, v] of Object.entries(incomingEbay)) {
     if (isEmptyVal(v)) continue;
     const cur = prevE[k];
-    if (!isEmptyVal(cur)) continue;
+    // Always overwrite content fields so new scan descriptions replace previous product descriptions.
+    // Only preserve non-content fields (e.g. user-selected category_id) when already set.
+    if (!EBAY_ALWAYS_OVERWRITE.has(k) && !isEmptyVal(cur)) continue;
     prevE[k] = v;
   }
 
