@@ -69,14 +69,14 @@
       50% { opacity: 0.88; }
     }
     .progress-dot { width: 6px; height: 6px; border-radius: 3px; background: #e4e4e7; transition: all 0.3s; }
-    .progress-dot.done { background: #22c55e; }
-    .progress-dot.current { width: 20px; background: #eab308; }
+    .progress-dot.done { background: #7c3aed; }
+    .progress-dot.current { width: 20px; background: #7c3aed; }
     .proc-item { transition: color 0.2s; }
     .proc-item.done { color: #18181b; }
     .proc-item.pending { color: #71717a; }
-    .proc-item .step-icon-done { width: 20px; height: 20px; border-radius: 50%; background: #22c55e; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold; }
+    .proc-item .step-icon-done { width: 20px; height: 20px; border-radius: 50%; background: #7c3aed; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold; }
     .proc-item .step-icon-pending { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #e4e4e7; flex-shrink: 0; }
-    .proc-item .step-icon-current { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #eab308; border-top-color: transparent; flex-shrink: 0; animation: spin 0.8s linear infinite; }
+    .proc-item .step-icon-current { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #7c3aed; border-top-color: transparent; flex-shrink: 0; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .marketplace-logo { width: 28px; height: 28px; object-fit: contain; opacity: 0.85; }
     #proc-status-msg { transition: opacity 0.3s ease; opacity: 0; }
@@ -191,7 +191,7 @@
       var extractionInFlight = false;
       var extractionOk = false;
       var SEGMENTS = 60;
-      var gradientStops = [{ p: 0, r: 234, g: 179, b: 8 }, { p: 1, r: 34, g: 197, b: 94 }];
+      var gradientStops = [{ p: 0, r: 167, g: 139, b: 250 }, { p: 1, r: 124, g: 58, b: 237 }]; // violet-400 → violet-600
 
       function interpColor(t) {
         var i = 0;
