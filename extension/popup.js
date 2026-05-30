@@ -245,29 +245,41 @@ async function resolveSynclystOrigin() {
     return manual.replace(/\/$/, "");
   }
 
+  // In prod manifest (no localhost in CSP), skip cached localhost origins and local discovery
+  // entirely — they would cause CSP errors and can never succeed.
+  const isProdManifest = SYNCLYST_ORIGIN_DEFAULT === SYNCLYST_ORIGIN_LIVE ||
+    (!SYNCLYST_ORIGIN_DEFAULT.includes("127.0.0.1") && !SYNCLYST_ORIGIN_DEFAULT.includes("localhost"));
+
   const cached = o[STORAGE_ORIGIN_AUTO] != null ? String(o[STORAGE_ORIGIN_AUTO]).trim() : "";
   if (cached && /^https?:\/\//i.test(cached)) {
     const base = cached.replace(/\/$/, "");
-    if (await validateSnapPairOrigin(base)) {
+    const isLocalCached = base.startsWith("http://127.0.0.1:") || base.startsWith("http://localhost:");
+    if (isProdManifest && isLocalCached) {
+      // Stale localhost from a previous dev session — clear it immediately without fetching.
+      chrome.storage.local.remove([STORAGE_ORIGIN_AUTO]);
+    } else if (await validateSnapPairOrigin(base)) {
       return base;
+    } else {
+      chrome.storage.local.remove([STORAGE_ORIGIN_AUTO]);
     }
-    chrome.storage.local.remove([STORAGE_ORIGIN_AUTO]);
   }
 
   const ports = [3000, 3001, 3002];
   const localHosts = ["127.0.0.1", "localhost"];
   let portFound = null;
   let originLocal = null;
-  for (const port of ports) {
-    for (const host of localHosts) {
-      const origin = `http://${host}:${port}`;
-      if (await validateSnapPairOrigin(origin)) {
-        portFound = port;
-        originLocal = origin;
-        break;
+  if (!isProdManifest) {
+    for (const port of ports) {
+      for (const host of localHosts) {
+        const origin = `http://${host}:${port}`;
+        if (await validateSnapPairOrigin(origin)) {
+          portFound = port;
+          originLocal = origin;
+          break;
+        }
       }
+      if (portFound) break;
     }
-    if (portFound) break;
   }
 
   if (!portFound || !originLocal) {
