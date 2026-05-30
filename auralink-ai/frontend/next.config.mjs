@@ -55,6 +55,13 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // scan.synclyst.app root → scanner (so old links to scan.synclyst.app still work)
+      {
+        source: "/",
+        has: [{ type: "host", value: "scan.synclyst.app" }],
+        destination: "/scan",
+        permanent: false,
+      },
       { source: "/shopify/launch", destination: "/api/shopify/oauth-start", permanent: false },
       { source: "/shopify/launch/", destination: "/api/shopify/oauth-start", permanent: false },
       { source: "/flow-3.html", destination: "/review", permanent: false },
