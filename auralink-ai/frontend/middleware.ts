@@ -25,12 +25,6 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
     return NextResponse.rewrite(new URL("/landing.html", request.url));
   }
 
-  // extension-review is served from app.synclyst.app — redirect there preserving query params.
-  if (p === "/extension-review" || p.startsWith("/extension-review/")) {
-    const dest = new URL("https://app.synclyst.app" + p + request.nextUrl.search);
-    return NextResponse.redirect(dest, 307);
-  }
-
   if (!clerkConfigured) {
     return NextResponse.next();
   }
