@@ -321,7 +321,17 @@
           <span class="scan-frame-guide__corner scan-frame-guide__corner--bl"></span>
         </div>
       </div>
-      <div id="scan-camera-error" class="text-red-600 text-sm mt-4 hidden max-w-md text-center rounded-2xl bg-red-50 border border-red-100 p-3"></div>
+      <div id="scan-camera-error" class="text-red-600 text-sm mt-4 hidden max-w-md w-full text-center rounded-2xl bg-red-50 border border-red-100 p-3 mx-4">
+        <p id="scan-camera-error-msg"></p>
+        <div class="flex gap-2 mt-2.5 justify-center">
+          <button type="button" id="scan-camera-retry-btn" class="px-3 py-1.5 rounded-lg bg-red-100 border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-200 transition-colors">
+            Retry camera
+          </button>
+          <label for="scan-upload-input" class="px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-xs font-semibold cursor-pointer hover:bg-zinc-700 transition-colors">
+            Upload photo
+          </label>
+        </div>
+      </div>
       
       <!-- Scan quota counter -->
       <div id="scan-quota-bar" class="hidden w-full max-w-md mx-auto px-4 py-2 text-center">
@@ -1495,34 +1505,49 @@
               return 'This browser doesn’t support camera here — use Upload photo or HTTPS.';
             return 'Camera unavailable — try Upload photo below.';
           }
+          var cameraBlocked = false;
+          function showCameraError(msg) {
+            cameraBlocked = true;
+            var msgEl = document.getElementById('scan-camera-error-msg');
+            if (msgEl) msgEl.textContent = msg;
+            // Legacy path: old error el had textContent set directly
+            if (cameraErrorEl && !msgEl) cameraErrorEl.textContent = msg;
+            if (cameraErrorEl) cameraErrorEl.classList.remove('hidden');
+            // Dim the shutter so it's clear you can't capture
+            var captureBtn2 = document.getElementById('scan-capture-btn');
+            if (captureBtn2) captureBtn2.style.opacity = '0.35';
+          }
+          function hideCameraError() {
+            cameraBlocked = false;
+            if (cameraErrorEl) cameraErrorEl.classList.add('hidden');
+            var captureBtn2 = document.getElementById('scan-capture-btn');
+            if (captureBtn2) captureBtn2.style.opacity = '';
+          }
           function startCamera() {
-            if (cameraErrorEl) { cameraErrorEl.textContent = ''; cameraErrorEl.classList.add('hidden'); }
+            hideCameraError();
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-              if (cameraErrorEl) {
-                cameraErrorEl.textContent = cameraErrorMessage(null);
-                cameraErrorEl.classList.remove('hidden');
-              }
+              showCameraError(cameraErrorMessage(null));
               return;
             }
             if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
             var fallbackErr = null;
             navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
-              .then(attachStream)
+              .then(function(s) { hideCameraError(); attachStream(s); })
               .catch(function(e1) {
                 fallbackErr = e1;
-                return navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing }, audio: false }).then(attachStream);
+                return navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing }, audio: false }).then(function(s) { hideCameraError(); attachStream(s); });
               })
               .catch(function(e2) {
                 fallbackErr = e2;
-                return navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(attachStream);
+                return navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function(s) { hideCameraError(); attachStream(s); });
               })
               .catch(function(e3) {
-                if (cameraErrorEl) {
-                  cameraErrorEl.textContent = cameraErrorMessage(e3 || fallbackErr);
-                  cameraErrorEl.classList.remove('hidden');
-                }
+                showCameraError(cameraErrorMessage(e3 || fallbackErr));
               });
           }
+          // Retry button
+          var retryBtn = document.getElementById('scan-camera-retry-btn');
+          if (retryBtn) retryBtn.addEventListener('click', function() { startCamera(); });
           startCamera();
 
           if (rotateCameraBtn) rotateCameraBtn.addEventListener('click', function() {
@@ -1531,7 +1556,7 @@
           });
 
           if (captureBtn) captureBtn.addEventListener('click', function() {
-            if (!video.videoWidth || !video.videoHeight) return;
+            if (cameraBlocked || !video.videoWidth || !video.videoHeight) return;
             var canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;

@@ -35,6 +35,24 @@ const listingFlowRewrites = [
 const nextConfig = {
   reactStrictMode: true,
   ...(resolvedPublicApiUrl ? { env: { NEXT_PUBLIC_API_URL: resolvedPublicApiUrl } } : {}),
+  async headers() {
+    return [
+      {
+        // Allow camera + microphone for scan page — required by Android Chrome
+        source: "/(scan|list|home.html|snap|snap.html)",
+        headers: [
+          { key: "Permissions-Policy", value: "camera=*, microphone=()" },
+        ],
+      },
+      {
+        // Broad allow for all pages so iframes / subdomain variations don't block camera
+        source: "/:path*",
+        headers: [
+          { key: "Permissions-Policy", value: "camera=*, microphone=()" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       { source: "/shopify/launch", destination: "/api/shopify/oauth-start", permanent: false },
