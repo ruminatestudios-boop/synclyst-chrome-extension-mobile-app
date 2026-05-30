@@ -689,9 +689,12 @@
       var ss = document.getElementById('ri-sell-sub');
       if (ss) ss.textContent = subSell;
 
-      /** Match bar — same 60-segment yellow→green gradient as flow-2 proc bar */
+      /** Match bar — 60-segment violet gradient matching flow-2 progress bar */
       var RI_SEGMENTS = 60;
-      var RI_GRAD_STOPS = [{ p: 0, r: 234, g: 179, b: 8 }, { p: 1, r: 34, g: 197, b: 94 }];
+      var RI_GRAD_STOPS = [
+        { p: 0,   r: 167, g: 139, b: 250 },   // #a78bfa violet-400
+        { p: 1,   r: 109, g: 40,  b: 217 },   // #6d28d9 violet-700
+      ];
       function riInterpColor(t) {
         var i = 0;
         while (i + 1 < RI_GRAD_STOPS.length && RI_GRAD_STOPS[i + 1].p < t) i++;
