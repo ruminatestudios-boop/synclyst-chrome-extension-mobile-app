@@ -480,7 +480,7 @@ def upsert_description_variation(
 # ---------------------------------------------------------------------------
 
 TIER_LIMITS = {
-    "starter": 3,
+    "starter": 10,
     "pro": 100,
     "growth": 500,
     "scale": 10**9,  # treat as unlimited
