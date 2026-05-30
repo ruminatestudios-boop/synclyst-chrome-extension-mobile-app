@@ -1498,7 +1498,20 @@
 
           function attachStream(s) {
             stream = s;
-            if (video) video.srcObject = s;
+            if (!video) return;
+            video.srcObject = s;
+            // Android Chrome won't autoplay when srcObject is set programmatically —
+            // must call play() explicitly. Use loadedmetadata as a fallback for slow starts.
+            var playPromise = video.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+              playPromise.catch(function() {
+                // Retry once metadata has loaded (handles slow camera init on Android)
+                video.addEventListener('loadedmetadata', function onMeta() {
+                  video.removeEventListener('loadedmetadata', onMeta);
+                  video.play().catch(function() {});
+                });
+              });
+            }
           }
 
           // ── In-app browser detection ────────────────────────────────────────
