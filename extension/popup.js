@@ -672,15 +672,16 @@ async function upsertDraftLibraryItem(item) {
   };
   const list = await readDraftLibrary();
   const out = [next];
-  // Deduplicate by sessionId — one entry per session, latest version wins.
-  // Each phone scan produces a new session ID (synced via background.js SNAP_PAIR_COMPLETE),
-  // so one scan = one entry. Older entries with the same session are replaced.
+  const nextTitle = safeTrimStr(next.title).toLowerCase().slice(0, 40);
+  // Deduplicate by sessionId+title: same session + same title = same scan (update in place).
+  // Same session + different title = different product scan = keep as separate entry.
   for (const it of list) {
     if (!it || typeof it !== "object") continue;
     const s0 = safeTrimStr(it.sessionId);
     if (!s0) continue;
-    // Drop any older entry for the same session — `next` (at index 0) is already the latest.
-    if (s0.toLowerCase() === sid.toLowerCase()) continue;
+    const itTitle = safeTrimStr(it.title).toLowerCase().slice(0, 40);
+    // Only drop if BOTH session AND title match — this is the same scan being updated.
+    if (s0.toLowerCase() === sid.toLowerCase() && itTitle === nextTitle) continue;
     out.push(it);
     if (out.length >= DRAFT_LIBRARY_MAX_ITEMS) break;
   }
