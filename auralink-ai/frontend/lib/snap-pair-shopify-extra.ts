@@ -228,7 +228,7 @@ function isPlainObject(v: unknown): v is JsonObject {
  * Deep-merge incoming shopify fields into prev listing_extra: only set keys that are empty in prev.shopify.
  */
 /** Fields that represent product content — always overwrite with new extraction data. */
-const SHOPIFY_ALWAYS_OVERWRITE = new Set(["body_html", "title", "product_type", "tags"]);
+const SHOPIFY_ALWAYS_OVERWRITE = new Set(["body_html", "title", "product_type", "tags", "category", "category_suggested"]);
 
 export function mergeShopifyIntoListingExtra(
   prevListingExtra: unknown,
