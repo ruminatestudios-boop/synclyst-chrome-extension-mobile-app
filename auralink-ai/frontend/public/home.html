@@ -321,14 +321,19 @@
           <span class="scan-frame-guide__corner scan-frame-guide__corner--bl"></span>
         </div>
       </div>
-      <div id="scan-camera-error" class="text-red-600 text-sm mt-4 hidden max-w-md w-full text-center rounded-2xl bg-red-50 border border-red-100 p-3 mx-4">
-        <p id="scan-camera-error-msg"></p>
-        <div class="flex gap-2 mt-2.5 justify-center">
+      <div id="scan-camera-error" class="text-sm mt-3 hidden max-w-md w-full text-center rounded-2xl bg-red-50 border border-red-100 p-4 mx-4">
+        <p id="scan-camera-error-msg" class="text-red-700 font-medium leading-snug"></p>
+        <!-- Steps shown when permission is permanently denied -->
+        <ol id="scan-camera-steps" class="hidden mt-2.5 text-left text-red-800 text-xs space-y-1 list-decimal list-inside leading-relaxed"></ol>
+        <div class="flex gap-2 mt-3 justify-center flex-wrap">
           <button type="button" id="scan-camera-retry-btn" class="px-3 py-1.5 rounded-lg bg-red-100 border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-200 transition-colors">
-            Retry camera
+            Try again
           </button>
-          <label for="scan-upload-input" class="px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-xs font-semibold cursor-pointer hover:bg-zinc-700 transition-colors">
-            Upload photo
+          <button type="button" id="scan-open-browser-btn" class="hidden px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-xs font-semibold hover:bg-zinc-700 transition-colors">
+            Open in Chrome
+          </button>
+          <label for="scan-upload-input" class="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-semibold cursor-pointer hover:bg-zinc-700 transition-colors">
+            Upload photo instead
           </label>
         </div>
       </div>
@@ -1495,40 +1500,115 @@
             stream = s;
             if (video) video.srcObject = s;
           }
-          function cameraErrorMessage(err) {
-            var n = err && err.name ? String(err.name) : '';
-            if (n === 'NotAllowedError' || n === 'SecurityError')
-              return 'Camera blocked — allow camera for this site (lock icon → Site settings) or use Upload photo.';
-            if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'ConstraintNotSatisfiedError')
-              return 'No matching camera — try Rotate or use Upload photo.';
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
-              return 'This browser doesn’t support camera here — use Upload photo or HTTPS.';
-            return 'Camera unavailable — try Upload photo below.';
-          }
+
+          // ── In-app browser detection ────────────────────────────────────────
+          var ua = navigator.userAgent || ‘’;
+          var isInAppBrowser = /Instagram|FBAN|FBAV|FB_IAB|musical_ly|TikTok|Snapchat|Twitter|LinkedInApp|MicroMessenger/.test(ua)
+            || ((/Android/.test(ua) || /iPhone|iPad/.test(ua)) && /wv\b/.test(ua));
+          var isAndroid = /Android/.test(ua);
+          var isIOS = /iPhone|iPad|iPod/.test(ua);
+
           var cameraBlocked = false;
-          function showCameraError(msg) {
+
+          function showCameraError(msg, isDenied) {
             cameraBlocked = true;
-            var msgEl = document.getElementById('scan-camera-error-msg');
+            var msgEl = document.getElementById(‘scan-camera-error-msg’);
+            var stepsEl = document.getElementById(‘scan-camera-steps’);
+            var openBrowserBtn = document.getElementById(‘scan-open-browser-btn’);
             if (msgEl) msgEl.textContent = msg;
-            // Legacy path: old error el had textContent set directly
-            if (cameraErrorEl && !msgEl) cameraErrorEl.textContent = msg;
-            if (cameraErrorEl) cameraErrorEl.classList.remove('hidden');
-            // Dim the shutter so it's clear you can't capture
-            var captureBtn2 = document.getElementById('scan-capture-btn');
-            if (captureBtn2) captureBtn2.style.opacity = '0.35';
+            if (cameraErrorEl) cameraErrorEl.classList.remove(‘hidden’);
+            // Dim shutter
+            var captureBtn2 = document.getElementById(‘scan-capture-btn’);
+            if (captureBtn2) captureBtn2.style.opacity = ‘0.35’;
+
+            // Show "Open in Chrome" if in-app browser
+            if (isInAppBrowser && openBrowserBtn) {
+              openBrowserBtn.classList.remove(‘hidden’);
+              openBrowserBtn.addEventListener(‘click’, function() {
+                var url = window.location.href;
+                // intent:// URI opens Chrome on Android; window.open fallback for iOS
+                if (isAndroid) {
+                  window.location.href = ‘intent://’ + url.replace(/^https?:\/\//, ‘’) + ‘#Intent;scheme=https;package=com.android.chrome;end’;
+                } else {
+                  window.open(url, ‘_blank’);
+                }
+              });
+            }
+
+            // Show step-by-step instructions when camera is permanently denied
+            if (isDenied && stepsEl) {
+              var steps = [];
+              if (isInAppBrowser) {
+                steps = [
+                  ‘Tap "Open in Chrome" below’,
+                  ‘Chrome will ask for camera — tap Allow’,
+                ];
+              } else if (isAndroid) {
+                steps = [
+                  ‘Tap the lock icon in the address bar’,
+                  ‘Tap "Permissions"’,
+                  ‘Set Camera to "Allow"’,
+                  ‘Reload this page’,
+                ];
+              } else if (isIOS) {
+                steps = [
+                  ‘Go to iPhone Settings → Chrome (or Safari)’,
+                  ‘Tap Camera → Allow’,
+                  ‘Come back and reload this page’,
+                ];
+              } else {
+                steps = [
+                  ‘Click the lock icon in your browser address bar’,
+                  ‘Find Camera and set it to "Allow"’,
+                  ‘Reload the page’,
+                ];
+              }
+              stepsEl.innerHTML = steps.map(function(s) { return ‘<li>’ + s + ‘</li>’; }).join(‘’);
+              stepsEl.classList.remove(‘hidden’);
+            }
           }
+
           function hideCameraError() {
             cameraBlocked = false;
-            if (cameraErrorEl) cameraErrorEl.classList.add('hidden');
-            var captureBtn2 = document.getElementById('scan-capture-btn');
-            if (captureBtn2) captureBtn2.style.opacity = '';
+            if (cameraErrorEl) cameraErrorEl.classList.add(‘hidden’);
+            var stepsEl = document.getElementById(‘scan-camera-steps’);
+            if (stepsEl) stepsEl.classList.add(‘hidden’);
+            var captureBtn2 = document.getElementById(‘scan-capture-btn’);
+            if (captureBtn2) captureBtn2.style.opacity = ‘’;
           }
+
           function startCamera() {
             hideCameraError();
+
+            // No mediaDevices API = insecure context or very old browser
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-              showCameraError(cameraErrorMessage(null));
+              if (isInAppBrowser) {
+                showCameraError(‘Camera not available in this app. Tap "Open in Chrome" to use it.’, false);
+              } else {
+                showCameraError(‘Camera not supported here — use Upload photo instead.’, false);
+              }
               return;
             }
+
+            // Check permission state first (avoids silent block on Android)
+            var permCheck = navigator.permissions && navigator.permissions.query
+              ? navigator.permissions.query({ name: ‘camera’ })
+              : Promise.resolve({ state: ‘prompt’ });
+
+            permCheck.then(function(status) {
+              if (status.state === ‘denied’) {
+                showCameraError(‘Camera access is blocked for this site.’, true);
+                return;
+              }
+              // state is ‘granted’ or ‘prompt’ — proceed
+              _doGetUserMedia();
+            }).catch(function() {
+              // permissions API unsupported — just try anyway
+              _doGetUserMedia();
+            });
+          }
+
+          function _doGetUserMedia() {
             if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
             var fallbackErr = null;
             navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
@@ -1542,12 +1622,19 @@
                 return navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function(s) { hideCameraError(); attachStream(s); });
               })
               .catch(function(e3) {
-                showCameraError(cameraErrorMessage(e3 || fallbackErr));
+                var n = (e3 && e3.name) ? e3.name : ((fallbackErr && fallbackErr.name) ? fallbackErr.name : ‘’);
+                var isDenied = n === ‘NotAllowedError’ || n === ‘SecurityError’;
+                var msg = isDenied
+                  ? ‘Camera access is blocked for this site.’
+                  : (n === ‘NotFoundError’ ? ‘No camera found — use Upload photo.’ : ‘Camera unavailable — use Upload photo.’);
+                showCameraError(msg, isDenied);
               });
           }
+
           // Retry button
-          var retryBtn = document.getElementById('scan-camera-retry-btn');
-          if (retryBtn) retryBtn.addEventListener('click', function() { startCamera(); });
+          var retryBtn = document.getElementById(‘scan-camera-retry-btn’);
+          if (retryBtn) retryBtn.addEventListener(‘click’, function() { startCamera(); });
+
           startCamera();
 
           if (rotateCameraBtn) rotateCameraBtn.addEventListener('click', function() {
