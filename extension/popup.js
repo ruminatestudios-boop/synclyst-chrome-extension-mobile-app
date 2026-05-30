@@ -245,29 +245,41 @@ async function resolveSynclystOrigin() {
     return manual.replace(/\/$/, "");
   }
 
+  // In prod manifest (no localhost in CSP), skip cached localhost origins and local discovery
+  // entirely — they would cause CSP errors and can never succeed.
+  const isProdManifest = SYNCLYST_ORIGIN_DEFAULT === SYNCLYST_ORIGIN_LIVE ||
+    (!SYNCLYST_ORIGIN_DEFAULT.includes("127.0.0.1") && !SYNCLYST_ORIGIN_DEFAULT.includes("localhost"));
+
   const cached = o[STORAGE_ORIGIN_AUTO] != null ? String(o[STORAGE_ORIGIN_AUTO]).trim() : "";
   if (cached && /^https?:\/\//i.test(cached)) {
     const base = cached.replace(/\/$/, "");
-    if (await validateSnapPairOrigin(base)) {
+    const isLocalCached = base.startsWith("http://127.0.0.1:") || base.startsWith("http://localhost:");
+    if (isProdManifest && isLocalCached) {
+      // Stale localhost from a previous dev session — clear it immediately without fetching.
+      chrome.storage.local.remove([STORAGE_ORIGIN_AUTO]);
+    } else if (await validateSnapPairOrigin(base)) {
       return base;
+    } else {
+      chrome.storage.local.remove([STORAGE_ORIGIN_AUTO]);
     }
-    chrome.storage.local.remove([STORAGE_ORIGIN_AUTO]);
   }
 
   const ports = [3000, 3001, 3002];
   const localHosts = ["127.0.0.1", "localhost"];
   let portFound = null;
   let originLocal = null;
-  for (const port of ports) {
-    for (const host of localHosts) {
-      const origin = `http://${host}:${port}`;
-      if (await validateSnapPairOrigin(origin)) {
-        portFound = port;
-        originLocal = origin;
-        break;
+  if (!isProdManifest) {
+    for (const port of ports) {
+      for (const host of localHosts) {
+        const origin = `http://${host}:${port}`;
+        if (await validateSnapPairOrigin(origin)) {
+          portFound = port;
+          originLocal = origin;
+          break;
+        }
       }
+      if (portFound) break;
     }
-    if (portFound) break;
   }
 
   if (!portFound || !originLocal) {
@@ -316,6 +328,7 @@ let lastAppliedListingStamp = null;
 /** One-shot: skip auto-advance when re-applying an existing listing while restoring QR home from storage. */
 /** When true, we just received a "new scan/upload" signal and are waiting for listing content. */
 let extractionPending = false;
+let suppressMergeNextPoll = false;
 let extractionStartedAtMs = 0;
 let extractionTickerId = null;
 
@@ -632,6 +645,7 @@ function renderDraftLibraryOverlayUI(list) {
     openBtn.type = "button";
     openBtn.className = "settings-library-open";
     openBtn.textContent = "Open";
+    const cachedRow = (it.cachedRow && typeof it.cachedRow === "object") ? it.cachedRow : null;
     openBtn.addEventListener("click", (e) => {
       try {
         e.preventDefault();
@@ -639,12 +653,12 @@ function renderDraftLibraryOverlayUI(list) {
       } catch {
         /* ignore */
       }
-      openLibrarySession(sid);
+      openLibrarySession(sid, cachedRow);
     });
 
     row.appendChild(meta);
     row.appendChild(openBtn);
-    row.addEventListener("click", () => openLibrarySession(sid));
+    row.addEventListener("click", () => openLibrarySession(sid, cachedRow));
     wrap.appendChild(row);
   }
 }
@@ -666,14 +680,21 @@ async function upsertDraftLibraryItem(item) {
     updatedAtMs: typeof item.updatedAtMs === "number" && Number.isFinite(item.updatedAtMs) ? item.updatedAtMs : Date.now(),
     stamp: safeTrimStr(item && item.stamp),
     imageUrl: safeTrimStr(item && item.imageUrl),
+    // Store full listing row so Open restores instantly from cache (no server round-trip).
+    cachedRow: (item && item.cachedRow != null) ? item.cachedRow : undefined,
   };
   const list = await readDraftLibrary();
   const out = [next];
+  const nextTitle = safeTrimStr(next.title).toLowerCase().slice(0, 40);
+  // Deduplicate by sessionId+title: same session + same title = same scan (update in place).
+  // Same session + different title = different product scan = keep as separate entry.
   for (const it of list) {
     if (!it || typeof it !== "object") continue;
     const s0 = safeTrimStr(it.sessionId);
     if (!s0) continue;
-    if (s0.toLowerCase() === sid.toLowerCase()) continue;
+    const itTitle = safeTrimStr(it.title).toLowerCase().slice(0, 40);
+    // Only drop if BOTH session AND title match — this is the same scan being updated.
+    if (s0.toLowerCase() === sid.toLowerCase() && itTitle === nextTitle) continue;
     out.push(it);
     if (out.length >= DRAFT_LIBRARY_MAX_ITEMS) break;
   }
@@ -713,9 +734,39 @@ function clearDraftLibrary() {
   }
 }
 
-function openLibrarySession(sessionId) {
+function openLibrarySession(sessionId, cachedRow) {
   const sid = safeTrimStr(sessionId);
   if (!sid) return;
+
+  // If we have cached listing data, restore instantly without a reload or server fetch.
+  if (cachedRow && typeof cachedRow === "object") {
+    try {
+      chrome.storage.local.set({ snap_pair_session_id: sid, [STORAGE_PREFERS_QR_HOME]: false });
+      snapPairSessionId = sid;
+      // Pre-load the cached listing BEFORE continueToListing() so refreshLoadedSubstate()
+      // sees a hydrated listing and goes straight to the listing screen (not the QR/waiting screen).
+      lastPayload = cachedRow;
+      listingHydrated = true;
+      lastAppliedListingStamp = null;
+      lastAppliedImageUrl = null;
+      // Close the library overlay if open.
+      try {
+        const overlay = document.getElementById("library-overlay");
+        if (overlay) overlay.classList.add("hidden");
+      } catch { /* ignore */ }
+      continueToListing();
+      applyListing(cachedRow);
+      // On the next server response, skip the stale-field merge so the real server data
+      // (correct product description) replaces whatever is in the cache.
+      suppressMergeNextPoll = true;
+      void burstPollUntilListing(sid, { stepMs: 400, maxAttempts: 8 });
+      return;
+    } catch {
+      /* fall through to reload if anything fails */
+    }
+  }
+
+  // Fallback: reload and fetch from server.
   try {
     chrome.storage.local.set({ snap_pair_session_id: sid, [STORAGE_PREFERS_QR_HOME]: false }, () => {
       window.location.reload();
@@ -780,6 +831,7 @@ function renderDraftLibraryUI(list) {
     openBtn.type = "button";
     openBtn.className = "settings-library-open";
     openBtn.textContent = "Open";
+    const cachedRowNonOverlay = (it.cachedRow && typeof it.cachedRow === "object") ? it.cachedRow : null;
     openBtn.addEventListener("click", (e) => {
       try {
         e.preventDefault();
@@ -787,12 +839,12 @@ function renderDraftLibraryUI(list) {
       } catch {
         /* ignore */
       }
-      openLibrarySession(sid);
+      openLibrarySession(sid, cachedRowNonOverlay);
     });
 
     row.appendChild(meta);
     row.appendChild(openBtn);
-    row.addEventListener("click", () => openLibrarySession(sid));
+    row.addEventListener("click", () => openLibrarySession(sid, cachedRowNonOverlay));
     wrap.appendChild(row);
   }
 }
@@ -2476,7 +2528,7 @@ function setReviewLoadingState(on, msg) {
   const loadWrap = document.getElementById("review-loading");
   if (loadWrap) loadWrap.classList.toggle("hidden", !on);
   if (on) {
-    const m = typeof msg === "string" && msg.trim() ? msg.trim() : "Extracting your listing";
+    const m = typeof msg === "string" && msg.trim() ? msg.trim() : "Syncing from phone…";
     startExtractionTicker(m.replace(/[.…]+$/g, ""));
   } else {
     stopExtractionTicker();
@@ -2724,9 +2776,20 @@ function syncPayloadFromReviewFields() {
 /**
  * Later polls can return rows with image/price but blank title/description (partial writes / races).
  * If we already showed copy, keep it until the server sends non-blank replacements (user edits stay in sync via input listeners).
+ * IMPORTANT: only merge within the same scan (same updated_at stamp). If the stamp has changed,
+ * this is a new product scan — do NOT carry old description/title across to the new product.
  */
 function mergeListingCoreFromLastPayload(row) {
   if (!listingHydrated || !lastPayload) return row;
+  // After opening a library draft, the first server response must not merge stale cached fields.
+  if (suppressMergeNextPoll) {
+    suppressMergeNextPoll = false;
+    return row;
+  }
+  // If the server row has a newer stamp than what we last applied, it's a fresh scan — don't merge stale fields.
+  const rowStamp = row.updated_at != null ? String(row.updated_at).trim() : "";
+  const prevStamp = lastAppliedListingStamp != null ? String(lastAppliedListingStamp).trim() : "";
+  if (rowStamp && prevStamp && rowStamp !== prevStamp) return row;
   const out = { ...row };
   if (!pickStr(out.title) && pickStr(lastPayload.title)) out.title = lastPayload.title;
   const rowDesc = out.description != null ? String(out.description).trim() : "";
@@ -2803,6 +2866,8 @@ function applyListing(row) {
           updatedAtMs: ms,
           stamp: rawStamp,
           imageUrl: thumb,
+          // Cache the full listing row so Open is instant (no server fetch needed).
+          cachedRow: lastPayload,
         });
       })();
     }
@@ -2893,7 +2958,9 @@ function openFullReviewInBrowser() {
     setStatus("Choose a marketplace in step 2 first.");
     return;
   }
-  const u = new URL("/extension-review", SYNCLYST_ORIGIN);
+  // Always open extension-review on app.synclyst.app — it's live there and served correctly.
+  const reviewBase = "https://app.synclyst.app";
+  const u = new URL("/extension-review", reviewBase);
   u.searchParams.set("s", snapPairSessionId);
   u.searchParams.set("platform", platform);
   chrome.tabs.create({ url: u.toString() });
@@ -3482,7 +3549,7 @@ window.addEventListener("beforeunload", () => {
         lastPayload = null;
         lastAppliedListingStamp = null;
         lastAppliedImageUrl = null;
-        setReviewLoadingState(true, "Extracting your listing…");
+        setReviewLoadingState(true, "Syncing from phone…");
         continueToListing();
         burstPollUntilListing(snapPairSessionId);
       })();
@@ -3511,7 +3578,7 @@ window.addEventListener("beforeunload", () => {
           } catch {
             /* ignore */
           }
-          setReviewLoadingState(true, "Extracting your listing…");
+          setReviewLoadingState(true, "Syncing from phone…");
           continueToListing();
           burstPollUntilListing(snapPairSessionId);
         })();

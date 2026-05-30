@@ -47,7 +47,7 @@ def get_supabase():
         return None
 
 
-def create_product(supabase, payload: UniversalProductCreate) -> dict:
+def create_product(supabase, payload: UniversalProductCreate, clerk_user_id: str = None, source: str = "snap") -> dict:
     """Insert into universal_products; return inserted row."""
     row = {
         "id": str(uuid4()),
@@ -65,7 +65,10 @@ def create_product(supabase, payload: UniversalProductCreate) -> dict:
         "image_urls": payload.image_urls or [],
         "status": payload.status,
         "source_image_id": payload.source_image_id,
+        "source": source,
     }
+    if clerk_user_id:
+        row["clerk_user_id"] = clerk_user_id
     if payload.exact_model is not None:
         row["exact_model"] = payload.exact_model
     if payload.material_composition is not None:
@@ -77,6 +80,22 @@ def create_product(supabase, payload: UniversalProductCreate) -> dict:
     r = supabase.table("universal_products").insert(row).execute()
     if not r.data or len(r.data) == 0:
         raise ValueError("Insert failed")
+    return r.data[0]
+
+
+def get_latest_mcp_product(supabase, clerk_user_id: str) -> Optional[dict]:
+    """Return the most recently created MCP product for this user (not yet consumed)."""
+    r = (
+        supabase.table("universal_products")
+        .select("id,copy_seo_title,copy_description,copy_bullet_points,tags_category,tags_search_keywords,attributes_brand,image_url,created_at")
+        .eq("clerk_user_id", clerk_user_id)
+        .eq("source", "mcp")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not r.data or len(r.data) == 0:
+        return None
     return r.data[0]
 
 
@@ -461,7 +480,7 @@ def upsert_description_variation(
 # ---------------------------------------------------------------------------
 
 TIER_LIMITS = {
-    "starter": 3,
+    "starter": 10,
     "pro": 100,
     "growth": 500,
     "scale": 10**9,  # treat as unlimited

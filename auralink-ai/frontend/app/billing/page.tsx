@@ -63,7 +63,7 @@ function BillingInner() {
     setErr(null);
     setLoading(tier);
     try {
-      const token = await getToken(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+      const token = await (async () => { if (CLERK_JWT_TEMPLATE) { try { const t = await getToken({ template: CLERK_JWT_TEMPLATE }); if (t) return t; } catch {} } return getToken(); })();
       if (!token) {
         setErr("Could not get auth token. Please sign in again.");
         setLoading(null);

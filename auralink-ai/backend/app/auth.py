@@ -1,6 +1,7 @@
 """
 Clerk JWT verification for protected API routes.
 Uses JWKS from Clerk to verify Bearer tokens.
+Also accepts permanent `syn_live_` API keys stored in Supabase.
 """
 from typing import Optional
 import base64
@@ -14,6 +15,27 @@ from app.config import get_settings
 
 _security = HTTPBearer(auto_error=False)
 _jwks_client: Optional[jwt.PyJWKClient] = None
+
+_SYN_KEY_PREFIX = "syn_live_"
+
+
+def _try_api_key_auth(token: str) -> Optional[dict]:
+    """
+    If the token looks like a Synclyst permanent API key, verify it against Supabase.
+    Returns a synthetic claims dict on success, None if not an API key.
+    Raises HTTPException 401 if it IS a syn_ key but not found/revoked.
+    """
+    if not token.startswith(_SYN_KEY_PREFIX):
+        return None
+    # Import here to avoid circular imports
+    from app.db import get_supabase
+    from app.routes.api_keys import lookup_api_key
+    supabase = get_supabase()
+    row = lookup_api_key(supabase, token)
+    if not row:
+        raise HTTPException(status_code=401, detail="Invalid or revoked API key")
+    # Return claims-like dict so callers can use auth.get("sub") as usual
+    return {"sub": row["clerk_user_id"], "sid": row["id"], "auth_method": "api_key"}
 
 
 def _is_local_dev_runtime() -> bool:
@@ -74,7 +96,10 @@ async def verify_clerk(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_security),
 ) -> dict:
     """
-    Verify Clerk JWT from Authorization: Bearer <token>.
+    Verify auth from Authorization: Bearer <token>.
+    Accepts:
+      - Synclyst permanent API keys (syn_live_...)
+      - Clerk JWTs
     Returns decoded claims or raises 401.
     When Clerk is not configured, allows all requests (dev mode).
     """
@@ -86,9 +111,15 @@ async def verify_clerk(
         if _is_local_dev_runtime():
             return {"sub": "dev-local-user", "sid": "dev-local-session"}
         raise HTTPException(status_code=401, detail="Missing or invalid authorization")
+
+    # Try permanent API key first (fast path — no network call)
+    api_key_claims = _try_api_key_auth(token)
+    if api_key_claims is not None:
+        return api_key_claims
+
+    # Fall back to Clerk JWT verification
     try:
         jwks = _get_jwks_client()
-        header = jwt.get_unverified_header(token)
         signing_key = jwks.get_signing_key_from_jwt(token)
         decoded = jwt.decode(
             token,
@@ -116,6 +147,7 @@ async def optional_verify_clerk(
     """
     Optional auth: when token present, verify (raise 401 if invalid); when absent, return None.
     Use for routes that work for both anonymous and authenticated (e.g. landing save-as-draft).
+    Accepts both syn_live_ API keys and Clerk JWTs.
     """
     settings = get_settings()
     if not settings.clerk_secret_key:
@@ -123,6 +155,12 @@ async def optional_verify_clerk(
     token = credentials.credentials if credentials else None
     if not token:
         return None
+
+    # Try permanent API key first
+    api_key_claims = _try_api_key_auth(token)
+    if api_key_claims is not None:
+        return api_key_claims
+
     try:
         jwks = _get_jwks_client()
         signing_key = jwks.get_signing_key_from_jwt(token)

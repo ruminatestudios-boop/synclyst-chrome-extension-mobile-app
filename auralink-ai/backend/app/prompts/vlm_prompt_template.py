@@ -27,11 +27,9 @@ Extract in this order when visible: (1) brand — exact from logo/label; (2) mak
 ## Condition (for resale marketplaces)
 - condition: Infer from the image. Use one of: "new" (with tags, sealed, or clearly unused), "like_new" (minimal wear, no defects), "good" (normal wear), "fair" (visible wear), "for_parts" (non-working or for parts). If packaging/tags suggest new, use "new". If unclear, use null.
 
-## Price (critical: no hallucinated prices)
-- ONLY return a price if you can see it clearly in the image: visible price tag, visible label with price, or visible barcode that resolves to a known price.
-- If no price is visible in the image, do NOT guess. Set price_value and price_display to null and set "price_source": "not_found".
-- When you DO see a price: set price_display exactly as shown (e.g. "$19.99", "£12.50"), price_value as the number only, and "price_source": "found_in_image".
-- If you identify the product brand and model with high confidence and want to suggest a market price: set "price_source": "ai_suggested", "price_confidence": 0.0 to 1.0 (only include if confidence > 0.7), and base it on typical resale value not retail RRP. Otherwise prefer "not_found".
+## Price (always provide a resale estimate)
+- If you can see a price tag or label clearly: set price_display exactly as shown (e.g. "$19.99", "£12.50"), price_value as the number only, and "price_source": "found_in_image".
+- If no price is visible: ALWAYS provide a best-effort resale estimate based on the product type, brand, condition, and your knowledge of typical secondhand market values. Set "price_source": "ai_suggested", price_value to your estimate (GBP), and "price_confidence": 0.0–1.0. Base it on typical resale/secondhand value, NOT retail RRP. For common consumer goods (e.g. toothpaste, cleaning products) estimate the typical charity shop / eBay listing price. Only set "price_source": "not_found" if you truly cannot identify what the product is.
 
 ## Variant / structured fields (Pass 1 — extract from image)
 - detected_colors: array of colour names visible on the product or in the description (e.g. ["light blue", "black"]). If the description or copy mentions a colour, it MUST appear here.

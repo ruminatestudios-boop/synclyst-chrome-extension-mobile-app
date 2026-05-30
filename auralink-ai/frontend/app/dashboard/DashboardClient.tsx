@@ -10,6 +10,7 @@ import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
+import ApiKeyPanel from "./ApiKeyPanel";
 
 const MARKETPLACES = [
   { id: "shopify", name: "Shopify", logo: "https://www.google.com/s2/favicons?domain=shopify.com&sz=128", connect: true },
@@ -21,6 +22,26 @@ const MARKETPLACES = [
 ] as const;
 
 const CLERK_JWT_TEMPLATE = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE?.trim();
+
+/**
+ * Get a Clerk JWT, trying the named template first and falling back to the
+ * default session token. This prevents 401s when the JWT template doesn't
+ * exist in the Clerk dashboard (e.g. new environments or misconfigured keys).
+ */
+async function getAuthToken(
+  getToken: ReturnType<typeof useAuth>["getToken"]
+): Promise<string | null> {
+  if (!getToken) return null;
+  if (CLERK_JWT_TEMPLATE) {
+    try {
+      const t = await getToken({ template: CLERK_JWT_TEMPLATE });
+      if (t) return t;
+    } catch {
+      // Template not found — fall through to default
+    }
+  }
+  return getToken();
+}
 
 export default function DashboardClient() {
   const { user } = useUser();
@@ -44,7 +65,7 @@ export default function DashboardClient() {
 
   const fetchUsage = async () => {
     try {
-      const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+      const token = await getAuthToken(getToken);
       const r = await apiFetch("/api/v1/usage", { token });
       setUsage(r.ok ? await r.json() : null);
     } catch {
@@ -99,7 +120,7 @@ export default function DashboardClient() {
 
     (async () => {
       try {
-        const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+        const token = await getAuthToken(getToken);
         const res = await apiFetch("/api/v1/billing/confirm", {
           method: "POST",
           token,
@@ -119,7 +140,7 @@ export default function DashboardClient() {
       for (let i = 0; i < 15; i++) {
         await new Promise((r) => setTimeout(r, 2000));
         try {
-          const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+          const token = await getAuthToken(getToken);
           const r = await apiFetch("/api/v1/usage", { token });
           if (r.ok) {
             const u = await r.json();
@@ -139,7 +160,7 @@ export default function DashboardClient() {
 
   useEffect(() => {
     if (!pushProductId || !getToken) return;
-    getToken(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined)
+    getAuthToken(getToken)
       .then((token) => apiFetch(`/api/v1/products/${pushProductId}`, { token }))
       .then((r) => (r.ok ? r.json() : null))
       .then((p: { copy_seo_title?: string } | null) => setPushProductTitle(p?.copy_seo_title ?? "Draft"))
@@ -158,7 +179,7 @@ export default function DashboardClient() {
     setPushLoading(true);
     setPushMessage(null);
     try {
-      const token = await getToken?.(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+      const token = await getAuthToken(getToken);
       const res = await apiFetch(`/api/v1/products/${pushProductId}/push-drafts`, {
         method: "POST",
         token,
@@ -232,6 +253,46 @@ export default function DashboardClient() {
             </div>
           )}
         </div>
+        {/* Shopify connection status */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem", marginBottom: "1.5rem" }}>
+          <section className="glass-card" style={{ padding: "1.5rem", gridColumn: "1 / -1" }}>
+            <h3 className="section-label" style={{ marginBottom: "0.75rem" }}>Shopify Store</h3>
+            {shopifyConnected ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ fontSize: "1.25rem" }}>✅</span>
+                <div>
+                  <p style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.875rem" }}>Connected</p>
+                  {shopifyShopDomain && (
+                    <p style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>{shopifyShopDomain}</p>
+                  )}
+                </div>
+                <a
+                  href={`https://${shopifyShopDomain}/admin/products`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ marginLeft: "auto", fontSize: "0.8125rem", color: "var(--accent)", fontWeight: 600 }}
+                >
+                  View products →
+                </a>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <p style={{ color: "var(--muted)", fontSize: "0.875rem", flex: 1 }}>
+                  Connect your Shopify store to publish products directly from Claude Desktop.
+                </p>
+                <button
+                  type="button"
+                  onClick={connectShopify}
+                  className="glass-cta"
+                  style={{ padding: "0.5rem 1.25rem", borderRadius: "8px", fontWeight: 600, cursor: "pointer", color: "#fff", whiteSpace: "nowrap" }}
+                >
+                  Connect Shopify
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem" }}>
           {pushProductId && (
             <section className="glass-card" style={{ padding: "1.5rem", gridColumn: "1 / -1" }}>
@@ -303,65 +364,6 @@ export default function DashboardClient() {
               </button>
             </section>
           )}
-          <section id="connect-marketplaces" className="glass-card" style={{ padding: "1.5rem", gridColumn: "1 / -1" }}>
-            <h3 className="section-label">Connect your marketplaces</h3>
-            <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginBottom: "1rem" }}>
-              Choose where to sync your listings. Click a channel to connect.
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "0.75rem" }}>
-              {MARKETPLACES.map((m) => {
-                const isShopify = m.id === "shopify";
-                const connected = isShopify && shopifyConnected;
-                const available = isShopify;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => available && setSelectedChannel(m.id)}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "1rem 0.75rem",
-                      background: selectedChannel === m.id ? "#f4f4f5" : "var(--surface)",
-                      color: selectedChannel === m.id ? "var(--text)" : "var(--text)",
-                      border: `1px solid ${selectedChannel === m.id ? "#a1a1aa" : "var(--border)"}`,
-                      borderRadius: "12px",
-                      cursor: available ? "pointer" : "default",
-                      opacity: available ? 1 : 0.45,
-                    }}
-                    title={available ? (connected ? `Connected: ${shopifyShopDomain || "Shopify"}` : "Connect") : "Coming soon"}
-                  >
-                    <img src={m.logo} alt="" width={32} height={32} style={{ objectFit: "contain", marginBottom: "0.5rem" }} />
-                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>{m.name}</span>
-                    {connected && <span style={{ fontSize: "0.65rem", marginTop: "0.25rem", opacity: 0.9 }}>Connected</span>}
-                    {!available && <span style={{ fontSize: "0.65rem", marginTop: "0.25rem", opacity: 0.7 }}>Coming soon</span>}
-                  </button>
-                );
-              })}
-            </div>
-            {selectedChannel === "shopify" && (
-              <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
-                <h4 style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text)", marginBottom: "0.5rem" }}>Connect Shopify</h4>
-                {shopifyConnected ? (
-                  <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
-                    Connected: {shopifyShopDomain || "Shopify"}. Add another store below.
-                  </p>
-                ) : null}
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.75rem" }}>
-                  <button
-                    type="button"
-                    onClick={connectShopify}
-                    className="glass-cta"
-                    style={{ padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: 600, cursor: "pointer", color: "#fff", width: "100%" }}
-                  >
-                    {shopifyConnected ? "Connect another store" : "Connect store"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
         </div>
       </main>
     </div>

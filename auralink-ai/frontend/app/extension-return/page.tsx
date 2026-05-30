@@ -54,7 +54,7 @@ function closeSoon() {
 function ExtensionReturnWithClerk() {
   const { isLoaded, isSignedIn, userId } = useAuth();
   const { user, isLoaded: userLoaded } = useUser();
-  const [msg, setMsg] = useState("You can close this tab and return to the SyncLyst extension popup.");
+  const [msg, setMsg] = useState("Open the SyncLyst extension to continue.");
   const [blockAuth, setBlockAuth] = useState(true);
 
   const applySummary = useCallback((j: { signedIn?: boolean; email?: string }) => {
@@ -88,7 +88,7 @@ function ExtensionReturnWithClerk() {
       safeSetLocalStorage("synclyst_email", "");
       safeSetLocalStorage("synclyst_auth_at", String(Date.now()));
       if (authP) {
-        setMsg("Signed out. You can close this tab and return to the SyncLyst extension popup.");
+        setMsg("Signed out. Open the SyncLyst extension to continue.");
       }
       return;
     }
@@ -152,10 +152,10 @@ function ExtensionReturnWithClerk() {
               /* ignore */
             }
           }
-          setMsg("Plan updated. You can close this tab and return to the extension popup.");
+          setMsg("Plan updated ✓ — open the SyncLyst extension to continue.");
         })
         .catch(() => {
-          setMsg("Payment received. You can close this tab and return to the extension popup.");
+          setMsg("Payment received ✓ — open the SyncLyst extension to continue.");
         });
       return;
     }
@@ -181,7 +181,7 @@ function ExtensionReturnWithClerk() {
     if (isSignedIn && user && userLoaded) {
       applyClerkUser(user);
       if (wantAuth) {
-        setMsg("Signed in. You can close this tab and return to the extension popup.");
+        setMsg("Signed in ✓ — open the SyncLyst extension to continue.");
       }
       return;
     }
@@ -211,7 +211,7 @@ function ExtensionReturnWithClerk() {
           if (j && j.signedIn) {
             applySummary(j);
             if (wantAuth) {
-              setMsg("Signed in. You can close this tab and return to the extension popup.");
+              setMsg("Signed in ✓ — open the SyncLyst extension to continue.");
             }
             return;
           }
@@ -224,7 +224,7 @@ function ExtensionReturnWithClerk() {
       if (isSignedIn && user) {
         applyClerkUser(user);
         if (wantAuth) {
-          setMsg("Signed in. You can close this tab and return to the extension popup.");
+          setMsg("Signed in ✓ — open the SyncLyst extension to continue.");
         }
         return;
       }
@@ -281,12 +281,12 @@ function ExtensionReturnWithClerk() {
         textAlign: "center",
       }}
     >
-      <h1 style={{ fontSize: "1.125rem", margin: "0 0 8px" }}>Return to SyncLyst</h1>
+      <h1 style={{ fontSize: "1.125rem", margin: "0 0 8px" }}>SyncLyst®</h1>
       <p style={{ fontSize: "0.9rem", lineHeight: 1.5, margin: "0 0 14px", color: "#475569", maxWidth: 460 }}>
         {msg}
       </p>
       <p style={{ fontSize: "0.8125rem", color: "#64748b", margin: 0 }}>
-        If this tab doesn’t close automatically, just close it.
+        You can close this tab — click the SyncLyst icon in your browser toolbar to continue.
       </p>
     </main>
   );
@@ -294,7 +294,7 @@ function ExtensionReturnWithClerk() {
 
 /** Server-only + retries (no ClerkProvider / dev) */
 function ExtensionReturnApiOnly() {
-  const [msg, setMsg] = useState("You can close this tab and return to the SyncLyst extension popup.");
+  const [msg, setMsg] = useState("Open the SyncLyst extension to continue.");
 
   useEffect(() => {
     const { signedOut, auth, checkout, tier, sessionId, billing } = readSearchParams();
@@ -328,7 +328,7 @@ function ExtensionReturnApiOnly() {
           safeSetLocalStorage("synclyst_auth_at", String(Date.now()));
           if (email) safeSetLocalStorage("synclyst_email", email);
           if (auth) {
-            setMsg(signedIn ? "Signed in. You can close this tab and return to the extension popup." : "Signed out.");
+            setMsg(signedIn ? "Signed in ✓ — open the SyncLyst extension to continue." : "Signed out.");
           }
           if (signedIn) return;
         } catch {

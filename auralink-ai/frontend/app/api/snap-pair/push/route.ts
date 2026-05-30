@@ -214,6 +214,43 @@ function resolvePriceFromVision(visionJson: {
   return "";
 }
 
+/**
+ * Last-resort price estimate when VLM and web enrichment both return nothing.
+ * Uses the product category/title to pick a reasonable secondhand/charity-shop value (GBP).
+ */
+function fallbackCategoryPrice(visionJson: {
+  tags?: { category?: unknown };
+  attributes?: { brand?: unknown; product_type?: unknown };
+  extraction_copy?: { seo_title?: unknown };
+}): string {
+  const cat = String(visionJson.tags?.category || "").toLowerCase();
+  const title = String(
+    (visionJson.extraction_copy as { seo_title?: unknown } | undefined)?.seo_title || ""
+  ).toLowerCase();
+  const combined = `${cat} ${title}`;
+
+  if (/headphone|speaker|earphone|airpod|earbud|audio/.test(combined)) return "25";
+  if (/console|playstation|xbox|nintendo|switch|ps[0-9]/.test(combined)) return "80";
+  if (/laptop|macbook|computer|tablet|ipad/.test(combined)) return "120";
+  if (/phone|iphone|samsung|smartphone/.test(combined)) return "60";
+  if (/camera|lens|dslr/.test(combined)) return "45";
+  if (/watch|smartwatch|fitbit/.test(combined)) return "20";
+  if (/toy|lego|figure|collectible|blind.?box|funko|game/.test(combined)) return "10";
+  if (/trainer|sneaker|shoe|boot/.test(combined)) return "18";
+  if (/jacket|coat|hoodie|jumper|knitwear/.test(combined)) return "12";
+  if (/jeans|trouser|shorts|skirt|dress/.test(combined)) return "8";
+  if (/shirt|t-shirt|top|blouse/.test(combined)) return "5";
+  if (/bag|backpack|handbag|purse/.test(combined)) return "12";
+  if (/book|novel|textbook/.test(combined)) return "3";
+  if (/dvd|blu.?ray|cd|vinyl/.test(combined)) return "3";
+  if (/jewellery|jewelry|necklace|bracelet|ring/.test(combined)) return "8";
+  if (/tool|drill|power.?tool/.test(combined)) return "15";
+  if (/kitchen|cookware|pan|pot/.test(combined)) return "8";
+  if (/toy|kids|children|baby/.test(combined)) return "5";
+  // Default charity shop estimate for unrecognised categories
+  return "5";
+}
+
 export async function POST(request: NextRequest) {
   try {
     return await handleSnapPairPush(request);
@@ -391,8 +428,10 @@ async function handleSnapPairPush(request: NextRequest) {
   }
   const visionUrl = `${base}/api/v1/vision/extract`;
   const auth = request.headers.get("authorization");
+  const anonId = request.headers.get("x-synclyst-anon-id") || request.headers.get("X-SyncLyst-Anon-Id");
   const visionHeaders: HeadersInit = { "Content-Type": "application/json" };
   if (auth) visionHeaders.Authorization = auth;
+  if (anonId) visionHeaders["X-SyncLyst-Anon-Id"] = anonId;
 
   const visionBody = JSON.stringify({
     image_base64: imageBase64,
@@ -449,7 +488,9 @@ async function handleSnapPairPush(request: NextRequest) {
   const description = asTrimmedString(
     descriptionFromVisionExtraction(visionJson as Parameters<typeof descriptionFromVisionExtraction>[0])
   );
-  const price = resolvePriceFromVision(visionJson as Parameters<typeof resolvePriceFromVision>[0]);
+  const price =
+    resolvePriceFromVision(visionJson as Parameters<typeof resolvePriceFromVision>[0]) ||
+    fallbackCategoryPrice(visionJson as Parameters<typeof fallbackCategoryPrice>[0]);
 
   const extraDataUrls: string[] = [];
   for (const e of extraImages) {

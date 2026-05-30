@@ -39,7 +39,7 @@ function BillingCheckoutInner() {
         // to the default token if the template doesn't exist in this Clerk project.
         let token: string | null = null;
         try {
-          token = await getToken(CLERK_JWT_TEMPLATE ? { template: CLERK_JWT_TEMPLATE } : undefined);
+          token = await (async () => { if (CLERK_JWT_TEMPLATE) { try { const t = await getToken({ template: CLERK_JWT_TEMPLATE }); if (t) return t; } catch {} } return getToken(); })();
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (CLERK_JWT_TEMPLATE && /jwt template exists with name/i.test(msg)) {
