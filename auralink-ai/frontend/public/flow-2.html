@@ -692,6 +692,9 @@
         setWaiting(false);
         var raw = (err && err.message) ? String(err.message) : '';
         var networkFail = err && (err.name === 'TypeError' || raw === 'Failed to fetch' || raw === 'fetch failed' || raw.indexOf('NetworkError') !== -1);
+        // Also treat 404 from the proxy as a routing miss (e.g. scan.synclyst.app subdomain
+        // doesn't have /api/v1 routes — fall through to Cloud Run directly).
+        var proxyMiss = raw.indexOf('404') !== -1 || raw.indexOf('Server error (404)') !== -1 || raw.indexOf('NOT_FOUND') !== -1;
 
         // Auto-fallback: if the Next.js proxy or local dev server isn't reachable,
         // retry once against the Cloud Run backend directly (works on localhost AND production).
@@ -701,7 +704,7 @@
         var usingNextProxy = originTry && apiUrl === originTry;
         // Allow fallback on any host (not just localhost) so production Vercel can recover
         // if the /api/v1 proxy rewrite is misconfigured or missing.
-        if (!triedFallback && fallbackApiUrl && (usingDirect8000 || usingNextProxy)) {
+        if (!triedFallback && fallbackApiUrl && (usingDirect8000 || usingNextProxy || proxyMiss)) {
           triedFallback = true;
           apiUrl = fallbackApiUrl;
           setWaiting(true);
