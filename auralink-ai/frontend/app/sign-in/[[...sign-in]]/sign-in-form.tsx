@@ -155,9 +155,9 @@ export function SignInForm({
             aria-hidden
           />
           <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600, color: "#18181b" }}>
-            You&apos;re signed in
+            You&apos;re signed in ✓
           </p>
-          <p style={{ margin: 0, fontSize: "0.875rem", color: "#6b7280" }}>Redirecting you now…</p>
+          <p style={{ margin: 0, fontSize: "0.875rem", color: "#6b7280" }}>Open the SyncLyst extension to continue.</p>
         </div>
       </>
     );
