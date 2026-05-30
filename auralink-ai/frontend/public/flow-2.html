@@ -398,14 +398,22 @@
       var host = window.location.hostname;
       var prodBackend = document.querySelector('meta[name="synclyst-backend-url"]');
       var fallbackApiUrl = (prodBackend && prodBackend.getAttribute('content')) ? prodBackend.getAttribute('content').trim().replace(/\/$/, '') : '';
-      // Same-origin /api/v1/vision/* (Next route → backend): works on Vercel, avoids CORS, and proxies both
-      // extract + reseller-scan (reseller-scan had no Next route before and 404'd in production).
+      // Hosts that are known NOT to have /api/v1 proxy routes — go straight to Cloud Run.
+      // scan.synclyst.app is a separate Vercel project with no API proxy.
+      var NO_PROXY_HOSTS = ['scan.synclyst.app', 'synclyst.app'];
+      var skipProxy = NO_PROXY_HOSTS.indexOf(host) !== -1;
+      // Same-origin /api/v1/vision/* (Next route → backend): works on Vercel, avoids CORS.
+      // On known no-proxy hosts, skip straight to Cloud Run (fallbackApiUrl).
       var apiUrl = '';
-      try {
-        if ((window.location.protocol === 'http:' || window.location.protocol === 'https:') && host)
-          apiUrl = String(window.location.origin || '').replace(/\/$/, '');
-      } catch (eO) {}
-      if (!apiUrl) apiUrl = metaApi || 'http://localhost:8000';
+      if (skipProxy && fallbackApiUrl) {
+        apiUrl = fallbackApiUrl;
+      } else {
+        try {
+          if ((window.location.protocol === 'http:' || window.location.protocol === 'https:') && host)
+            apiUrl = String(window.location.origin || '').replace(/\/$/, '');
+        } catch (eO) {}
+        if (!apiUrl) apiUrl = metaApi || 'http://localhost:8000';
+      }
 
       // If you're on localhost but want Cloud Run, we can auto-fallback on network failure.
       var triedFallback = false;
