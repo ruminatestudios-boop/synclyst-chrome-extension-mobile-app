@@ -2516,7 +2516,7 @@ function setReviewLoadingState(on, msg) {
   const loadWrap = document.getElementById("review-loading");
   if (loadWrap) loadWrap.classList.toggle("hidden", !on);
   if (on) {
-    const m = typeof msg === "string" && msg.trim() ? msg.trim() : "Extracting your listing";
+    const m = typeof msg === "string" && msg.trim() ? msg.trim() : "Syncing from phone…";
     startExtractionTicker(m.replace(/[.…]+$/g, ""));
   } else {
     stopExtractionTicker();
@@ -3537,7 +3537,7 @@ window.addEventListener("beforeunload", () => {
         lastPayload = null;
         lastAppliedListingStamp = null;
         lastAppliedImageUrl = null;
-        setReviewLoadingState(true, "Extracting your listing…");
+        setReviewLoadingState(true, "Syncing from phone…");
         continueToListing();
         burstPollUntilListing(snapPairSessionId);
       })();
@@ -3566,7 +3566,7 @@ window.addEventListener("beforeunload", () => {
           } catch {
             /* ignore */
           }
-          setReviewLoadingState(true, "Extracting your listing…");
+          setReviewLoadingState(true, "Syncing from phone…");
           continueToListing();
           burstPollUntilListing(snapPairSessionId);
         })();
