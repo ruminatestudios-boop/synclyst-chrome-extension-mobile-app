@@ -316,6 +316,7 @@ let lastAppliedListingStamp = null;
 /** One-shot: skip auto-advance when re-applying an existing listing while restoring QR home from storage. */
 /** When true, we just received a "new scan/upload" signal and are waiting for listing content. */
 let extractionPending = false;
+let suppressMergeNextPoll = false;
 let extractionStartedAtMs = 0;
 let extractionTickerId = null;
 
@@ -743,6 +744,10 @@ function openLibrarySession(sessionId, cachedRow) {
       } catch { /* ignore */ }
       continueToListing();
       applyListing(cachedRow);
+      // On the next server response, skip the stale-field merge so the real server data
+      // (correct product description) replaces whatever is in the cache.
+      suppressMergeNextPoll = true;
+      void burstPollUntilListing(sid, { stepMs: 400, maxAttempts: 8 });
       return;
     } catch {
       /* fall through to reload if anything fails */
@@ -2764,6 +2769,11 @@ function syncPayloadFromReviewFields() {
  */
 function mergeListingCoreFromLastPayload(row) {
   if (!listingHydrated || !lastPayload) return row;
+  // After opening a library draft, the first server response must not merge stale cached fields.
+  if (suppressMergeNextPoll) {
+    suppressMergeNextPoll = false;
+    return row;
+  }
   // If the server row has a newer stamp than what we last applied, it's a fresh scan — don't merge stale fields.
   const rowStamp = row.updated_at != null ? String(row.updated_at).trim() : "";
   const prevStamp = lastAppliedListingStamp != null ? String(lastAppliedListingStamp).trim() : "";
