@@ -2758,9 +2758,15 @@ function syncPayloadFromReviewFields() {
 /**
  * Later polls can return rows with image/price but blank title/description (partial writes / races).
  * If we already showed copy, keep it until the server sends non-blank replacements (user edits stay in sync via input listeners).
+ * IMPORTANT: only merge within the same scan (same updated_at stamp). If the stamp has changed,
+ * this is a new product scan — do NOT carry old description/title across to the new product.
  */
 function mergeListingCoreFromLastPayload(row) {
   if (!listingHydrated || !lastPayload) return row;
+  // If the server row has a newer stamp than what we last applied, it's a fresh scan — don't merge stale fields.
+  const rowStamp = row.updated_at != null ? String(row.updated_at).trim() : "";
+  const prevStamp = lastAppliedListingStamp != null ? String(lastAppliedListingStamp).trim() : "";
+  if (rowStamp && prevStamp && rowStamp !== prevStamp) return row;
   const out = { ...row };
   if (!pickStr(out.title) && pickStr(lastPayload.title)) out.title = lastPayload.title;
   const rowDesc = out.description != null ? String(out.description).trim() : "";
