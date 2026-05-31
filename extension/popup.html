@@ -1851,6 +1851,30 @@
         line-height: 1.35;
       }
       /* Step 1: rely on the stack gap so spacing stays uniform. */
+      .qr-sync-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        padding: 10px 14px;
+        background: #f3f0ff;
+        border: 1px solid #c4b5fd;
+        border-radius: 10px;
+        font-size: 12.5px;
+        color: #5b21b6;
+        font-weight: 500;
+        animation: qr-sync-fade-in 0.3s ease;
+      }
+      .qr-sync-status.hidden { display: none !important; }
+      @keyframes qr-sync-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+      .qr-sync-spinner {
+        flex-shrink: 0;
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        border: 2px solid #c4b5fd;
+        border-top-color: #7c3aed;
+        animation: synclyst-spin 0.8s linear infinite;
+      }
       #state-empty .btn-new-session {
         margin-top: 0;
       }
@@ -2335,6 +2359,12 @@
         <button type="button" class="btn-ghost hidden" id="btn-continue-listing">
           Continue to listing
         </button>
+
+        <!-- Phone sync status banner — shown when a scan is in progress -->
+        <div id="qr-sync-status" class="qr-sync-status hidden" role="status" aria-live="polite">
+          <span class="qr-sync-spinner"></span>
+          <span id="qr-sync-text">📱 Photo received — AI is extracting your listing…</span>
+        </div>
       </div>
 
       <div id="state-loaded" class="section hidden">
