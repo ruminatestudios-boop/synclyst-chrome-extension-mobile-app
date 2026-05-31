@@ -89,12 +89,6 @@
 
     <main class="px-5 pt-5 pb-4 overflow-auto">
 
-      <!-- BUY / PASS hero verdict — first thing the seller sees -->
-      <div id="ri-verdict-hero" class="hidden mb-4 rounded-2xl p-4 text-center">
-        <p id="ri-verdict-label" class="text-[11px] font-bold uppercase tracking-widest mb-1 opacity-70"></p>
-        <p id="ri-verdict-text" class="text-[32px] font-black tracking-tight leading-none"></p>
-        <p id="ri-verdict-sub" class="text-[12px] mt-1 opacity-75"></p>
-      </div>
 
       <!-- Product card with signal-strength ring on photo -->
       <div class="vercel-card mb-4 overflow-hidden border-zinc-200/90 bg-gradient-to-br from-white via-white to-violet-50/40 p-4 shadow-sm ring-1 ring-violet-950/[0.05]">
@@ -693,19 +687,16 @@
       function setBadge(el, kind) {
         if (!el) return;
         var base =
-          'inline-flex shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold';
+          'inline-flex shrink-0 items-center justify-center gap-1 rounded-full border px-3 py-1 text-[11px] font-extrabold tracking-wide';
         if (kind === 'buy') {
-          el.textContent = 'GREAT FLIP';
-          el.className =
-            base + ' border-emerald-200/90 bg-emerald-50/90 text-emerald-900';
+          el.textContent = 'BUY IT';
+          el.className = base + ' border-emerald-300 bg-emerald-100 text-emerald-800';
         } else if (kind === 'skip') {
-          el.textContent = 'Skip';
-          el.className =
-            base + ' border-rose-200/90 bg-rose-50/90 text-rose-900';
+          el.textContent = 'PASS';
+          el.className = base + ' border-rose-300 bg-rose-100 text-rose-800';
         } else {
-          el.textContent = 'Medium margins';
-          el.className =
-            base + ' border-amber-200/90 bg-amber-50/90 text-amber-950';
+          el.textContent = 'CHECK';
+          el.className = base + ' border-amber-300 bg-amber-100 text-amber-800';
         }
       }
       setBadge(document.getElementById('ri-reco-badge'), analysis.recommendation || 'maybe');
@@ -739,33 +730,6 @@
         }
       })();
 
-      // ── BUY/PASS hero verdict ─────────────────────────────────────────────
-      (function() {
-        var hero = document.getElementById('ri-verdict-hero');
-        var heroLabel = document.getElementById('ri-verdict-label');
-        var heroText = document.getElementById('ri-verdict-text');
-        var heroSub = document.getElementById('ri-verdict-sub');
-        if (!hero) return;
-        var rec = analysis.recommendation || 'maybe';
-        var sc = Number(ebay.sold_count || 0);
-        if (rec === 'buy') {
-          hero.className = hero.className.replace('hidden', '') + ' bg-emerald-50 border border-emerald-200';
-          if (heroLabel) { heroLabel.textContent = 'Verdict'; heroLabel.style.color = '#065f46'; }
-          if (heroText) { heroText.textContent = 'BUY IT'; heroText.style.color = '#059669'; }
-          if (heroSub) heroSub.textContent = sc > 0 ? sc + ' sold comps back this up' : 'Good margin potential';
-        } else if (rec === 'skip') {
-          hero.className = hero.className.replace('hidden', '') + ' bg-rose-50 border border-rose-200';
-          if (heroLabel) { heroLabel.textContent = 'Verdict'; heroLabel.style.color = '#9f1239'; }
-          if (heroText) { heroText.textContent = 'PASS'; heroText.style.color = '#e11d48'; }
-          if (heroSub) heroSub.textContent = sc === 0 ? 'No sold comps found' : 'Low margin after fees';
-        } else {
-          hero.className = hero.className.replace('hidden', '') + ' bg-amber-50 border border-amber-200';
-          if (heroLabel) { heroLabel.textContent = 'Verdict'; heroLabel.style.color = '#92400e'; }
-          if (heroText) { heroText.textContent = 'CHECK'; heroText.style.color = '#d97706'; }
-          if (heroSub) heroSub.textContent = 'Verify condition and comps before buying';
-        }
-        hero.classList.remove('hidden');
-      })();
 
       // ── 0 sold comps warning ──────────────────────────────────────────────
       (function() {
