@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  # ── Frontend (app.synclyst.app) ──────────────────────────────────────────
+  frontend:
+    name: Frontend — TypeScript & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: auralink-ai/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: auralink-ai/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
+          CLERK_SECRET_KEY: sk_test_placeholder
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
+          CLERK_SECRET_KEY: sk_test_placeholder
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
+
+  # ── Backend (Cloud Run Python) ───────────────────────────────────────────
+  backend:
+    name: Backend — Python Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: auralink-ai/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m pytest tests/ -v
+        env:
+          GEMINI_API_KEY: placeholder
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SERVICE_KEY: placeholder
+
+  # ── Chrome Extension ─────────────────────────────────────────────────────
+  extension:
+    name: Extension — Manifest Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate & verify prod manifest
+        run: node extension/build-manifest.mjs && node extension/verify-store-manifest.mjs
+
+      - name: Check no localhost in prod manifest
+        run: |
+          if grep -q "localhost\|127.0.0.1\|http://*/*" extension/manifest.json; then
+            echo "❌ Prod manifest contains localhost/dev entries!"
+            exit 1
+          fi
+          echo "✅ Prod manifest is clean"
+
+  # ── Smoke test: key API endpoints ────────────────────────────────────────
+  smoke:
+    name: Smoke — Production APIs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Check app.synclyst.app snap-pair config
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://app.synclyst.app/api/snap-pair/config)
+          echo "snap-pair/config → $STATUS"
+          if [ "$STATUS" != "200" ]; then echo "❌ snap-pair/config is down ($STATUS)"; exit 1; fi
+          echo "✅ snap-pair/config OK"
+
+      - name: Check extension-review page
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://app.synclyst.app/extension-review?s=test123456789abc&platform=shopify")
+          echo "extension-review → $STATUS"
+          if [ "$STATUS" != "200" ]; then echo "❌ extension-review is down ($STATUS)"; exit 1; fi
+          echo "✅ extension-review OK"
+
+      - name: Check synclyst.app landing
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://synclyst.app)
+          echo "synclyst.app → $STATUS"
+          if [ "$STATUS" != "200" ]; then echo "❌ Landing page is down ($STATUS)"; exit 1; fi
+          echo "✅ Landing page OK"
