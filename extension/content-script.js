@@ -4028,11 +4028,14 @@ function findShopifyTagsInput(rootEl) {
   const selectors = [
     'input[aria-label*="Tag" i]',
     'input[placeholder*="tag" i]',
+    'input[placeholder*="create tag" i]',
+    'input[type="search"][placeholder*="tag" i]',
     'input[id*="Tags" i]',
     '[data-testid*="tags"] input',
     '[data-testid*="Tags"] input',
     'div[role="combobox"] input[aria-label*="tag" i]',
     'div[role="combobox"] input[placeholder*="tag" i]',
+    'div[role="combobox"] input[type="search"]',
   ];
   for (const sel of selectors) {
     let nodes;
@@ -4053,17 +4056,20 @@ function findShopifyTagsInput(rootEl) {
     for (const el of all) {
       if (!(el instanceof HTMLInputElement) || !isVisible(el) || el.readOnly) continue;
       const ty = (el.type || "").toLowerCase();
-      if (ty === "hidden" || ty === "search") continue;
+      if (ty === "hidden") continue;
+      // Include type="search" — Shopify tags uses <input type="search" placeholder="Search or create tags">
       const name = shopifyControlAccessibleName(el).toLowerCase();
+      const placeholder = (el.placeholder || "").toLowerCase();
       let sc = 0;
       if (name.includes("tag") && !name.includes("percentage") && !name.includes("instagram")) sc += 85;
       if ((el.id && /tag/i.test(el.id)) || (el.name && /tag/i.test(el.name))) sc += 35;
+      if (placeholder.includes("tag") || placeholder.includes("create tag")) sc += 60;
       if (sc > bestSc) {
         bestSc = sc;
         best = el;
       }
     }
-    if (bestSc >= 85) return best;
+    if (bestSc >= 60) return best;
   } catch {
     /* ignore */
   }
