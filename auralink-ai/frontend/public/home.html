@@ -1656,7 +1656,12 @@
           });
 
           if (captureBtn) captureBtn.addEventListener('click', function() {
-            if (cameraBlocked || !video.videoWidth || !video.videoHeight) return;
+            if (cameraBlocked || !video.videoWidth || !video.videoHeight) {
+              // No live camera feed — open the file picker as fallback
+              var up = document.getElementById('scan-upload-input');
+              if (up) up.click();
+              return;
+            }
             var canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
