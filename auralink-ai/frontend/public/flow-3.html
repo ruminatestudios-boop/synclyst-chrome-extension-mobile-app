@@ -144,7 +144,7 @@
     .listing-quality-status { font-size: 13px; color: #525252; margin-bottom: 12px; }
     .listing-quality-bar-track { display: flex; gap: 1px; height: 8px; align-items: stretch; }
     .listing-quality-segment { flex: 1; min-width: 1px; border-radius: 1px; background: #e5e5e5; transition: background 0.25s ease; }
-    .listing-quality-segment.filled { background: var(--seg-color, #eab308); }
+    .listing-quality-segment.filled { background: var(--seg-color, #7c3aed); }
     .smart-suggest-banner { display: flex; align-items: center; gap: 14px; padding: 16px 18px; background: linear-gradient(135deg, #fafafa 0%, #f4f4f5 100%); border-radius: 14px; border: 1px solid #e4e4e7; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
     .smart-suggest-banner .smart-suggest-icon-wrap {
       flex-shrink: 0;
@@ -1666,7 +1666,7 @@
           barEl.setAttribute('aria-valuenow', displayScore);
           var segments = 60;
           var filledCount = Math.round((displayScore / 100) * segments);
-          var gradientStops = [{ p: 0, r: 234, g: 179, b: 8 }, { p: 1, r: 34, g: 197, b: 94 }];
+          var gradientStops = [{ p: 0, r: 196, g: 168, b: 255 }, { p: 1, r: 109, g: 40, b: 217 }];
           function interpColor(t) {
             var i = 0;
             while (i + 1 < gradientStops.length && gradientStops[i + 1].p < t) i++;
