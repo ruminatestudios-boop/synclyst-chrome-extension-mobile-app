@@ -1499,19 +1499,23 @@
           function attachStream(s) {
             stream = s;
             if (!video) return;
+            // Reset first so Android re-initialises the element with the new stream
+            video.srcObject = null;
             video.srcObject = s;
-            // Android Chrome won't autoplay when srcObject is set programmatically —
-            // must call play() explicitly. Use loadedmetadata as a fallback for slow starts.
-            var playPromise = video.play();
-            if (playPromise && typeof playPromise.catch === 'function') {
-              playPromise.catch(function() {
-                // Retry once metadata has loaded (handles slow camera init on Android)
-                video.addEventListener('loadedmetadata', function onMeta() {
-                  video.removeEventListener('loadedmetadata', onMeta);
-                  video.play().catch(function() {});
+            // Android Chrome ignores the autoplay attribute when srcObject is set
+            // programmatically — must call play() explicitly after a paint frame.
+            requestAnimationFrame(function() {
+              var p = video.play();
+              if (p && typeof p.catch === 'function') {
+                p.catch(function() {
+                  // canplay fires once the browser has decoded the first frame
+                  video.addEventListener('canplay', function onCan() {
+                    video.removeEventListener('canplay', onCan);
+                    video.play().catch(function() {});
+                  });
                 });
-              });
-            }
+              }
+            });
           }
 
           // ── In-app browser detection ────────────────────────────────────────
@@ -1624,10 +1628,12 @@
           function _doGetUserMedia() {
             if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
             var fallbackErr = null;
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
+            // No resolution constraints on first try — they silently fail on many Android devices
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacing } }, audio: false })
               .then(function(s) { hideCameraError(); attachStream(s); })
               .catch(function(e1) {
                 fallbackErr = e1;
+                // Second attempt: exact facingMode (less strict)
                 return navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing }, audio: false }).then(function(s) { hideCameraError(); attachStream(s); });
               })
               .catch(function(e2) {
@@ -1648,7 +1654,9 @@
           var retryBtn = document.getElementById(‘scan-camera-retry-btn’);
           if (retryBtn) retryBtn.addEventListener(‘click’, function() { startCamera(); });
 
-          startCamera();
+          // Defer one frame so the scan view is fully painted before getUserMedia fires.
+          // Calling it synchronously on Android often results in a blank/frozen feed.
+          requestAnimationFrame(function() { setTimeout(startCamera, 80); });
 
           if (rotateCameraBtn) rotateCameraBtn.addEventListener('click', function() {
             cameraFacing = cameraFacing === 'environment' ? 'user' : 'environment';
