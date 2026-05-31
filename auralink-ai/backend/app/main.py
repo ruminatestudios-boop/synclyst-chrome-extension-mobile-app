@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.config import get_settings
-from app.routes import vision, products, audit, shopify, feedback, ucp, integrations, usage, billing, api_keys
+from app.routes import vision, products, audit, shopify, feedback, ucp, integrations, usage, billing, api_keys, ebay
 from app.routes.public_api import router as public_router, sandbox_router, PublicAPIError
 from app.routes.developer_keys import router as dev_keys_router
 
@@ -105,6 +105,7 @@ def create_app() -> FastAPI:
     app.include_router(ucp.router, prefix="/.well-known/ucp", tags=["UCP", "GEO"])
     app.include_router(usage.router, prefix="/api/v1/usage", tags=["Usage"])
     app.include_router(billing.router, prefix="/api/v1/billing", tags=["Billing"])
+    app.include_router(ebay.router, prefix="/api/v1/ebay", tags=["eBay"])
     app.include_router(api_keys.router, prefix="/api/v1/api-keys", tags=["API Keys"])
 
     # ── Public Developer API ──────────────────────────────────────────────────

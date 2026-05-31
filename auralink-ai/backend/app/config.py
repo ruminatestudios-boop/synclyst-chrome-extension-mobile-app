@@ -82,7 +82,7 @@ class Settings(BaseSettings):
 
     # Starter tier: free product scans before 402 — cap is per STARTER_SCAN_QUOTA_WINDOW ("daily" or "monthly").
     # Defaults: 10/day. Set STARTER_SCAN_QUOTA_WINDOW=monthly and STARTER_SCAN_LIMIT=3 for legacy monthly behavior.
-    starter_scan_limit: int = 10
+    starter_scan_limit: int = 20
     starter_scan_quota_window: str = "daily"
 
     # eBay API credentials.
