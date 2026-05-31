@@ -1104,7 +1104,9 @@ function resolveScanImageUrls(scan) {
         if (!urls.includes(clean)) urls.push(clean);
       }
     }
-    const mu = media && Array.isArray(media.image_urls) ? media.image_urls : [];
+    // Only use the first image_url (the hero/primary scan). The array accumulates all phone
+    // scans of the same session — using all of them causes duplicate images on Shopify etc.
+    const mu = media && Array.isArray(media.image_urls) ? media.image_urls.slice(0, 1) : [];
     if (Array.isArray(mu)) {
       for (const u of mu) {
         if (typeof u !== "string") continue;
