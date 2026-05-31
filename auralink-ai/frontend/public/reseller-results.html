@@ -678,16 +678,16 @@
       function setBadge(el, kind) {
         if (!el) return;
         var base =
-          'inline-flex shrink-0 items-center justify-center gap-1 rounded-full border px-3 py-1 text-[11px] font-extrabold tracking-wide';
+          'inline-flex shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold';
         if (kind === 'buy') {
-          el.textContent = 'BUY IT';
-          el.className = base + ' border-emerald-300 bg-emerald-100 text-emerald-800';
+          el.textContent = '✅ BUY IT';
+          el.className = base + ' border-emerald-200/90 bg-emerald-50/90 text-emerald-900';
         } else if (kind === 'skip') {
-          el.textContent = 'PASS';
-          el.className = base + ' border-rose-300 bg-rose-100 text-rose-800';
+          el.textContent = '❌ PASS';
+          el.className = base + ' border-rose-200/90 bg-rose-50/90 text-rose-900';
         } else {
-          el.textContent = 'CHECK';
-          el.className = base + ' border-amber-300 bg-amber-100 text-amber-800';
+          el.textContent = '⚠️ CHECK';
+          el.className = base + ' border-amber-200/90 bg-amber-50/90 text-amber-950';
         }
       }
       setBadge(document.getElementById('ri-reco-badge'), analysis.recommendation || 'maybe');
