@@ -101,16 +101,19 @@ def _resolve_quota_key(http_request: Request, _auth: dict | None) -> str | None:
     return None
 
 
-_RESELLER_FAST_PROMPT = """You are a resale product scanner. Look at this image and return ONLY a JSON object with these fields:
+_RESELLER_FAST_PROMPT = """You are a resale product scanner used by resellers at markets and thrift stores. Look at this image and return ONLY a JSON object:
 {
-  "brand": "exact brand name or null",
-  "model": "exact model name or product title or null",
-  "product_type": "e.g. T-Shirt, Sneakers, Jacket, etc.",
+  "brand": "exact brand name or null — check ALL visible text, tags, logos, even faded/worn ones",
+  "model": "exact model name or product line or null",
+  "product_type": "e.g. T-Shirt, Sneakers, Denim Jacket, Hoodie, etc.",
   "color": "main color or null",
-  "condition": "New / Like New / Good / Fair / Poor based on visible wear",
-  "seo_title": "concise resale title under 80 chars, e.g. Nike Air Max 90 White Size 10"
+  "condition": "New / Like New / Good / Fair / Poor based on visible wear, fading, stains",
+  "seo_title": "concise resale title under 80 chars, e.g. Carhartt Detroit Jacket Brown XL",
+  "ebay_price_estimate": estimated resale price range on eBay as [low, high] numbers in USD, or null,
+  "depop_price_estimate": estimated resale price on Depop/Vinted (often 1.5-3x eBay for fashion/vintage) as [low, high] or null,
+  "identification_confidence": "high / medium / low — how confident are you in the brand/model identification"
 }
-Output ONLY the JSON. No explanation."""
+IMPORTANT: Even for worn, faded, or vintage items — look carefully at all labels, stitching, hardware, logos. Output ONLY the JSON."""
 
 
 async def _fast_reseller_extract(image_b64: str, mime: str) -> dict:
@@ -434,6 +437,8 @@ async def reseller_scan(
 
     # Convert the lightweight extraction into the dict shape the rest of the code expects
     raw_b64 = _resize_image_if_large(rs.image_base64, mime)
+    id_conf = fast_data.get("identification_confidence", "medium")
+    conf_score = 0.9 if id_conf == "high" else 0.65 if id_conf == "medium" else 0.4
     extraction = {
         "attributes": {
             "brand": fast_data.get("brand"),
@@ -451,7 +456,12 @@ async def reseller_scan(
                 fast_data.get("brand"), fast_data.get("model"), fast_data.get("product_type")
             ] if k],
         },
-        "confidence_score": 0.75 if fast_data else 0.0,
+        "confidence_score": conf_score if fast_data else 0.0,
+        "identification_confidence": id_conf,
+        "platform_estimates": {
+            "ebay": fast_data.get("ebay_price_estimate"),
+            "depop_vinted": fast_data.get("depop_price_estimate"),
+        },
     }
 
     # Build eBay query immediately from vision result — no barcode lookup needed
