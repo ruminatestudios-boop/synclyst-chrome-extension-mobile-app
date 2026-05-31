@@ -549,7 +549,7 @@
         }
 
         var att = data.attributes || {};
-        var suggestedPrice = 199;
+        var suggestedPrice = null;
         if (att.price_value != null && typeof att.price_value === 'number' && att.price_value > 0) suggestedPrice = att.price_value;
         else if (att.price_display && typeof att.price_display === 'string') {
           var match = att.price_display.replace(/[^\d.]/g, '').match(/[\d.]+/);
