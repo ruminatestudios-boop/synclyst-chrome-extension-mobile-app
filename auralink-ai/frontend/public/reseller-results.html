@@ -183,40 +183,6 @@
         </div>
       </div>
 
-      <!-- Size selector — re-runs eBay with size-specific query -->
-      <div class="vercel-card p-3 mb-4">
-        <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2">Size <span class="text-zinc-400 font-normal normal-case tracking-normal">(affects resale price)</span></p>
-        <div class="flex gap-2 items-center">
-          <select id="ri-size-select" class="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[13px] text-zinc-700 font-medium focus:outline-none focus:border-violet-400">
-            <option value="">Not specified</option>
-            <optgroup label="Clothing">
-              <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option><option>3XL</option>
-            </optgroup>
-            <optgroup label="Shoes (UK)">
-              <option>UK 3</option><option>UK 4</option><option>UK 5</option><option>UK 6</option><option>UK 7</option><option>UK 8</option><option>UK 9</option><option>UK 10</option><option>UK 11</option><option>UK 12</option>
-            </optgroup>
-            <optgroup label="Shoes (US)">
-              <option>US 5</option><option>US 6</option><option>US 7</option><option>US 8</option><option>US 9</option><option>US 10</option><option>US 11</option><option>US 12</option><option>US 13</option>
-            </optgroup>
-          </select>
-          <button id="ri-size-apply" type="button" class="hidden px-3 py-2 rounded-xl bg-violet-600 text-white text-[12px] font-semibold hover:bg-violet-700 transition-colors">
-            Update
-          </button>
-        </div>
-        <p id="ri-size-note" class="hidden text-[10px] text-violet-600 font-semibold mt-1.5">Searching eBay for this size...</p>
-      </div>
-
-      <!-- Manual title override — for worn/faded labels -->
-      <div class="vercel-card p-3 mb-4">
-        <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2">Wrong item? Edit search</p>
-        <div class="flex gap-2">
-          <input id="ri-query-override" type="text" placeholder="e.g. Carhartt Detroit jacket black L"
-            class="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[13px] text-zinc-700 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100" />
-          <button id="ri-query-search" type="button" class="px-3 py-2 rounded-xl bg-zinc-900 text-white text-[12px] font-semibold hover:bg-zinc-700 transition-colors whitespace-nowrap">
-            Search
-          </button>
-        </div>
-      </div>
 
       <!-- Platform selector for fee calculation -->
       <div class="vercel-card p-3 mb-4">
