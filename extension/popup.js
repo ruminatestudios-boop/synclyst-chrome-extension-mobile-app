@@ -2067,8 +2067,9 @@ function getPhoneQrUrl() {
   if (!direct) return "";
   if (/^https:\/\//i.test(direct)) return direct;
   if (!/^http:\/\//i.test(direct)) return direct;
-  const live = SYNCLYST_ORIGIN_LIVE.replace(/\/$/, "");
-  return `${live}/q.html#${base64UrlEncodeUtf8(direct)}`;
+  // Use app.synclyst.app for the q.html bridge — synclyst.app doesn't serve static files.
+  const bridgeBase = "https://app.synclyst.app";
+  return `${bridgeBase}/q.html#${base64UrlEncodeUtf8(direct)}`;
 }
 
 const QR_CTA_INJECT_STYLE =
