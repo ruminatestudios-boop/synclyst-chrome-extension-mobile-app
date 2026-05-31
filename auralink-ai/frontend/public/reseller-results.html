@@ -82,13 +82,32 @@
       >SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></a>
     </header>
 
+    <!-- Offline banner -->
+    <div id="ri-offline-banner" class="hidden shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-200 text-center">
+      <p class="text-[11px] font-semibold text-amber-700">Offline — showing cached results</p>
+    </div>
+
     <main class="px-5 pt-5 pb-4 overflow-auto">
+
+      <!-- BUY / PASS hero verdict — first thing the seller sees -->
+      <div id="ri-verdict-hero" class="hidden mb-4 rounded-2xl p-4 text-center">
+        <p id="ri-verdict-label" class="text-[11px] font-bold uppercase tracking-widest mb-1 opacity-70"></p>
+        <p id="ri-verdict-text" class="text-[32px] font-black tracking-tight leading-none"></p>
+        <p id="ri-verdict-sub" class="text-[12px] mt-1 opacity-75"></p>
+      </div>
+
+      <!-- Product card with signal-strength ring on photo -->
       <div class="vercel-card mb-4 overflow-hidden border-zinc-200/90 bg-gradient-to-br from-white via-white to-violet-50/40 p-4 shadow-sm ring-1 ring-violet-950/[0.05]">
         <div class="flex items-start gap-3 sm:gap-4">
           <div class="relative shrink-0">
             <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-100/60 to-transparent opacity-70 blur-sm scale-105 pointer-events-none" aria-hidden="true"></div>
-            <div class="relative h-24 w-24 overflow-hidden rounded-2xl border border-white bg-zinc-100 shadow-md ring-2 ring-white ring-offset-2 ring-offset-[#f5f5f5]">
+            <!-- Signal ring: green=strong, yellow=weak, red=no data -->
+            <div id="ri-signal-ring" class="relative h-24 w-24 overflow-hidden rounded-2xl border border-white bg-zinc-100 shadow-md ring-[3px] ring-zinc-200 ring-offset-2 ring-offset-[#f5f5f5]">
               <img id="ri-image" alt="Scanned item" class="h-full w-full object-cover" />
+              <!-- Signal badge -->
+              <div id="ri-signal-badge" class="absolute bottom-1 left-1 hidden">
+                <span id="ri-signal-text" class="text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white"></span>
+              </div>
             </div>
           </div>
           <div class="flex min-w-0 flex-1 flex-col gap-2">
@@ -97,19 +116,29 @@
               <span id="ri-confidence" class="inline-flex shrink-0 items-center justify-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]">—</span>
             </div>
             <div class="space-y-1.5">
-              <h1 id="ri-title" class="text-[16px] font-semibold leading-snug tracking-tight text-zinc-950 line-clamp-3 sm:text-[17px] sm:leading-snug">
-                Loading…
-              </h1>
+              <h1 id="ri-title" class="text-[16px] font-semibold leading-snug tracking-tight text-zinc-950 line-clamp-3 sm:text-[17px] sm:leading-snug">Loading…</h1>
               <p id="ri-query" class="text-[12px] font-medium leading-snug text-zinc-600 line-clamp-2">—</p>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Condition selector — adjusts resale estimate -->
+      <div class="vercel-card p-3 mb-4">
+        <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2">Condition</p>
+        <div id="ri-condition-row" class="grid grid-cols-4 gap-1.5">
+          <button data-cond="mint"  data-mult="1.15" class="ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border border-zinc-200 bg-zinc-50 text-zinc-600">Mint</button>
+          <button data-cond="good"  data-mult="1.0"  class="ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border border-zinc-200 bg-zinc-50 text-zinc-600">Good</button>
+          <button data-cond="fair"  data-mult="0.75" class="ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border border-zinc-200 bg-zinc-50 text-zinc-600">Fair</button>
+          <button data-cond="poor"  data-mult="0.5"  class="ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border border-zinc-200 bg-zinc-50 text-zinc-600">Poor</button>
+        </div>
+        <p id="ri-condition-note" class="text-[10px] text-zinc-400 mt-1.5 hidden">Resale estimate adjusted for condition</p>
+      </div>
+
       <div class="vercel-card p-4 mb-4 ring-1 ring-[#0a0a0a]/6">
-        <label class="block text-[13px] font-semibold text-[#0a0a0a]" for="ri-buy">What you paid</label>
+        <label class="block text-[13px] font-semibold text-[#0a0a0a]" for="ri-buy">Asking price</label>
         <p id="ri-buy-caption" class="text-[11px] text-zinc-500 mt-0.5 mb-3">
-          Your buy cost — we use it for estimated profit and ROI below.
+          What the seller wants — we calculate your profit after fees.
         </p>
         <div
           class="flex w-full rounded-xl border border-violet-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-violet-950/[0.05] overflow-visible transition-[box-shadow,border-color] focus-within:border-violet-400 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.22)]"
@@ -222,7 +251,16 @@
 
     <div class="sticky bottom-0 shrink-0 bg-white/95 backdrop-blur-md border-t border-[#e5e5e5] ri-bottom-shadow">
       <div class="p-4 pt-3">
-        <a href="/scan?mode=reseller" class="block w-full rounded-2xl bg-[#0a0a0a] border border-black text-white text-sm font-semibold px-4 py-3.5 text-center no-underline shadow-md active:scale-[0.99] transition-transform hover:bg-black">
+        <!-- BUY / PASS decision buttons -->
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="ri-action-buy" type="button" class="ri-icon-btn rounded-2xl bg-emerald-600 text-white text-[14px] font-bold py-3.5 text-center shadow-md active:scale-[0.98] transition-transform hover:bg-emerald-700">
+            Bought it ✓
+          </button>
+          <button id="ri-action-pass" type="button" class="ri-icon-btn rounded-2xl bg-zinc-800 text-white text-[14px] font-bold py-3.5 text-center shadow-sm active:scale-[0.98] transition-transform hover:bg-zinc-900">
+            Pass ✕
+          </button>
+        </div>
+        <a href="/scan?mode=reseller" class="block w-full rounded-2xl border border-zinc-200 bg-white text-zinc-700 text-sm font-semibold px-4 py-3 text-center no-underline active:scale-[0.99] transition-transform hover:bg-zinc-50">
           Scan Another
         </a>
 
@@ -672,6 +710,163 @@
       }
       setBadge(document.getElementById('ri-reco-badge'), analysis.recommendation || 'maybe');
 
+      // ── Offline detection ─────────────────────────────────────────────────
+      (function() {
+        var banner = document.getElementById('ri-offline-banner');
+        function updateOnline() { if (banner) banner.classList.toggle('hidden', navigator.onLine); }
+        updateOnline();
+        window.addEventListener('online', updateOnline);
+        window.addEventListener('offline', updateOnline);
+      })();
+
+      // ── Signal strength ring ──────────────────────────────────────────────
+      (function() {
+        var ring = document.getElementById('ri-signal-ring');
+        var badge = document.getElementById('ri-signal-badge');
+        var badgeText = document.getElementById('ri-signal-text');
+        var sc = Number(ebay.sold_count || 0);
+        if (ring) {
+          if (sc >= 5) {
+            ring.className = ring.className.replace('ring-zinc-200', 'ring-emerald-400');
+            if (badge && badgeText) { badgeText.textContent = sc + ' sold'; badgeText.className = 'text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white bg-emerald-600'; badge.classList.remove('hidden'); }
+          } else if (sc >= 1) {
+            ring.className = ring.className.replace('ring-zinc-200', 'ring-amber-400');
+            if (badge && badgeText) { badgeText.textContent = sc + ' sold'; badgeText.className = 'text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white bg-amber-500'; badge.classList.remove('hidden'); }
+          } else {
+            ring.className = ring.className.replace('ring-zinc-200', 'ring-rose-300');
+            if (badge && badgeText) { badgeText.textContent = 'No sales'; badgeText.className = 'text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white bg-rose-500'; badge.classList.remove('hidden'); }
+          }
+        }
+      })();
+
+      // ── BUY/PASS hero verdict ─────────────────────────────────────────────
+      (function() {
+        var hero = document.getElementById('ri-verdict-hero');
+        var heroLabel = document.getElementById('ri-verdict-label');
+        var heroText = document.getElementById('ri-verdict-text');
+        var heroSub = document.getElementById('ri-verdict-sub');
+        if (!hero) return;
+        var rec = analysis.recommendation || 'maybe';
+        var sc = Number(ebay.sold_count || 0);
+        if (rec === 'buy') {
+          hero.className = hero.className.replace('hidden', '') + ' bg-emerald-50 border border-emerald-200';
+          if (heroLabel) { heroLabel.textContent = 'Verdict'; heroLabel.style.color = '#065f46'; }
+          if (heroText) { heroText.textContent = 'BUY IT'; heroText.style.color = '#059669'; }
+          if (heroSub) heroSub.textContent = sc > 0 ? sc + ' sold comps back this up' : 'Good margin potential';
+        } else if (rec === 'skip') {
+          hero.className = hero.className.replace('hidden', '') + ' bg-rose-50 border border-rose-200';
+          if (heroLabel) { heroLabel.textContent = 'Verdict'; heroLabel.style.color = '#9f1239'; }
+          if (heroText) { heroText.textContent = 'PASS'; heroText.style.color = '#e11d48'; }
+          if (heroSub) heroSub.textContent = sc === 0 ? 'No sold comps found' : 'Low margin after fees';
+        } else {
+          hero.className = hero.className.replace('hidden', '') + ' bg-amber-50 border border-amber-200';
+          if (heroLabel) { heroLabel.textContent = 'Verdict'; heroLabel.style.color = '#92400e'; }
+          if (heroText) { heroText.textContent = 'CHECK'; heroText.style.color = '#d97706'; }
+          if (heroSub) heroSub.textContent = 'Verify condition and comps before buying';
+        }
+        hero.classList.remove('hidden');
+      })();
+
+      // ── 0 sold comps warning ──────────────────────────────────────────────
+      (function() {
+        var sc = Number(ebay.sold_count || 0);
+        var soldCountEl = document.getElementById('ri-sold-count');
+        if (sc === 0 && soldCountEl) {
+          soldCountEl.innerHTML = '<span class="text-amber-600 font-semibold">No recent sold listings — price carefully</span>';
+        }
+      })();
+
+      // ── Condition multiplier ──────────────────────────────────────────────
+      var conditionMultiplier = 1.0;
+      var selectedCondition = null;
+      (function() {
+        var btns = document.querySelectorAll('.ri-cond-btn');
+        var note = document.getElementById('ri-condition-note');
+        btns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var cond = btn.getAttribute('data-cond');
+            var mult = parseFloat(btn.getAttribute('data-mult'));
+            if (selectedCondition === cond) {
+              // deselect
+              selectedCondition = null;
+              conditionMultiplier = 1.0;
+              btns.forEach(function(b) { b.className = b.className.replace(/border-violet-\S+|bg-violet-\S+|text-white/g, 'border-zinc-200 bg-zinc-50 text-zinc-600'); });
+              if (note) note.classList.add('hidden');
+            } else {
+              selectedCondition = cond;
+              conditionMultiplier = mult;
+              btns.forEach(function(b) {
+                var active = b === btn;
+                b.className = 'ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border ' +
+                  (active ? 'border-violet-600 bg-violet-600 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600');
+              });
+              if (note) {
+                note.textContent = mult === 1.0 ? 'Using standard resale estimate' :
+                  mult > 1.0 ? 'Mint condition: +'  + Math.round((mult-1)*100) + '% on estimate' :
+                  'Condition discount: -' + Math.round((1-mult)*100) + '% on estimate';
+                note.classList.remove('hidden');
+              }
+            }
+            // Recompute range display with condition multiplier
+            updateResaleRangeDisplay();
+            recalcDealMath();
+          });
+        });
+      })();
+
+      // ── Platform persistence ──────────────────────────────────────────────
+      (function() {
+        try {
+          var saved = localStorage.getItem('synclyst_ri_platform');
+          if (saved) {
+            var exists = RI_PLATFORMS.find(function(p) { return p.id === saved; });
+            if (exists) { selectedPlatformId = saved; syncPlatformUI(); }
+          }
+        } catch(e) {}
+      })();
+
+      // ── Buy/Pass action buttons ───────────────────────────────────────────
+      (function() {
+        function saveDecision(decision) {
+          try {
+            var key = 'auralink_reseller_history';
+            var existing = JSON.parse(localStorage.getItem(key) || '[]');
+            var ts = Date.now();
+            // Find or create entry for this scan
+            var idx = existing.findIndex(function(e) { return e.sourceTs === (payload && payload.ts); });
+            var entry = idx >= 0 ? existing[idx] : {
+              sourceTs: payload && payload.ts || ts,
+              ts: ts,
+              title: extraction && ((extraction.extraction_copy || {}).seo_title || '') || '',
+              profit: null,
+              imageDataUrl: payload && payload.imageDataUrl || null,
+            };
+            entry.decision = decision;
+            entry.decisionTs = ts;
+            if (idx >= 0) existing[idx] = entry;
+            else existing.unshift(entry);
+            localStorage.setItem(key, JSON.stringify(existing.slice(0, 50)));
+          } catch(e) {}
+        }
+
+        var buyBtn = document.getElementById('ri-action-buy');
+        var passBtn = document.getElementById('ri-action-pass');
+
+        if (buyBtn) buyBtn.addEventListener('click', function() {
+          saveDecision('bought');
+          buyBtn.textContent = 'Saved as Bought!';
+          buyBtn.className = buyBtn.className.replace('bg-emerald-600', 'bg-emerald-800');
+          setTimeout(function() { window.location.href = '/scan?mode=reseller'; }, 800);
+        });
+
+        if (passBtn) passBtn.addEventListener('click', function() {
+          saveDecision('passed');
+          passBtn.textContent = 'Passed!';
+          passBtn.className = passBtn.className.replace('bg-zinc-800', 'bg-zinc-600');
+          setTimeout(function() { window.location.href = '/scan?mode=reseller'; }, 800);
+        });
+      })();
+
       var spd = analysis.estimated_sell_speed || 'medium';
       var headline = spd === 'fast' ? 'Fast seller' : spd === 'slow' ? 'Slow mover' : 'Medium demand';
       var subSell = spd === 'fast'
@@ -1039,10 +1234,11 @@
       var resaleAnchor = (soldAvg != null ? soldAvg : (soldHigh != null ? soldHigh : (activeAvg != null ? activeAvg : (profit && profit.estimated_resale_price != null ? profit.estimated_resale_price : imgPrice))));
       function updateResaleRangeDisplay() {
         if (!rangeEl) return;
-        if (soldLow != null && soldHigh != null) rangeEl.textContent = money(soldLow) + '–' + money(soldHigh);
-        else if (soldAvg != null) rangeEl.textContent = money(soldAvg);
-        else if (activeAvg != null) rangeEl.textContent = money(activeAvg);
-        else if (resaleAnchor != null) rangeEl.textContent = money(resaleAnchor);
+        var m = (typeof conditionMultiplier !== 'undefined' ? conditionMultiplier : 1.0);
+        if (soldLow != null && soldHigh != null) rangeEl.textContent = money(soldLow * m) + '–' + money(soldHigh * m);
+        else if (soldAvg != null) rangeEl.textContent = money(soldAvg * m);
+        else if (activeAvg != null) rangeEl.textContent = money(activeAvg * m);
+        else if (resaleAnchor != null) rangeEl.textContent = money(resaleAnchor * m);
         else rangeEl.textContent = '—';
       }
       renderSoldComps();
@@ -1077,7 +1273,9 @@
         }
       }
       function getResaleForMath() {
-        return resaleAnchor != null ? resaleAnchor : null;
+        if (resaleAnchor == null) return null;
+        var m = (typeof conditionMultiplier !== 'undefined' ? conditionMultiplier : 1.0);
+        return resaleAnchor * m;
       }
 
       // ── Platform fee table ────────────────────────────────────────────────
@@ -1106,11 +1304,11 @@
           btn.textContent = p.label;
           btn.addEventListener('click', function() {
             if (selectedPlatformId === p.id) {
-              // Deselect — toggle off
               selectedPlatformId = null;
             } else {
               selectedPlatformId = p.id;
             }
+            try { localStorage.setItem('synclyst_ri_platform', selectedPlatformId || ''); } catch(e) {}
             syncPlatformUI();
             recalcDealMath();
           });
