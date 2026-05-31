@@ -718,9 +718,7 @@ def _parse_extraction_response(text: str) -> VisionExtractionResponse:
     if price_src == "not_found":
         price_val = None
         price_disp = None
-    elif price_src == "ai_suggested" and (price_conf is None or price_conf < 0.7):
-        price_val = None
-        price_disp = None
+    # Keep ai_suggested prices regardless of confidence — user can always adjust
     try:
         return VisionExtractionResponse(
             attributes=ExtractionAttributes(
@@ -794,13 +792,10 @@ def _parse_ucp_extraction_response(data: dict) -> VisionExtractionResponse:
     price_conf = _float_or_none(att.get("price_confidence"))
     price_val = _float_or_none(att.get("price_value"))
     price_disp = att.get("price_display")
-    # Force null price unless explicitly found in image (no guessed prices)
-    if price_src != "found_in_image":
+    if price_src == "not_found":
         price_val = None
         price_disp = None
-    elif price_src == "ai_suggested" and (price_conf is None or price_conf < 0.7):
-        price_val = None
-        price_disp = None
+    # Keep ai_suggested prices regardless of confidence — user can always adjust
 
     condition_val = att.get("condition")
     if condition_val and str(condition_val).lower() not in ("new", "like_new", "good", "fair", "for_parts"):
@@ -878,8 +873,8 @@ Output ONLY valid JSON (no markdown):
     "make": "manufacturer or null",
     "model_year": "2024 or SS24 or null",
     "price_display": "as shown or null",
-    "price_value": number or null,
-    "price_source": "found_in_image if price visible, else not_found",
+    "price_value": number or null — if price not visible, estimate a realistic UK resale/retail price based on brand, product type, condition and typical market value,
+    "price_source": "found_in_image if price visible on product/tag, ai_suggested if you estimated it, not_found only if you truly cannot identify the product",
     "detected_colors": ["color names from image or description"],
     "detected_sizes": ["size if visible"] or [],
     "detected_materials": ["materials from label"],
