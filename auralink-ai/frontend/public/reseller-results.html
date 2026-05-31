@@ -722,13 +722,13 @@
         var base =
           'inline-flex shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold';
         if (kind === 'buy') {
-          el.textContent = '✅ BUY IT';
+          el.textContent = '✅  BUY IT';
           el.className = base + ' border-emerald-200/90 bg-emerald-50/90 text-emerald-900';
         } else if (kind === 'skip') {
-          el.textContent = '❌ PASS';
+          el.textContent = '❌  PASS';
           el.className = base + ' border-rose-200/90 bg-rose-50/90 text-rose-900';
         } else {
-          el.textContent = '⚠️ CHECK';
+          el.textContent = '⚠️  CHECK';
           el.className = base + ' border-amber-200/90 bg-amber-50/90 text-amber-950';
         }
       }
