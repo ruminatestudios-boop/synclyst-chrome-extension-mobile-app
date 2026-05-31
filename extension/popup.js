@@ -2569,7 +2569,24 @@ function setReviewLoadingState(on, msg) {
   refreshLoadedSubstate();
 }
 
+function showQrSyncBanner(msg) {
+  try {
+    const banner = document.getElementById("qr-sync-status");
+    const text = document.getElementById("qr-sync-text");
+    if (banner) banner.classList.remove("hidden");
+    if (text && msg) text.textContent = msg;
+  } catch { /* ignore */ }
+}
+
+function hideQrSyncBanner() {
+  try {
+    const banner = document.getElementById("qr-sync-status");
+    if (banner) banner.classList.add("hidden");
+  } catch { /* ignore */ }
+}
+
 function continueToListing() {
+  hideQrSyncBanner();
   qrHomeActive = false;
   chrome.storage.local.set({ [STORAGE_PREFERS_QR_HOME]: false });
   try {
@@ -3549,6 +3566,7 @@ window.addEventListener("beforeunload", () => {
         lastPayload = null;
         lastAppliedListingStamp = null;
         lastAppliedImageUrl = null;
+        showQrSyncBanner("📱 Photo received — AI is extracting your listing…");
         setReviewLoadingState(true, "Syncing from phone…");
         continueToListing();
         burstPollUntilListing(snapPairSessionId);
