@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head><title>Results Preview</title></head>
+<body>
+<script>
+// Seed sessionStorage with realistic mock data then redirect to results page
+var mockPayload = {
+  imageDataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoH...",
+  result: {
+    extraction: {
+      confidence_score: 0.72,
+      attributes: { brand: "RVCA", product_type: "T-Shirt", color: "Black", condition: "Used - Good" },
+      extraction_copy: { seo_title: "RVCA Vitor Belfort The Phenom MMA Graphic T-Shirt Black" },
+      tags: { category: "Clothing" }
+    },
+    ebay_market: {
+      sold_low: 18,
+      sold_high: 28,
+      sold_avg: 22,
+      sold_count: 5,
+      active_count: 8,
+      active_avg: 25,
+      sell_through_confidence: 0.72,
+      query: "RVCA Vitor Belfort MMA t-shirt black",
+      comps_sold: [
+        { price: 22.00, title: "RVCA Vitor Belfort MMA Graphic Tee Black Medium", condition_display: "Pre-owned" },
+        { price: 18.50, title: "RVCA The Phenom Belfort T-Shirt Black Size L", condition_display: "Pre-owned" },
+        { price: 28.00, title: "RVCA MMA Fighter Series Graphic Tee Black", condition_display: "Pre-owned" },
+        { price: 19.99, title: "RVCA Belfort Signature T-Shirt Black M", condition_display: "Pre-owned" },
+        { price: 24.00, title: "RVCA x MMA Collaboration Graphic Tee", condition_display: "Pre-owned" }
+      ]
+    },
+    analysis: {
+      verdict: "Medium margins",
+      speed_label: "Slow mover",
+      speed_emoji: "🐢",
+      speed_color: "Cold",
+      summary: "Moderate resale potential — verify the exact model and condition for better comps.",
+      recommendation: "buy"
+    },
+    profit: {
+      estimated_resale_price: 22.00,
+      estimated_net_profit: 8.04,
+      estimated_roi_pct: null
+    },
+    optimized_ebay_query: "RVCA Vitor Belfort MMA t-shirt black"
+  }
+};
+
+sessionStorage.setItem('auralink_reseller_result', JSON.stringify(mockPayload));
+window.location.href = '/reseller-results';
+</script>
+<p>Loading preview...</p>
+</body>
+</html>

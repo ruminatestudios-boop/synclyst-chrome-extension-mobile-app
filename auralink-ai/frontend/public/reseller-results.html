@@ -151,9 +151,10 @@
           <p class="text-[11px] text-zinc-500 mt-2" id="ri-sold-count">—</p>
         </div>
         <div class="vercel-card p-4">
-          <p class="text-[11px] font-medium text-zinc-500">Estimated profit</p>
+          <p class="text-[11px] font-medium text-zinc-500">Estimated profit <span class="text-zinc-400 font-normal">after all fees</span></p>
           <p class="metric text-[22px] leading-none font-extrabold mt-2 tracking-tight" id="ri-profit">—</p>
           <p class="text-[11px] text-zinc-500 mt-2" id="ri-roi">—</p>
+          <p class="text-[10px] text-zinc-400 mt-1.5 leading-snug" id="ri-profit-breakdown"></p>
         </div>
       </div>
 
@@ -398,11 +399,9 @@
       </div>
 
       <div class="shrink-0 overflow-visible px-4 py-2.5 text-center">
-        <div class="mb-2.5">
-          <div id="ri-cross-connected-wrap" class="rounded-lg border border-zinc-200 bg-zinc-50/80 px-2.5 py-2 text-center">
-            <p id="ri-cross-connected-empty" class="hidden text-[12px] text-zinc-500 leading-snug text-center">Use the Chrome extension to link stores.</p>
-            <div id="ri-cross-connected-chips" class="hidden flex flex-wrap gap-1.5 justify-center"></div>
-          </div>
+        <div id="ri-cross-connected-wrap" class="hidden">
+          <p id="ri-cross-connected-empty" class="hidden"></p>
+          <div id="ri-cross-connected-chips" class="hidden flex flex-wrap gap-1.5 justify-center"></div>
         </div>
 
         <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2">Supported marketplaces</p>
@@ -647,7 +646,7 @@
         var base =
           'inline-flex shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold';
         if (kind === 'buy') {
-          el.textContent = 'Great flip';
+          el.textContent = 'GREAT FLIP';
           el.className =
             base + ' border-emerald-200/90 bg-emerald-50/90 text-emerald-900';
         } else if (kind === 'skip') {
@@ -1015,39 +1014,7 @@
         rightE.appendChild(p1Wrap);
         top.appendChild(rightE);
 
-        var bot = document.createElement('div');
-        bot.className =
-          'border-t border-violet-100/90 bg-gradient-to-b from-violet-50/50 to-violet-50/25 px-4 py-3.5';
-        var botRow = document.createElement('div');
-        botRow.className = 'flex gap-3 sm:gap-4';
-        var iconsWrap = document.createElement('div');
-        iconsWrap.className = 'ri-mp-lead';
-        for (var ki = 0; ki < sec.keys.length; ki++) marketplaceIcon(iconsWrap, sec.keys[ki]);
-        var botText = document.createElement('div');
-        botText.className = 'min-w-0 flex-1';
-        var botLab = document.createElement('p');
-        botLab.className =
-          'text-[9px] font-bold uppercase tracking-[0.14em] text-violet-600/90 mb-1';
-        botLab.textContent = 'Also try';
-        var botH = document.createElement('p');
-        botH.className = 'text-[16px] font-semibold leading-snug text-zinc-950 tracking-tight';
-        botH.innerHTML =
-          escapeHtml(sec.label) +
-          ' <span class="text-[13px] font-medium text-zinc-500">' +
-          escapeHtml(sec.tag) +
-          '</span>';
-        var botP = document.createElement('p');
-        botP.className = 'text-[13px] text-zinc-600 mt-1 leading-relaxed';
-        botP.textContent = sec.tip;
-        botText.appendChild(botLab);
-        botText.appendChild(botH);
-        botText.appendChild(botP);
-        botRow.appendChild(iconsWrap);
-        botRow.appendChild(botText);
-        bot.appendChild(botRow);
-
         root.appendChild(top);
-        root.appendChild(bot);
         wrap.appendChild(root);
       }
 
@@ -1094,7 +1061,7 @@
         } else {
           pEl.textContent = '—';
           pEl.className = 'metric text-[22px] leading-none font-extrabold mt-2 tracking-tight';
-          roiEl.textContent = hint === 'no_resale' ? 'No comps or price signal yet' : 'Enter what you paid above';
+          roiEl.textContent = hint === 'no_resale' ? 'No comps or price signal yet' : hint === 'no_cost' ? 'Add your cost above for profit' : 'Enter what you paid above';
         }
       }
       function getResaleForMath() {
@@ -1104,30 +1071,40 @@
       function recalcDealMath() {
         var buyInput = document.getElementById('ri-buy');
         var buyStr = buyInput ? String(buyInput.value || '').trim() : '';
-        var buyPriceDisplay = buyStr ? parseFloat(buyStr) : 0;
-        if (!isFinite(buyPriceDisplay) || buyPriceDisplay < 0) buyPriceDisplay = 0;
+        var buyPriceDisplay = buyStr ? parseFloat(buyStr) : null;
+        if (buyPriceDisplay !== null && (!isFinite(buyPriceDisplay) || buyPriceDisplay < 0)) buyPriceDisplay = null;
+
+        // No buy cost entered — show blank profit, prompt user to enter cost
+        if (buyPriceDisplay === null || buyPriceDisplay === 0) {
+          renderProfit(null, 'no_cost');
+          var bdEl = document.getElementById('ri-profit-breakdown');
+          if (bdEl) bdEl.textContent = '';
+          return;
+        }
+
         var resaleUSD = getResaleForMath(); // always USD anchor
         if (resaleUSD == null || isNaN(resaleUSD)) {
           renderProfit(null, 'no_resale');
           return;
         }
-        // Convert all values to display currency before math so the profit
-        // figure is meaningful in the user's currency.
         var rate = fxRate();
         var resaleD = resaleUSD * rate;
         var feeRate = 0.13, payRate = 0.029;
-        var payFixed = 0.30 * rate;  // Stripe fixed fee scaled
-        var ship = 8.0 * rate;       // shipping estimate scaled
+        var payFixed = 0.30 * rate;
+        var ship = 8.0 * rate;
         var fees = resaleD * feeRate + (resaleD * payRate + payFixed);
         var net = resaleD - fees - ship - buyPriceDisplay;
         var roi = buyPriceDisplay > 0 ? (net / buyPriceDisplay) * 100 : null;
         renderProfit({
           estimated_resale_price: resaleD,
           estimated_net_profit: Math.round(net * 100) / 100,
-          estimated_roi_pct: buyPriceDisplay > 0 && roi != null ? Math.round(roi * 10) / 10 : null,
+          estimated_roi_pct: roi != null ? Math.round(roi * 10) / 10 : null,
         });
-        if (!buyStr || buyPriceDisplay <= 0) {
-          document.getElementById('ri-roi').textContent = 'Add your cost above for ROI';
+        // Show cost breakdown so user knows what was deducted
+        var bdEl = document.getElementById('ri-profit-breakdown');
+        if (bdEl) {
+          bdEl.textContent = 'Sell ' + money2(resaleD) + ' − fees ' + money2(fees) +
+            ' − ship ' + money2(ship) + ' − cost ' + money2(buyPriceDisplay);
         }
       }
 
