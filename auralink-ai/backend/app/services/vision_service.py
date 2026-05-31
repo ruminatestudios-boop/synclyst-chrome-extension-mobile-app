@@ -923,6 +923,7 @@ def _gemini_extract_sync(
     image_base64: str,
     mime_type: str,
     ocr_snippets: list[str],
+    fast_mode: bool = False,
 ) -> VisionExtractionResponse:
     """Synchronous Gemini call (MultimodalProcessor)."""
     types = _genai_types()
@@ -935,21 +936,35 @@ def _gemini_extract_sync(
     raw, _ = _decode_base64(image_base64)
     image_part = types.Part.from_bytes(data=raw, mime_type=mime_type or "image/jpeg")
     contents = [_get_system_prompt(), _get_user_prompt(ocr_snippets), image_part]
+    # Fast mode: use gemini-2.5-flash-lite with thinking disabled — ~3-5s vs 15-20s for 2.5-flash
+    fast_models = ["gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.5-flash"]
+    model_list = fast_models if fast_mode else _candidate_gemini_models(client)
+
+    # Thinking config: disable thinking for fast mode (saves 10-15s on 2.5-flash)
+    thinking_cfg = None
+    if fast_mode:
+        try:
+            thinking_cfg = types.ThinkingConfig(thinking_budget=0)
+        except Exception:
+            pass  # older SDK version — no ThinkingConfig, just use faster model
+
     last_err = None
-    for model_name in _candidate_gemini_models(client):
+    for model_name in model_list:
         for use_structured in (True, False):
             try:
                 if use_structured:
                     config = types.GenerateContentConfig(
                         temperature=0.1,
-                        max_output_tokens=8192,
+                        max_output_tokens=2048,  # fast mode: less tokens needed
                         response_mime_type="application/json",
                         response_schema=ucp_schema,
+                        **({"thinking_config": thinking_cfg} if thinking_cfg else {}),
                     )
                 else:
                     config = types.GenerateContentConfig(
                         temperature=0.1,
-                        max_output_tokens=8192,
+                        max_output_tokens=2048,
+                        **({"thinking_config": thinking_cfg} if thinking_cfg else {}),
                     )
                 response = client.models.generate_content(
                     model=model_name,
@@ -999,12 +1014,13 @@ async def extract_with_gemini(
     image_base64: str,
     mime_type: str,
     ocr_snippets: list[str],
+    fast_mode: bool = False,
 ) -> VisionExtractionResponse:
-    """Use Gemini 2.0 Flash for multimodal extraction."""
-    # Avoid hanging forever on slow / stuck model calls.
+    """Use Gemini for multimodal extraction. fast_mode uses gemini-2.0-flash with no thinking."""
+    timeout = 15.0 if fast_mode else 120.0
     return await asyncio.wait_for(
-        asyncio.to_thread(_gemini_extract_sync, image_base64, mime_type, ocr_snippets),
-        timeout=120,
+        asyncio.to_thread(_gemini_extract_sync, image_base64, mime_type, ocr_snippets, fast_mode),
+        timeout=timeout,
     )
 
 
@@ -1046,13 +1062,14 @@ async def run_vision_extraction(
     image_base64: str,
     mime_type: str = "image/jpeg",
     ocr_snippets: Optional[list[str]] = None,
+    fast_mode: bool = False,
 ) -> VisionExtractionResponse:
     """Run extraction with configured provider (Gemini or OpenAI). Uses UCP prompt when available."""
     settings = get_settings()
     snippets = ocr_snippets or []
     if settings.vision_provider == "openai":
         return await extract_with_openai(image_base64, mime_type, snippets)
-    return await extract_with_gemini(image_base64, mime_type, snippets)
+    return await extract_with_gemini(image_base64, mime_type, snippets, fast_mode=fast_mode)
 
 
 # ---- Invoice / receipt extraction (all-in-one) ---------------------------------
@@ -1251,11 +1268,13 @@ class MultimodalProcessor:
         image_base64: str,
         mime_type: str = "image/jpeg",
         ocr_snippets: Optional[list[str]] = None,
+        fast_mode: bool = False,
     ) -> VisionExtractionResponse:
         return await run_vision_extraction(
             image_base64=image_base64,
             mime_type=mime_type,
             ocr_snippets=ocr_snippets or None,
+            fast_mode=fast_mode,
         )
 
 

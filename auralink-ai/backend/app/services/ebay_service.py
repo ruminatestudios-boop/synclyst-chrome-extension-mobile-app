@@ -509,6 +509,7 @@ async def fetch_ebay_market_summary(
     cert_id: str = "",
     gemini_api_key: str = "",
     max_comps: int = 8,
+    skip_gemini_search: bool = False,
 ) -> EbayMarketSummary:
     """
     Fetch sold + active comps for a keyword query.
@@ -556,7 +557,8 @@ async def fetch_ebay_market_summary(
             logger.debug("Finding API sold comps error: %s", e)
 
     # Gemini fallback when Finding API is quota-blocked / unconfigured, or returned nothing
-    if (finding_blocked or not sold_comps) and gemini_api_key:
+    # skip_gemini_search=True bypasses the slow (5-18s) grounded search for fast mode
+    if (finding_blocked or not sold_comps) and gemini_api_key and not skip_gemini_search:
         logger.info("Using Gemini Search grounding for sold comps: %s", q)
         g_prices, g_comps, g_note = await _gemini_sold_comps(
             gemini_api_key=gemini_api_key,
