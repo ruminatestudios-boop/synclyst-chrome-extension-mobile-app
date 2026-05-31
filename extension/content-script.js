@@ -1095,7 +1095,8 @@ function resolveScanImageUrls(scan) {
     const extra = scan.listing_extra && typeof scan.listing_extra === "object" ? scan.listing_extra : null;
     const media =
       extra && extra.media && typeof extra.media === "object" && !Array.isArray(extra.media) ? extra.media : null;
-    const orig = media && Array.isArray(media.original_image_urls) ? media.original_image_urls : [];
+    // Only use the first original_image_url — the array accumulates across scans causing duplicates.
+    const orig = media && Array.isArray(media.original_image_urls) ? media.original_image_urls.slice(0, 1) : [];
     if (Array.isArray(orig)) {
       for (const u of orig) {
         if (typeof u !== "string") continue;
@@ -4091,36 +4092,35 @@ function shopifyFillTagsCombobox(scan, root) {
     input.parentElement?.parentElement ||
     input.parentElement;
   let idx = 0;
-  function applyOne(tag) {
+  function applyOne(tag, done) {
     input.focus();
     const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
     if (desc && desc.set) desc.set.call(input, tag);
     else input.value = tag;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
     input.dispatchEvent(
       new InputEvent("input", { bubbles: true, composed: true, data: tag, inputType: "insertText" })
     );
-    input.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-      })
-    );
-    input.dispatchEvent(
-      new KeyboardEvent("keyup", {
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-      })
-    );
+    // Give React time to process the input event before pressing Enter
+    setTimeout(() => {
+      ["keydown", "keypress", "keyup"].forEach((type) => {
+        input.dispatchEvent(
+          new KeyboardEvent(type, {
+            key: "Enter", code: "Enter", keyCode: 13, which: 13,
+            bubbles: true, cancelable: true, composed: true,
+          })
+        );
+      });
+      // Also try comma as Shopify accepts comma-separated tags
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: ",", code: "Comma", keyCode: 188, which: 188,
+          bubbles: true, cancelable: true, composed: true,
+        })
+      );
+      input.blur();
+      if (done) setTimeout(done, 80);
+    }, 120);
   }
   function step() {
     if (idx >= tags.length) return;
@@ -4129,8 +4129,7 @@ function shopifyFillTagsCombobox(scan, root) {
       step();
       return;
     }
-    applyOne(tag);
-    if (idx < tags.length) setTimeout(step, 110);
+    applyOne(tag, idx < tags.length ? step : undefined);
   }
   step();
   return 1;
