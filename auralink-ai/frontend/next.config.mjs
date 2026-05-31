@@ -38,9 +38,10 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Allow camera + microphone for scan page — required by Android Chrome
-        source: "/(scan|list|home.html|snap|snap.html)",
+        // Never CDN-cache these app pages — they contain inline JS that must stay fresh
+        source: "/(scan|list|reading-product|reseller-results|reseller-library|reseller-listing-draft)",
         headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
           { key: "Permissions-Policy", value: "camera=*, microphone=()" },
         ],
       },
