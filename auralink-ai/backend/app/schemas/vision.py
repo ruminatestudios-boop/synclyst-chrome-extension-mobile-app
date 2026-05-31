@@ -95,6 +95,10 @@ class VisionExtractionRequest(BaseModel):
         default="product",
         description="Type of document to extract: product (listing), invoice, or receipt",
     )
+    fast_mode: bool = Field(
+        default=False,
+        description="Use faster model (gemini-2.0-flash, no thinking) — ideal for reseller price checks",
+    )
 
 
 class FetchProductImagesRequest(BaseModel):

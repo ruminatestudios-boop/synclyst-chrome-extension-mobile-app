@@ -151,11 +151,22 @@
           <p class="text-[11px] text-zinc-500 mt-2" id="ri-sold-count">—</p>
         </div>
         <div class="vercel-card p-4">
-          <p class="text-[11px] font-medium text-zinc-500">Estimated profit <span class="text-zinc-400 font-normal">after all fees</span></p>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-[11px] font-medium text-zinc-500">Profit <span class="text-zinc-400 font-normal" id="ri-profit-platform-label"></span></p>
+          </div>
           <p class="metric text-[22px] leading-none font-extrabold mt-2 tracking-tight" id="ri-profit">—</p>
-          <p class="text-[11px] text-zinc-500 mt-2" id="ri-roi">—</p>
+          <p class="text-[11px] text-zinc-500 mt-2" id="ri-roi">Add your cost above for profit</p>
           <p class="text-[10px] text-zinc-400 mt-1.5 leading-snug" id="ri-profit-breakdown"></p>
         </div>
+      </div>
+
+      <!-- Platform selector for fee calculation -->
+      <div class="vercel-card p-3 mb-4">
+        <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2.5">Selling on</p>
+        <div id="ri-platform-row" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <div class="hidden" style="display:none"><!-- spacer -->
       </div>
 
       <!-- Recent sold comps (trust builder) -->
@@ -1056,6 +1067,7 @@
           var net = Number(p.estimated_net_profit);
           pEl.textContent = (net >= 0 ? '+' : '') + money2(net);
           pEl.className = 'metric text-[22px] leading-none font-extrabold mt-2 tracking-tight ' + (net >= 0 ? 'text-emerald-700' : 'text-rose-700');
+          roiEl.className = 'text-[11px] text-zinc-500 mt-2';
           if (p.estimated_roi_pct != null) roiEl.textContent = 'ROI ' + Math.round(p.estimated_roi_pct) + '%';
           else roiEl.textContent = 'ROI —';
         } else {
@@ -1068,13 +1080,79 @@
         return resaleAnchor != null ? resaleAnchor : null;
       }
 
+      // ── Platform fee table ────────────────────────────────────────────────
+      var RI_PLATFORMS = [
+        { id: 'none',      label: 'No fees',    pct: 0,     fixed: 0,    note: 'Cash / private sale' },
+        { id: 'ebay',      label: 'eBay',        pct: 0.129, fixed: 0.30, note: '12.9% + payment' },
+        { id: 'depop',     label: 'Depop',       pct: 0.10,  fixed: 0.30, note: '10% + payment' },
+        { id: 'vinted',    label: 'Vinted',      pct: 0,     fixed: 0,    note: 'Buyer pays fees' },
+        { id: 'poshmark',  label: 'Poshmark',    pct: 0.20,  fixed: 0,    note: '20% over £15' },
+        { id: 'facebook',  label: 'FB Market',   pct: 0.05,  fixed: 0,    note: '5% shipping sales' },
+        { id: 'mercari',   label: 'Mercari',     pct: 0.10,  fixed: 0.30, note: '10% + payment' },
+        { id: 'etsy',      label: 'Etsy',        pct: 0.065, fixed: 0.30, note: '6.5% + payment' },
+      ];
+      var selectedPlatformId = null; // null = no platform selected
+
+      (function initPlatformSelector() {
+        var row = document.getElementById('ri-platform-row');
+        if (!row) return;
+        RI_PLATFORMS.forEach(function(p) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.setAttribute('data-platform', p.id);
+          btn.title = p.note;
+          btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ' +
+            'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100';
+          btn.textContent = p.label;
+          btn.addEventListener('click', function() {
+            if (selectedPlatformId === p.id) {
+              // Deselect — toggle off
+              selectedPlatformId = null;
+            } else {
+              selectedPlatformId = p.id;
+            }
+            syncPlatformUI();
+            recalcDealMath();
+          });
+          row.appendChild(btn);
+        });
+      })();
+
+      function syncPlatformUI() {
+        var row = document.getElementById('ri-platform-row');
+        if (!row) return;
+        var btns = row.querySelectorAll('[data-platform]');
+        btns.forEach(function(btn) {
+          var pid = btn.getAttribute('data-platform');
+          var active = pid === selectedPlatformId;
+          btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ' +
+            (active
+              ? 'border-violet-500 bg-violet-600 text-white'
+              : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100');
+        });
+        var lbl = document.getElementById('ri-profit-platform-label');
+        if (lbl) {
+          var plat = RI_PLATFORMS.find(function(p) { return p.id === selectedPlatformId; });
+          lbl.textContent = plat ? ('via ' + plat.label + ' (' + plat.note + ')') : '';
+        }
+      }
+
+      function getPlatformFees(resaleD) {
+        if (!selectedPlatformId) return null; // no platform = no profit shown
+        var plat = RI_PLATFORMS.find(function(p) { return p.id === selectedPlatformId; });
+        if (!plat) return null;
+        var rate = fxRate();
+        return (resaleD * plat.pct) + (plat.fixed * rate);
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       function recalcDealMath() {
         var buyInput = document.getElementById('ri-buy');
         var buyStr = buyInput ? String(buyInput.value || '').trim() : '';
         var buyPriceDisplay = buyStr ? parseFloat(buyStr) : null;
         if (buyPriceDisplay !== null && (!isFinite(buyPriceDisplay) || buyPriceDisplay < 0)) buyPriceDisplay = null;
 
-        // No buy cost entered — show blank profit, prompt user to enter cost
+        // No buy cost entered — show blank profit
         if (buyPriceDisplay === null || buyPriceDisplay === 0) {
           renderProfit(null, 'no_cost');
           var bdEl = document.getElementById('ri-profit-breakdown');
@@ -1082,29 +1160,39 @@
           return;
         }
 
-        var resaleUSD = getResaleForMath(); // always USD anchor
+        var resaleUSD = getResaleForMath();
         if (resaleUSD == null || isNaN(resaleUSD)) {
           renderProfit(null, 'no_resale');
           return;
         }
+
         var rate = fxRate();
         var resaleD = resaleUSD * rate;
-        var feeRate = 0.13, payRate = 0.029;
-        var payFixed = 0.30 * rate;
-        var ship = 8.0 * rate;
-        var fees = resaleD * feeRate + (resaleD * payRate + payFixed);
-        var net = resaleD - fees - ship - buyPriceDisplay;
+
+        // No platform selected — show gross profit (resale − cost, no fees)
+        var fees = getPlatformFees(resaleD);
+        if (fees === null) {
+          // Prompt user to pick a platform
+          var pEl = document.getElementById('ri-profit');
+          var roiEl = document.getElementById('ri-roi');
+          var bdEl2 = document.getElementById('ri-profit-breakdown');
+          if (pEl) { pEl.textContent = '—'; pEl.className = 'metric text-[22px] leading-none font-extrabold mt-2 tracking-tight'; }
+          if (roiEl) { roiEl.textContent = 'Select a platform below'; roiEl.className = 'text-[11px] font-semibold text-violet-600 mt-2'; }
+          if (bdEl2) bdEl2.textContent = '';
+          return;
+        }
+
+        var net = resaleD - fees - buyPriceDisplay;
         var roi = buyPriceDisplay > 0 ? (net / buyPriceDisplay) * 100 : null;
         renderProfit({
           estimated_resale_price: resaleD,
           estimated_net_profit: Math.round(net * 100) / 100,
           estimated_roi_pct: roi != null ? Math.round(roi * 10) / 10 : null,
         });
-        // Show cost breakdown so user knows what was deducted
         var bdEl = document.getElementById('ri-profit-breakdown');
         if (bdEl) {
-          bdEl.textContent = 'Sell ' + money2(resaleD) + ' − fees ' + money2(fees) +
-            ' − ship ' + money2(ship) + ' − cost ' + money2(buyPriceDisplay);
+          var feeStr = fees > 0 ? ' - fees ' + money2(fees) : '';
+          bdEl.textContent = 'Sell ' + money2(resaleD) + feeStr + ' - cost ' + money2(buyPriceDisplay);
         }
       }
 

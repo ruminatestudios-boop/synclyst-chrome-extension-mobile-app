@@ -193,7 +193,7 @@
             border-left-width: 2px;
             border-bottom-left-radius: 4px;
         }
-        /* Review-flow aligned: light zinc chrome + frosted “glass” icon tiles (gallery / rotate style) */
+        /* Review-flow aligned: light zinc chrome + frosted "glass" icon tiles (gallery / rotate style) */
         .scan-control-bar {
             width: min(100%, 430px);
             margin: 0 auto;
@@ -307,7 +307,7 @@
     <!-- Header: same logo + white band as flow-3.html (min-height + safe-area; no fixed h-14 + extra padding clash) -->
     <div class="scan-view-header shrink-0 w-full box-border border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 grid grid-cols-3 items-center min-h-14 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
       <div></div>
-      <a href="/list" id="scan-view-exit" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none" title="Synclyst®" aria-label="Synclyst"><span id="scan-view-brand">Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
+      <a href="/scan" id="scan-view-exit" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none" title="SyncIQ®" aria-label="SyncIQ"><span id="scan-view-brand">SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
       <div class="justify-self-end"></div>
     </div>
 
@@ -600,7 +600,7 @@
                             <i data-lucide="send" stroke-width="1.5" class="text-zinc-900 w-6 h-6"></i>
                         </div>
                         <h3 class="text-lg font-semibold tracking-tight mb-3 text-zinc-900">Publish ready</h3>
-                        <p class="text-base text-zinc-500 leading-relaxed mt-auto min-h-[6.5rem] lg:min-h-[7rem]">Open your store admin when you’re ready. Polish the draft, tweak details if needed, then hit Publish. Your product goes live to buyers as soon as you confirm.</p>
+                        <p class="text-base text-zinc-500 leading-relaxed mt-auto min-h-[6.5rem] lg:min-h-[7rem]">Open your store admin when you're ready. Polish the draft, tweak details if needed, then hit Publish. Your product goes live to buyers as soon as you confirm.</p>
                     </div>
                 </div>
             </div>
@@ -1258,12 +1258,12 @@
           var scanBrand = document.getElementById('scan-view-brand');
           var scanExit = document.getElementById('scan-view-exit');
           var scanModeParam = (urlParams.get('mode') || '').toLowerCase();
-          // /scan → always SyncIQ® reseller flow; /list → always Synclyst® listing flow
+          // /scan → SyncIQ® reseller flow (default); /list → Synclyst® listing flow
           if (isListPath || scanModeParam === 'listing') {
             if (scanBrand) scanBrand.innerHTML = 'Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
             if (scanExit) { scanExit.title = 'Synclyst®'; scanExit.setAttribute('aria-label', 'Synclyst'); scanExit.href = '/'; }
-          } else if (isScanPath || scanModeParam === 'scan' || scanModeParam === 'reseller') {
-            // /scan or mode=reseller → SyncIQ®
+          } else {
+            // /scan or any other path → SyncIQ® (already set as default in HTML)
             if (scanBrand) scanBrand.innerHTML = 'SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
             if (scanExit) { scanExit.href = '/reseller-results'; scanExit.title = 'SyncIQ®'; scanExit.setAttribute('aria-label', 'SyncIQ'); }
           }
@@ -1447,7 +1447,7 @@
             }
           }
 
-          /** Store image and go to /reading-product (progress + “Reading your product”). */
+          /** Store image and go to /reading-product (progress + "Reading your product"). */
           function goToFlow2(base64, mimeType) {
             // /scan → reseller flow (SyncIQ®); /list → listing flow (Synclyst®)
             var pathN = (window.location.pathname || '').replace(/\/+$/, '');
@@ -1518,8 +1518,8 @@
             });
           }
 
-          // ── In-app browser detection ────────────────────────────────────────
-          var ua = navigator.userAgent || ‘’;
+          // -- In-app browser detection ----------------------------------------
+          var ua = navigator.userAgent || '';
           var isInAppBrowser = /Instagram|FBAN|FBAV|FB_IAB|musical_ly|TikTok|Snapchat|Twitter|LinkedInApp|MicroMessenger/.test(ua)
             || ((/Android/.test(ua) || /iPhone|iPad/.test(ua)) && /wv\b/.test(ua));
           var isAndroid = /Android/.test(ua);
@@ -1529,25 +1529,25 @@
 
           function showCameraError(msg, isDenied) {
             cameraBlocked = true;
-            var msgEl = document.getElementById(‘scan-camera-error-msg’);
-            var stepsEl = document.getElementById(‘scan-camera-steps’);
-            var openBrowserBtn = document.getElementById(‘scan-open-browser-btn’);
+            var msgEl = document.getElementById('scan-camera-error-msg');
+            var stepsEl = document.getElementById('scan-camera-steps');
+            var openBrowserBtn = document.getElementById('scan-open-browser-btn');
             if (msgEl) msgEl.textContent = msg;
-            if (cameraErrorEl) cameraErrorEl.classList.remove(‘hidden’);
+            if (cameraErrorEl) cameraErrorEl.classList.remove('hidden');
             // Dim shutter
-            var captureBtn2 = document.getElementById(‘scan-capture-btn’);
-            if (captureBtn2) captureBtn2.style.opacity = ‘0.35’;
+            var captureBtn2 = document.getElementById('scan-capture-btn');
+            if (captureBtn2) captureBtn2.style.opacity = '0.35';
 
             // Show "Open in Chrome" if in-app browser
             if (isInAppBrowser && openBrowserBtn) {
-              openBrowserBtn.classList.remove(‘hidden’);
-              openBrowserBtn.addEventListener(‘click’, function() {
+              openBrowserBtn.classList.remove('hidden');
+              openBrowserBtn.addEventListener('click', function() {
                 var url = window.location.href;
                 // intent:// URI opens Chrome on Android; window.open fallback for iOS
                 if (isAndroid) {
-                  window.location.href = ‘intent://’ + url.replace(/^https?:\/\//, ‘’) + ‘#Intent;scheme=https;package=com.android.chrome;end’;
+                  window.location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
                 } else {
-                  window.open(url, ‘_blank’);
+                  window.open(url, '_blank');
                 }
               });
             }
@@ -1557,41 +1557,41 @@
               var steps = [];
               if (isInAppBrowser) {
                 steps = [
-                  ‘Tap "Open in Chrome" below’,
-                  ‘Chrome will ask for camera — tap Allow’,
+                  'Tap "Open in Chrome" below',
+                  'Chrome will ask for camera — tap Allow',
                 ];
               } else if (isAndroid) {
                 steps = [
-                  ‘Tap the lock icon in the address bar’,
-                  ‘Tap "Permissions"’,
-                  ‘Set Camera to "Allow"’,
-                  ‘Reload this page’,
+                  'Tap the lock icon in the address bar',
+                  'Tap "Permissions"',
+                  'Set Camera to "Allow"',
+                  'Reload this page',
                 ];
               } else if (isIOS) {
                 steps = [
-                  ‘Go to iPhone Settings → Chrome (or Safari)’,
-                  ‘Tap Camera → Allow’,
-                  ‘Come back and reload this page’,
+                  'Go to iPhone Settings → Chrome (or Safari)',
+                  'Tap Camera → Allow',
+                  'Come back and reload this page',
                 ];
               } else {
                 steps = [
-                  ‘Click the lock icon in your browser address bar’,
-                  ‘Find Camera and set it to "Allow"’,
-                  ‘Reload the page’,
+                  'Click the lock icon in your browser address bar',
+                  'Find Camera and set it to "Allow"',
+                  'Reload the page',
                 ];
               }
-              stepsEl.innerHTML = steps.map(function(s) { return ‘<li>’ + s + ‘</li>’; }).join(‘’);
-              stepsEl.classList.remove(‘hidden’);
+              stepsEl.innerHTML = steps.map(function(s) { return '<li>' + s + '</li>'; }).join('');
+              stepsEl.classList.remove('hidden');
             }
           }
 
           function hideCameraError() {
             cameraBlocked = false;
-            if (cameraErrorEl) cameraErrorEl.classList.add(‘hidden’);
-            var stepsEl = document.getElementById(‘scan-camera-steps’);
-            if (stepsEl) stepsEl.classList.add(‘hidden’);
-            var captureBtn2 = document.getElementById(‘scan-capture-btn’);
-            if (captureBtn2) captureBtn2.style.opacity = ‘’;
+            if (cameraErrorEl) cameraErrorEl.classList.add('hidden');
+            var stepsEl = document.getElementById('scan-camera-steps');
+            if (stepsEl) stepsEl.classList.add('hidden');
+            var captureBtn2 = document.getElementById('scan-capture-btn');
+            if (captureBtn2) captureBtn2.style.opacity = '';
           }
 
           function startCamera() {
@@ -1600,24 +1600,24 @@
             // No mediaDevices API = insecure context or very old browser
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
               if (isInAppBrowser) {
-                showCameraError(‘Camera not available in this app. Tap "Open in Chrome" to use it.’, false);
+                showCameraError('Camera not available in this app. Tap "Open in Chrome" to use it.', false);
               } else {
-                showCameraError(‘Camera not supported here — use Upload photo instead.’, false);
+                showCameraError('Camera not supported here — use Upload photo instead.', false);
               }
               return;
             }
 
             // Check permission state first (avoids silent block on Android)
             var permCheck = navigator.permissions && navigator.permissions.query
-              ? navigator.permissions.query({ name: ‘camera’ })
-              : Promise.resolve({ state: ‘prompt’ });
+              ? navigator.permissions.query({ name: 'camera' })
+              : Promise.resolve({ state: 'prompt' });
 
             permCheck.then(function(status) {
-              if (status.state === ‘denied’) {
-                showCameraError(‘Camera access is blocked for this site.’, true);
+              if (status.state === 'denied') {
+                showCameraError('Camera access is blocked for this site.', true);
                 return;
               }
-              // state is ‘granted’ or ‘prompt’ — proceed
+              // state is 'granted' or 'prompt' — proceed
               _doGetUserMedia();
             }).catch(function() {
               // permissions API unsupported — just try anyway
@@ -1641,18 +1641,18 @@
                 return navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function(s) { hideCameraError(); attachStream(s); });
               })
               .catch(function(e3) {
-                var n = (e3 && e3.name) ? e3.name : ((fallbackErr && fallbackErr.name) ? fallbackErr.name : ‘’);
-                var isDenied = n === ‘NotAllowedError’ || n === ‘SecurityError’;
+                var n = (e3 && e3.name) ? e3.name : ((fallbackErr && fallbackErr.name) ? fallbackErr.name : '');
+                var isDenied = n === 'NotAllowedError' || n === 'SecurityError';
                 var msg = isDenied
-                  ? ‘Camera access is blocked for this site.’
-                  : (n === ‘NotFoundError’ ? ‘No camera found — use Upload photo.’ : ‘Camera unavailable — use Upload photo.’);
+                  ? 'Camera access is blocked for this site.'
+                  : (n === 'NotFoundError' ? 'No camera found — use Upload photo.' : 'Camera unavailable — use Upload photo.');
                 showCameraError(msg, isDenied);
               });
           }
 
           // Retry button
-          var retryBtn = document.getElementById(‘scan-camera-retry-btn’);
-          if (retryBtn) retryBtn.addEventListener(‘click’, function() { startCamera(); });
+          var retryBtn = document.getElementById('scan-camera-retry-btn');
+          if (retryBtn) retryBtn.addEventListener('click', function() { startCamera(); });
 
           // Defer one frame so the scan view is fully painted before getUserMedia fires.
           // Calling it synchronously on Android often results in a blank/frozen feed.
