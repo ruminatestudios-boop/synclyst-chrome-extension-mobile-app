@@ -136,7 +136,13 @@ class Settings(BaseSettings):
         if not self.cors_origins or self.cors_origins.strip() == "*":
             return ["*"]
         origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
-        for o in local_origins:
+        synclyst_origins = [
+            "https://app.synclyst.app",
+            "https://synclyst.app",
+            "https://www.synclyst.app",
+            "https://scan.synclyst.app",
+        ]
+        for o in local_origins + synclyst_origins:
             if o not in origins:
                 origins.append(o)
         return origins
