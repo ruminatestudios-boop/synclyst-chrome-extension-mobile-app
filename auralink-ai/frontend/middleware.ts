@@ -34,6 +34,9 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
   if (p.startsWith("/api/shopify/webhooks/")) {
     return NextResponse.next();
   }
+  if (p.startsWith("/api/v1/vision/") || p.startsWith("/api/v1/usage/")) {
+    return NextResponse.next();
+  }
   return clerk(request, event);
 }
 
