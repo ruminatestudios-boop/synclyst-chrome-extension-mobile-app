@@ -307,7 +307,29 @@
     <!-- Header: same logo + white band as flow-3.html (min-height + safe-area; no fixed h-14 + extra padding clash) -->
     <div class="scan-view-header shrink-0 w-full box-border border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 grid grid-cols-3 items-center min-h-14 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
       <div></div>
-      <a href="/scan" id="scan-view-exit" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none" title="SyncIQ®" aria-label="SyncIQ"><span id="scan-view-brand">SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
+      <a href="/list" id="scan-view-exit" class="text-sm font-semibold tracking-tight text-[#0a0a0a] underline underline-offset-[3px] decoration-zinc-700 hover:decoration-[#0a0a0a] hover:text-black justify-self-center py-2 leading-none" title="Synclyst®" aria-label="Synclyst"><span id="scan-view-brand">Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
+      <script>
+      (function () {
+        try {
+          var path = (window.location.pathname || '').replace(/\/+$/, '') || '/';
+          var mode = (new URLSearchParams(window.location.search || '')).get('mode') || '';
+          var a = document.getElementById('scan-view-exit');
+          var brand = document.getElementById('scan-view-brand');
+          if (!a) return;
+          if (path === '/list' || mode.toLowerCase() === 'listing') {
+            a.href = '/list';
+            a.title = 'Synclyst®';
+            a.setAttribute('aria-label', 'Synclyst');
+            if (brand) brand.innerHTML = 'Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
+          } else if (path === '/scan') {
+            a.href = '/reseller-results';
+            a.title = 'SyncIQ®';
+            a.setAttribute('aria-label', 'SyncIQ');
+            if (brand) brand.innerHTML = 'SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
+          }
+        } catch (e) {}
+      })();
+      </script>
       <div class="justify-self-end"></div>
     </div>
 
@@ -500,7 +522,7 @@
                     <a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors">Pricing</a>
                 </div>
             </div>
-            <a href="/" class="flex items-center gap-2 flex-shrink-0 absolute left-1/2 -translate-x-1/2 no-underline">
+            <a href="/list" class="flex items-center gap-2 flex-shrink-0 absolute left-1/2 -translate-x-1/2 no-underline">
                 <span class="text-lg font-semibold tracking-tight text-zinc-900">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span>
             </a>
             <div class="hidden md:flex items-center gap-4 flex-1 justify-end min-w-0">
@@ -1379,6 +1401,10 @@
           // --- End scan quota counter ---
 
           function exitScanView() {
+            if (isListPath) {
+              window.location.href = '/';
+              return;
+            }
             var u = new URL(window.location.href);
             u.searchParams.delete('mode');
             if (isScanPath) {
