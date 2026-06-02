@@ -1261,7 +1261,7 @@
           // /scan → SyncIQ® reseller flow (default); /list → Synclyst® listing flow
           if (isListPath || scanModeParam === 'listing') {
             if (scanBrand) scanBrand.innerHTML = 'Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
-            if (scanExit) { scanExit.title = 'Synclyst®'; scanExit.setAttribute('aria-label', 'Synclyst'); scanExit.href = '/'; }
+            if (scanExit) { scanExit.title = 'Synclyst®'; scanExit.setAttribute('aria-label', 'Synclyst'); scanExit.href = '/list'; }
           } else {
             // /scan or any other path → SyncIQ® (already set as default in HTML)
             if (scanBrand) scanBrand.innerHTML = 'SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
