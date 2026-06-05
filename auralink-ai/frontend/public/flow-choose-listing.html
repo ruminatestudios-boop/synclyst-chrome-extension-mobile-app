@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="view-transition" content="same-origin" />
+  <meta name="view-transition" content="same-origin" />
   <title>Choose how to use your listing | SyncLyst</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,8 +12,6 @@
   <link rel="stylesheet" href="/css/synclyst-flow.css" />
   <link rel="stylesheet" href="/css/flow-page-transition.css" />
   <script src="/js/flow-page-transition.js"></script>
-
-
   <script>
     tailwind.config = {
       theme: {
@@ -24,19 +22,49 @@
     };
   </script>
   <style>
-    .modal-backdrop { background: rgba(0,0,0,0.4); }
+    .extraction-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 16px; overflow: hidden; }
+    .extraction-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #a1a1aa; margin-bottom: 4px; }
   </style>
 </head>
 <body class="min-h-screen bg-zinc-50 font-sans text-zinc-900 antialiased">
   <div class="max-w-md mx-auto min-h-screen flex flex-col">
     <header class="flex items-center justify-between px-5 pt-6 pb-4 shrink-0 border-b border-zinc-100 bg-white">
       <span class="w-10 h-10" aria-hidden="true"></span>
-      <span class="invisible text-sm">—</span>
+      <span class="text-sm font-semibold tracking-tight text-zinc-900">Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span>
+      <span class="w-10 h-10" aria-hidden="true"></span>
     </header>
 
-    <main class="flex-1 px-5 pt-8 pb-8 overflow-auto">
+    <main class="flex-1 px-5 pt-6 pb-8 overflow-auto">
       <h1 class="text-xl font-semibold tracking-tight text-zinc-900 mb-1">Choose how to use your listing</h1>
-      <p class="text-sm text-zinc-500 mb-8">Copy, download, or connect your stores to publish.</p>
+      <p class="text-sm text-zinc-500 mb-5">Copy, download, or connect your stores to publish.</p>
+
+      <!-- Extraction preview -->
+      <section id="extraction-section" class="extraction-card mb-6 shadow-sm">
+        <div class="p-4 border-b border-zinc-100">
+          <p class="extraction-label">Extraction</p>
+          <div id="extraction-photo-wrap" class="rounded-xl overflow-hidden bg-zinc-100 border border-zinc-100 mb-4 hidden">
+            <img id="extraction-photo" alt="Scanned product" class="w-full max-h-48 object-cover" />
+          </div>
+          <div class="space-y-4">
+            <div>
+              <p class="extraction-label">Title</p>
+              <p id="extraction-title" class="text-[15px] font-medium text-zinc-900 leading-snug">—</p>
+            </div>
+            <div>
+              <p class="extraction-label">Price</p>
+              <p id="extraction-price" class="text-[15px] font-semibold text-zinc-900">—</p>
+            </div>
+            <div>
+              <p class="extraction-label">Description</p>
+              <p id="extraction-description" class="text-sm text-zinc-600 leading-relaxed whitespace-pre-wrap">—</p>
+            </div>
+            <div>
+              <p class="extraction-label">Tags</p>
+              <p id="extraction-tags" class="text-sm text-zinc-600 leading-relaxed">—</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section class="mb-8">
         <p class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-3">Copy or download</p>
@@ -76,15 +104,68 @@
   <script>
     (function() {
       var DRAFT_KEY = 'auralink_review_draft';
+      var DRAFT_LISTING_KEY = 'auralink_draft_listing';
       var STORAGE_KEY = 'auralink_selected_marketplaces';
+
+      function buildDraftFromListingPayload(p) {
+        if (!p || typeof p !== 'object') return null;
+        var data = p.extraction || {};
+        var copy = data.extraction_copy || data.copy || {};
+        var att = data.attributes || {};
+        var tags = data.tags || {};
+        var seoTitle = (copy.seo_title || '').trim();
+        var category = (tags.category || att.brand || '').trim();
+        if (att.brand && category && category !== att.brand) category = att.brand + ' › ' + category;
+        else if (!category && att.brand) category = att.brand;
+
+        var desc = (copy.description && String(copy.description).trim()) || '';
+        if (!desc && copy.bullet_points && Array.isArray(copy.bullet_points)) {
+          desc = copy.bullet_points.join('\n');
+        }
+
+        var price = '';
+        if (att.price_value != null && parseFloat(att.price_value) > 0) {
+          price = String(att.price_value).replace(/^\$|^£/, '');
+        } else if (p.suggested_price != null && parseFloat(p.suggested_price) > 0) {
+          price = String(p.suggested_price).replace(/^\$|^£/, '');
+        }
+        if (!price || parseFloat(price) <= 0) price = '9.99';
+
+        var keywords = (tags.search_keywords && Array.isArray(tags.search_keywords)) ? tags.search_keywords : [];
+        return {
+          title: seoTitle || 'Untitled listing',
+          description: desc,
+          category: category,
+          condition: (att.condition || 'new'),
+          price: price,
+          tags: keywords,
+          photos: p.imageDataUrl ? [p.imageDataUrl] : []
+        };
+      }
 
       function loadDraft() {
         try {
           var raw = sessionStorage.getItem(DRAFT_KEY);
-          if (raw) { var d = JSON.parse(raw); if (d && typeof d === 'object') return d; }
+          if (raw) {
+            var d = JSON.parse(raw);
+            if (d && typeof d === 'object' && (d.title || d.description)) return d;
+          }
         } catch (e) {}
+
+        try {
+          var rawListing = sessionStorage.getItem(DRAFT_LISTING_KEY);
+          if (rawListing) {
+            var built = buildDraftFromListingPayload(JSON.parse(rawListing));
+            if (built) {
+              try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(built)); } catch (e2) {}
+              return built;
+            }
+          }
+        } catch (e3) {}
+
         return { title: '', price: '', description: '', category: '', condition: '', tags: [], photos: [] };
       }
+
       function loadSelected() {
         try {
           var raw = sessionStorage.getItem(STORAGE_KEY);
@@ -96,7 +177,35 @@
       var draft = loadDraft();
       var selected = loadSelected();
       var publishBtn = document.getElementById('choose-publish-btn');
-      if (publishBtn && selected.length) publishBtn.textContent = 'Connect and publish (' + selected.length + ' store' + (selected.length === 1 ? '' : 's') + ')';
+      if (publishBtn && selected.length) {
+        publishBtn.textContent = 'Connect and publish (' + selected.length + ' store' + (selected.length === 1 ? '' : 's') + ')';
+      }
+
+      function renderExtraction(d) {
+        var titleEl = document.getElementById('extraction-title');
+        var priceEl = document.getElementById('extraction-price');
+        var descEl = document.getElementById('extraction-description');
+        var tagsEl = document.getElementById('extraction-tags');
+        var photoWrap = document.getElementById('extraction-photo-wrap');
+        var photoEl = document.getElementById('extraction-photo');
+
+        if (titleEl) titleEl.textContent = (d.title && d.title.trim()) ? d.title.trim() : 'Untitled listing';
+        if (priceEl) {
+          var p = (d.price != null && d.price !== '') ? String(d.price).replace(/^\$/, '').trim() : '0';
+          priceEl.textContent = '$' + (p.indexOf('.') !== -1 ? p : p + '.00');
+        }
+        if (descEl) descEl.textContent = (d.description && d.description.trim()) ? d.description.trim() : 'No description extracted.';
+        if (tagsEl) {
+          var tagList = (d.tags && Array.isArray(d.tags)) ? d.tags : [];
+          tagsEl.textContent = tagList.length ? tagList.join(', ') : 'None';
+        }
+        if (photoWrap && photoEl && d.photos && d.photos[0]) {
+          photoEl.src = d.photos[0];
+          photoWrap.classList.remove('hidden');
+        }
+      }
+
+      renderExtraction(draft);
 
       function getFormattedListingText() {
         draft = loadDraft();
