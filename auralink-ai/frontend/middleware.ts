@@ -28,6 +28,7 @@ const isPublicRoute = createRouteMatcher([
   "/extension-review(.*)",
   "/api/snap-pair(.*)",
   "/api/billing/webhook(.*)",
+  "/api/developer(.*)",
   // All static HTML files — no auth required
   "/(.*)\\.html",
 ]);
