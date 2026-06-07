@@ -1,4 +1,4 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextFetchEvent } from "next/server";
 import type { NextRequest } from "next/server";
@@ -14,7 +14,17 @@ const clerkConfigured = Boolean(
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() && process.env.CLERK_SECRET_KEY?.trim()
 );
 
-const clerk = clerkMiddleware();
+/** Guest scan + usage APIs must stay public (no sign-in redirect). */
+const isPublicApiRoute = createRouteMatcher([
+  "/api/v1/vision/(.*)",
+  "/api/v1/usage/(.*)",
+]);
+
+const clerk = clerkMiddleware(async (auth, request) => {
+  if (!isPublicApiRoute(request)) {
+    await auth.protect();
+  }
+});
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
   const p = request.nextUrl.pathname;
@@ -34,7 +44,7 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
   if (p.startsWith("/api/shopify/webhooks/")) {
     return NextResponse.next();
   }
-  if (p.startsWith("/api/v1/vision/") || p.startsWith("/api/v1/usage/")) {
+  if (isPublicApiRoute(request)) {
     return NextResponse.next();
   }
   return clerk(request, event);

@@ -314,6 +314,9 @@
             lower.indexOf('timed out') !== -1 || lower.indexOf('unavailable') !== -1) {
           return 'The AI service timed out or is busy. Try again in a moment, or continue and edit manually.';
         }
+        if (lower.indexOf('did not match the expected pattern') !== -1 || lower.indexOf('proxy_auth_block') !== -1) {
+          return 'Could not reach the scan service. Try again, or tap Continue & edit manually.';
+        }
         return raw || 'Could not read the image. Try again or use a different photo.';
       }
 
@@ -379,7 +382,10 @@
       function canUseDirectBackendFallback() {
         try {
           var h = window.location.hostname;
-          return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+          if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') return true;
+          // Production Synclyst hosts: Cloud Run allows these origins (see backend CORS).
+          if (h === 'app.synclyst.app' || h === 'synclyst.app' || h === 'scan.synclyst.app' || h === 'www.synclyst.app') return true;
+          return false;
         } catch (e) { return false; }
       }
 
@@ -468,9 +474,10 @@
       var host = window.location.hostname;
       var prodBackend = document.querySelector('meta[name="synclyst-backend-url"]');
       var fallbackApiUrl = (prodBackend && prodBackend.getAttribute('content')) ? prodBackend.getAttribute('content').trim().replace(/\/$/, '') : '';
-      // Hosts that are known NOT to have /api/v1 proxy routes — go straight to Cloud Run.
+      // Hosts without a working same-origin /api/v1 proxy — call Cloud Run directly (CORS allowed).
+      // app.synclyst.app: Clerk can block /api/v1/vision/* until middleware is deployed; Cloud Run is reliable.
       // scan.synclyst.app is a separate Vercel project with no API proxy.
-      var NO_PROXY_HOSTS = ['scan.synclyst.app', 'synclyst.app'];
+      var NO_PROXY_HOSTS = ['scan.synclyst.app', 'synclyst.app', 'app.synclyst.app'];
       var skipProxy = NO_PROXY_HOSTS.indexOf(host) !== -1;
       // Same-origin /api/v1/vision/* (Next route → backend): works on Vercel, avoids CORS.
       // On known no-proxy hosts, skip straight to Cloud Run (fallbackApiUrl).
@@ -731,6 +738,12 @@
           })
         })
           .then(function(r) {
+          if (r.status === 307 || r.status === 302 || r.status === 301) {
+            throw new Error('PROXY_AUTH_BLOCK');
+          }
+          if (r.redirected && String(r.url || '').indexOf('/sign-in') !== -1) {
+            throw new Error('PROXY_AUTH_BLOCK');
+          }
           if (r.status === 402) {
             return r.json().then(function(body) {
               var lim = 10;
@@ -771,14 +784,15 @@
         if (extractionDone) return;
         setWaiting(false);
         var raw = (err && err.message) ? String(err.message) : '';
+        var rawLower = raw.toLowerCase();
         var proxyMiss = raw.indexOf('404') !== -1 || raw.indexOf('Server error (404)') !== -1 || raw.indexOf('NOT_FOUND') !== -1;
+        var authBlock = raw.indexOf('PROXY_AUTH_BLOCK') !== -1 || rawLower.indexOf('did not match the expected pattern') !== -1;
 
-        // Direct browser → Cloud Run only works on localhost (CORS blocks app.synclyst.app on Cloud Run).
         var originTry = '';
         try { originTry = String(window.location.origin || '').replace(/\/$/, ''); } catch (eOg) {}
         var usingDirect8000 = apiUrl.indexOf('localhost:8000') !== -1;
         var usingNextProxy = originTry && apiUrl === originTry;
-        if (!triedFallback && fallbackApiUrl && canUseDirectBackendFallback() && (usingDirect8000 || usingNextProxy || proxyMiss)) {
+        if (!triedFallback && fallbackApiUrl && canUseDirectBackendFallback() && (usingDirect8000 || usingNextProxy || proxyMiss || authBlock)) {
           triedFallback = true;
           apiUrl = fallbackApiUrl;
           setWaiting(true);
