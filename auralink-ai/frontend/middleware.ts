@@ -20,11 +20,7 @@ const isPublicApiRoute = createRouteMatcher([
   "/api/v1/usage/(.*)",
 ]);
 
-const clerk = clerkMiddleware(async (auth, request) => {
-  if (!isPublicApiRoute(request)) {
-    await auth.protect();
-  }
-});
+const clerk = clerkMiddleware();
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
   const p = request.nextUrl.pathname;
