@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="auralink-api-url" content="http://localhost:8000" />
     <meta name="synclyst-backend-url" content="https://auralink-api-299567386855.us-central1.run.app" />
     <!-- If this file is served from a static host (repo root) while the Next.js app lives elsewhere, set the Next deployment origin (no trailing slash). Injected at build via  or edit manually. Empty = same host as this page. -->
-    <meta name="synclyst-app-origin" content="__SYNCLYST_APP_ORIGIN__" />
+    <meta name="synclyst-app-origin" content="https://app.synclyst.app" />
     <title>SyncLyst - List products. In seconds.</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/flow-page-transition.css" />
+    <script src="/js/flow-page-transition.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -88,16 +90,20 @@
         @media (max-width: 640px) {
             #scan-view { background: #0a0a0a; }
             #scan-view #scan-step-result { background: #fafafa; }
-            /* Header stays white with black SyncLyst (no grey bar) */
-            #scan-view .scan-view-header { padding-top: max(0.75rem, env(safe-area-inset-top)); }
             #scan-view #scan-step-camera { padding: 0; justify-content: stretch; }
             #scan-view #scan-step-camera .section-label, #scan-view #scan-step-camera > p.text-zinc-500, #scan-view #scan-step-camera > p.text-zinc-400, #scan-view #scan-step-camera #scan-upload-btn { display: none; }
-            #scan-view #scan-step-camera .scan-upload-link { display: block !important; position: absolute; bottom: 5.5rem; left: 50%; transform: translateX(-50%); font-size: 0.875rem; font-weight: 600; color: #fff; z-index: 15; text-decoration: underline; padding: 0.5rem 1rem; white-space: nowrap; }
-            #scan-view #scan-step-camera .scan-upload-link.hidden { display: block !important; }
+            #scan-view #scan-step-camera .scan-upload-link {
+                display: flex !important; align-items: center; justify-content: center;
+                position: absolute;
+                bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px));
+                left: 50%; transform: translateX(-50%); z-index: 15;
+                white-space: nowrap;
+            }
+            #scan-view #scan-step-camera .scan-upload-link.hidden { display: flex !important; }
             #scan-view #scan-step-camera.camera-unavailable #scan-upload-btn { display: block !important; }
             #scan-view #scan-step-camera .scan-camera-viewport { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; aspect-ratio: auto; border-radius: 0; border: none; }
-            #scan-view #scan-step-camera .scan-camera-viewport .flex.items-end { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
-            #scan-view #scan-step-camera #scan-camera-error { position: absolute; bottom: 5rem; left: 1rem; right: 1rem; max-width: none; }
+            #scan-view #scan-step-camera .scan-camera-viewport .flex.items-end { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+            #scan-view #scan-step-camera #scan-camera-error { position: absolute; bottom: 6rem; left: 1rem; right: 1rem; max-width: none; }
         }
         .btn-loading-spin { animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -209,27 +215,28 @@
 
   <!-- Scan view: product capture → SyncLyst extract (shown when ?mode=scan) -->
   <div id="scan-view" class="fixed inset-0 z-[80] hidden flex-col bg-[#fafafa] text-[#111]">
-    <div class="scan-view-header flex items-center justify-between px-4 h-14 border-b border-[#eaeaea] bg-white shrink-0">
+    <!-- Header: same logo + white band as flow-3.html -->
+    <div class="scan-view-header shrink-0 w-full box-border border-b border-[#e5e5e5] bg-white/95 backdrop-blur-sm px-4 grid grid-cols-3 items-center min-h-14 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
       <div></div>
-      <a href="/landing.html" class="inline-flex items-center no-underline text-[#111]"><span class="text-lg font-semibold tracking-tight">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
-      <a href="/flow-batch-upload.html" class="text-xs font-medium text-amber-600 hover:text-amber-700">Batch</a>
+      <a href="/landing.html" class="inline-flex items-center justify-self-center no-underline text-[#111] leading-none py-0.5"><span class="text-lg font-semibold tracking-tight">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span></a>
+      <div class="justify-self-end"></div>
     </div>
     <div id="scan-step-camera" class="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative">
-      <p class="section-label text-center mb-4 text-xs font-semibold uppercase tracking-widest text-zinc-500">[ scan product ]</p>
+      <p class="section-label text-center mb-5 text-sm font-medium text-[#525252]">Scan product</p>
       <div class="scan-camera-viewport w-full max-w-md aspect-[3/4] rounded-2xl border border-zinc-200 bg-white overflow-hidden relative">
         <video id="scan-video" class="w-full h-full object-cover" playsinline muted autoplay></video>
-        <div class="absolute inset-0 flex items-end justify-center p-4">
-          <button type="button" id="scan-capture-btn" class="w-16 h-16 rounded-full bg-white border-2 border-zinc-300 hover:border-zinc-900 hover:bg-zinc-50 transition-all">Capture</button>
+        <div class="absolute inset-0 flex items-end justify-center p-4 sm:p-6 bg-gradient-to-t from-black/25 via-transparent to-transparent">
+          <button type="button" id="scan-capture-btn" aria-label="Capture photo" class="w-[4.5rem] h-[4.5rem] rounded-full bg-white border-2 border-[#e5e5e5] hover:scale-[0.98] active:scale-95 transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.12)] ring-4 ring-white/30"></button>
         </div>
       </div>
       <p class="text-zinc-500 text-sm mt-4">Point at a product—we extract attributes, copy, and tags.</p>
       <div id="scan-camera-error" class="text-red-600 text-sm mt-2 hidden max-w-md text-center rounded-xl bg-red-50 border border-red-200 p-3"></div>
       <input type="file" id="scan-upload-input" accept="image/*" class="hidden" />
-      <button type="button" id="scan-upload-btn" class="mt-4 px-5 py-3 rounded-xl border border-zinc-300 bg-white text-zinc-700 text-sm font-semibold hover:bg-zinc-50">
+      <button type="button" id="scan-upload-btn" class="mt-4 px-5 py-3 rounded-xl border border-[#e5e5e5] bg-white text-[#0a0a0a] text-sm font-semibold hover:bg-[#fafafa] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         Upload photo
       </button>
-      <button type="button" id="scan-upload-link-mobile" class="scan-upload-link hidden mt-4 text-sm font-medium" aria-label="Upload photo">Upload photo</button>
-      <p class="text-zinc-400 text-xs mt-2 max-w-md text-center">Works on all devices. Use when camera is unavailable (e.g. on some connections).</p>
+      <button type="button" id="scan-upload-link-mobile" class="scan-upload-link hidden mt-4 text-sm font-semibold text-[#0a0a0a] bg-white/95 backdrop-blur-sm border border-[#e5e5e5] rounded-xl px-5 py-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] no-underline hover:bg-white" aria-label="Upload photo">Upload photo</button>
+      <p class="text-[#71717a] text-xs mt-3 max-w-md text-center">Use upload if the camera isn’t available.</p>
     </div>
     <div id="scan-step-result" class="flex-1 hidden flex-col p-4 overflow-auto">
       <div class="max-w-md w-full mx-auto py-4">
@@ -296,7 +303,7 @@
           </div>
         </div>
         <p id="scan-toast" class="text-sm text-emerald-600 hidden text-center mt-3"></p>
-        <p class="text-center text-zinc-500 text-xs mt-4"><a href="/landing.html" class="font-medium text-zinc-900 hover:underline">Exit to main page</a></p>
+        <p class="text-center text-zinc-500 text-xs mt-4"><a href="/" class="font-medium text-zinc-900 hover:underline">Exit to main page</a></p>
       </div>
     </div>
   </div>
@@ -359,7 +366,7 @@
         </nav>
     </header>
 
-    <div id="main-content">
+    <div id="main-content" data-synclyst-page-transition-root>
         <main id="main-landing">
         <!-- Hero -->
         <section class="relative pt-32 pb-20 px-6 overflow-hidden bg-white">
@@ -371,7 +378,7 @@
                     List in seconds from the mobile app or Chrome extension.<br />Scan anything <span class="text-orange-600 font-semibold">FREE</span> with SyncIQ to see if it's worth buying.
                 </p>
                 <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
-                    <a href="/home.html?mode=scan" class="scan-hero-btn text-white px-8 py-3.5 rounded-xl font-semibold border border-black transition-all flex items-center justify-center gap-2.5 group inline-flex bg-black sm:flex-1 sm:min-w-[200px]">
+                    <a href="/list" class="scan-hero-btn text-white px-8 py-3.5 rounded-xl font-semibold border border-black transition-all flex items-center justify-center gap-2.5 group inline-flex bg-black sm:flex-1 sm:min-w-[200px]">
                         <div class="relative flex items-center justify-center w-5 h-5 overflow-hidden">
                             <i data-lucide="camera" class="w-5 h-5 relative z-10"></i>
                             <div class="absolute left-0 right-0 h-[2px] bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] animate-scan-sweep z-20"></div>
@@ -409,7 +416,7 @@
                             <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">Live Now</span>
                         </div>
                         <p class="text-sm text-[#555] leading-relaxed vercel-body flex-1 mb-8">Open SyncLyst on your phone. Point your camera at any product — AI extracts the title, description, price and tags, then pushes it straight to your Shopify product page.</p>
-                        <a href="/home.html?mode=scan" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all text-center no-underline">
+                        <a href="/list" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all text-center no-underline">
                             Scan Your First Item
                         </a>
                     </div>
@@ -567,7 +574,7 @@
                             <div class="flex items-baseline justify-between">
                                 <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Total time</span>
                                 <div class="flex items-baseline gap-1.5">
-                                        <span class="text-3xl font-black text-white tracking-tighter">1m</span>
+                                    <span class="text-3xl font-black text-white tracking-tighter">1m</span>
                                     <span class="text-xs font-bold text-emerald-400">Instant</span>
                                 </div>
                             </div>
@@ -595,8 +602,7 @@
             <div class="max-w-7xl mx-auto">
                 <div class="mb-12">
                     <div class="flex items-end justify-center">
-                        <div class="w-full text-center">
-                        </div>
+                        <div class="w-full text-center"></div>
                     </div>
                 </div>
 
@@ -801,7 +807,7 @@
                 </div>
             </div>
             <div class="max-w-3xl mx-auto text-center">
-                <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-8 py-3.5 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all no-underline">
+                <a href="/scan" class="inline-flex items-center justify-center px-8 py-3.5 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all no-underline">
                     Try SyncIQ — 10 free scans/day
                 </a>
                 <p class="text-xs text-zinc-500 mt-4 vercel-body">No account needed · Same SyncLyst ecosystem · Paid limits coming later</p>
@@ -822,54 +828,55 @@
         </section>
     </main>
 
-    <!-- Footer: Vercel-style multi-column -->
-    <footer class="py-16 px-6 border-t border-[#eaeaea] bg-white">
+    <!-- Footer: matches app.synclyst.app developer pages -->
+    <footer class="py-16 px-6 border-t border-[rgba(17,24,39,0.08)]" style="background:#f0ebf9;">
         <div class="max-w-7xl mx-auto">
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 md:gap-12 mb-16">
-                <div class="col-span-2">
-                    <a href="/landing.html" class="inline-flex items-center gap-2 mb-4 no-underline">
-                        <span class="text-lg font-semibold tracking-tight text-[#111]">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 md:gap-10 mb-16">
+                <div class="col-span-2 md:col-span-3 lg:col-span-2">
+                    <a href="/" class="inline-flex items-center gap-2 mb-4 no-underline">
+                        <span class="text-lg font-extrabold tracking-tight text-[#111]">SyncLyst <sup class="text-[0.55em] font-medium opacity-90 relative -top-[0.15em]">®</sup></span>
                     </a>
-                    <p class="text-sm text-[#555] max-w-xs leading-relaxed vercel-body">
-                        The high-performance listing machine for modern sellers. Built for speed, optimized for SEO.
+                    <p class="text-sm text-[#6b7280] max-w-xs leading-relaxed vercel-body">
+                        AI-powered listing tools built for resellers. One photo. Full listing. Ready to publish.
                     </p>
                 </div>
                 <div>
-                    <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Get Started</h4>
-                    <ul class="space-y-3 text-sm text-[#555]">
-                        <li><a href="/home.html?mode=scan" class="hover:text-[#111] transition-colors">Scan your first item</a></li>
-                        <li><a href="/flow-batch-upload.html" class="hover:text-[#111] transition-colors">Batch Upload <span class="text-[10px] font-semibold text-amber-600 uppercase">Premium</span></a></li>
-                        <li><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors">Chrome Extension</a></li>
-                        <li><a href="#synciq" onclick="handleNavigate(event, 'synciq')" class="hover:text-[#111] transition-colors">SyncIQ — Free Buy Scanner</a></li>
-                        <li><a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="hover:text-[#111] transition-colors">Pricing</a></li>
+                    <h4 class="text-[0.6875rem] font-extrabold text-[#570ec5] uppercase tracking-widest mb-4">Products</h4>
+                    <ul class="space-y-3 text-sm text-[#6b7280]">
+                        <li><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors no-underline">Chrome Extension</a></li>
+                        <li><a href="#synciq" onclick="handleNavigate(event, 'synciq')" class="hover:text-[#111] transition-colors no-underline">SyncIQ Scanner</a></li>
+                        <li><a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="hover:text-[#111] transition-colors no-underline">Pricing</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Product</h4>
-                    <ul class="space-y-3 text-sm text-[#555]">
-                        <li><a href="#features" onclick="handleNavigate(event, 'features')" class="hover:text-[#111] transition-colors">How it works</a></li>
-                        <li><a href="#comparison" onclick="handleNavigate(event, 'comparison')" class="hover:text-[#111] transition-colors">Benefits</a></li>
-                        <li><a href="#roadmap" onclick="handleNavigate(event, 'roadmap')" class="hover:text-[#111] transition-colors">Integrations</a></li>
+                    <h4 class="text-[0.6875rem] font-extrabold text-[#570ec5] uppercase tracking-widest mb-4">Developers</h4>
+                    <ul class="space-y-3 text-sm text-[#6b7280]">
+                        <li><a href="https://app.synclyst.app/developers" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors no-underline">Developer API docs</a></li>
+                        <li><a href="https://app.synclyst.app/developers/dashboard" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors no-underline">API dashboard</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Resources</h4>
-                    <ul class="space-y-3 text-sm text-[#555]">
-                        <li><button onclick="openModal('privacy')" class="hover:text-[#111] transition-colors text-left">Privacy</button></li>
+                    <h4 class="text-[0.6875rem] font-extrabold text-[#570ec5] uppercase tracking-widest mb-4">Navigate</h4>
+                    <ul class="space-y-3 text-sm text-[#6b7280]">
+                        <li><a href="#roadmap" onclick="handleNavigate(event, 'roadmap')" class="hover:text-[#111] transition-colors no-underline">Integrations</a></li>
+                        <li><a href="#stack" onclick="handleNavigate(event, 'stack')" class="hover:text-[#111] transition-colors no-underline">Full Stack</a></li>
+                        <li><a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="hover:text-[#111] transition-colors no-underline">Pricing</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-[0.6875rem] font-extrabold text-[#570ec5] uppercase tracking-widest mb-4">Contact</h4>
+                    <ul class="space-y-3 text-sm text-[#6b7280]">
+                        <li><a href="mailto:synclyst@gmail.com" class="hover:text-[#111] transition-colors no-underline">synclyst@gmail.com</a></li>
+                        <li><a href="/privacy" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors no-underline">Privacy</a></li>
                         <li><button onclick="openModal('terms')" class="hover:text-[#111] transition-colors text-left">Terms</button></li>
                     </ul>
                 </div>
-                <div>
-                    <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Company</h4>
-                    <ul class="space-y-3 text-sm text-[#555]">
-                        <li><button onclick="openModal('about')" class="hover:text-[#111] transition-colors text-left">About</button></li>
-                        <li><button onclick="openModal('contact')" class="hover:text-[#111] transition-colors text-left">Contact</button></li>
-                    </ul>
-                </div>
             </div>
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-[#eaeaea] text-xs text-[#555]">
-                <p>© 2026 SyncLyst AI. All rights reserved.</p>
-                <div class="flex gap-6 items-center text-[#555]">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-[rgba(17,24,39,0.08)] text-xs text-[#9ca3af]" style="background:rgba(255,255,255,0.55);margin:0 -1.5rem -4rem;padding:1.25rem 1.5rem;">
+                <p class="mb-0">© 2026 SyncLyst. All rights reserved.</p>
+                <div class="flex flex-wrap gap-4 md:gap-6 items-center text-[#6b7280]">
+                    <a href="https://app.synclyst.app/developers" class="hover:text-[#111] transition-colors no-underline font-semibold">Developer API</a>
+                    <a href="mailto:synclyst@gmail.com" class="hover:text-[#111] transition-colors no-underline font-semibold">Contact</a>
                     <a href="https://www.instagram.com/synclyst/" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors inline-flex items-center justify-center" aria-label="Instagram">
                         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -922,7 +929,7 @@
         (function initSynclystAppOrigin() {
           var m = document.querySelector('meta[name="synclyst-app-origin"]');
           var raw = (m && m.getAttribute('content')) ? String(m.getAttribute('content')).trim() : '';
-          // Empty, unreplaced template, or mistaken Vercel env (literal __ or ___SYNCLYST_APP_ORIGIN___) → same host
+          // Empty, unreplaced template, or mistaken Vercel env (literal __ or __) → same host
           if (!raw || /SYNCLYST_APP_ORIGIN/.test(raw)) {
             window.SYNCLYST_APP_ORIGIN = '';
           } else {
@@ -941,7 +948,7 @@
           function needsRewrite(href) {
             if (!href || typeof href !== 'string' || href.charAt(0) !== '/') return false;
             if (href.indexOf('/synclyst-logo') === 0) return false;
-            var appPaths = ['/dashboard', '/sign-in', '/sign-up', '/home.html', '/review'];
+            var appPaths = ['/dashboard', '/sign-in', '/sign-up', '/home.html', '/scan', '/review'];
             for (var i = 0; i < appPaths.length; i++) {
               var pre = appPaths[i];
               if (href === pre || href.indexOf(pre + '?') === 0 || href.indexOf(pre + '/') === 0) return true;
@@ -1163,7 +1170,7 @@
             const btn = document.createElement(isActive ? 'a' : 'button');
             btn.className = `vercel-card p-6 flex flex-col items-center justify-center text-center group transition-all duration-200 ${isActive ? 'cursor-pointer hover:scale-[1.02] hover:border-black hover:shadow-lg' : 'cursor-pointer hover:scale-[1.02]'}`;
             if (isActive) {
-                btn.href = window.synclystAppUrl('/home.html?mode=scan');
+                btn.href = window.synclystAppUrl('/list');
                 btn.setAttribute('aria-label', `List on ${c.name}`);
             }
             const gridIconBoxCls = 'inline-flex items-center justify-center w-10 h-10 rounded-lg border border-zinc-200 bg-zinc-50';
@@ -1233,31 +1240,37 @@
         const privacyContent = `
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">Introduction</h4>
-                <p>SyncLyst AI ("we", "our", or "us") operates Synclyst.app. This Privacy Policy explains how we collect, use, and protect your information when you use our service.</p>
+                <p>SyncLyst AI ("we", "our", or "us") operates the Synclyst application. This Privacy Policy explains how we collect, use, and protect your information as a Shopify Merchant. By installing the app, you agree to the processing of data as described below.</p>
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">1. Information We Collect</h4>
-                <p><strong>Account Information:</strong> Name and email when you sign up. <strong>Product Photos:</strong> Processed by our AI, not stored permanently. <strong>Usage Data:</strong> Scans, listings created, features used. <strong>Payment:</strong> Handled by a third-party processor; we do not store card details.</p>
+                <p><strong>Merchant Data:</strong> We collect your name, email, and shop domain to manage your account and billing.</p>
+                <p class="mt-2"><strong>Product Data:</strong> We access product titles, images, and descriptions to perform AI analysis and synchronization.</p>
+                <p class="mt-2"><strong>Customer Data:</strong> Synclyst does not collect or store personal data of your end-customers. We only interact with product-level data.</p>
+                <p class="mt-2"><strong>Photos:</strong> Uploaded photos are processed in real-time and are not stored permanently on our servers.</p>
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">2. How We Use Your Information</h4>
-                <p>To provide and improve our service, sync listings to Shopify, Etsy, eBay, TikTok Shop; send account and billing updates; improve the AI using anonymised data only.</p>
+                <p>We use your data to provide the core service: identifying product attributes and syncing listings to Shopify. We also use anonymized, aggregated data to improve our AI models. We never sell your data to third parties.</p>
             </section>
             <section>
-                <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">3. Third-Party Integrations</h4>
-                <p>When you connect a platform (e.g. Shopify), you authorise us to access and write to it. We only request permissions needed to create and manage listings. Disconnect any time from your dashboard.</p>
+                <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">3. Shopify Mandatory Compliance (GDPR/CCPA)</h4>
+                <p>Synclyst is fully compliant with Shopify’s mandatory privacy webhooks. We respond to:</p>
+                <ul class="list-disc pl-5 mt-2 space-y-1">
+                    <li><strong>Customer Data Request:</strong> (Though we do not store customer data, we acknowledge all requests).</li>
+                    <li><strong>Customer Data Erasure:</strong> To ensure any cached references are purged.</li>
+                    <li><strong>Shop Data Erasure:</strong> To completely delete all merchant records if you uninstall the app.</li>
+                </ul>
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">4. Data Retention &amp; Security</h4>
-                <p>Product photos are deleted within 24 hours of processing. Account data is retained while your account is active. Request deletion at <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a>. We use TLS/HTTPS and restrict access to authorised personnel.</p>
+                <p><strong>Photos:</strong> Deleted within 24 hours of successful processing.</p>
+                <p class="mt-2"><strong>Account Data:</strong> Retained only while your account is active.</p>
+                <p class="mt-2"><strong>Security:</strong> We use industry-standard TLS/HTTPS encryption for all data transfers between your store and our AI engine.</p>
             </section>
             <section>
-                <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">5. Your Rights (UK/EEA)</h4>
-                <p>Under GDPR you may access, correct, delete, object, or request portability. Contact <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a>.</p>
-            </section>
-            <section>
-                <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">Cookies &amp; Contact</h4>
-                <p>We use essential cookies only (session, login). No advertising or tracking cookies. Contact: <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a></p>
+                <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">5. Your Rights &amp; Contact</h4>
+                <p>You have the right to access, correct, or delete your personal information at any time. For any data-related inquiries or to exercise your rights under GDPR/CCPA, please contact us at: <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a></p>
             </section>
         `;
 
@@ -1272,7 +1285,7 @@
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">2. Eligibility &amp; Account</h4>
-                <p>You must be at least 18 and capable of entering a binding contract. You are responsible for account security and all activity. Notify <a href="mailto:support@synclyst.app" class="text-[#111] font-medium underline">support@synclyst.app</a> if you suspect unauthorised access.</p>
+                <p>You must be at least 18 and capable of entering a binding contract. You are responsible for account security and all activity. Notify <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a> if you suspect unauthorised access.</p>
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">3. Acceptable Use</h4>
@@ -1288,7 +1301,7 @@
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">Governing Law &amp; Contact</h4>
-                <p>Governed by the laws of England and Wales. Disputes in the courts of England and Wales. Contact: <a href="mailto:legal@synclyst.app" class="text-[#111] font-medium underline">legal@synclyst.app</a></p>
+                <p>Governed by the laws of England and Wales. Disputes in the courts of England and Wales. Contact: <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline">synclyst@gmail.com</a></p>
             </section>
         `;
 
@@ -1314,11 +1327,11 @@
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">Email</h4>
-                <p><a href="mailto:hello@synclyst.app" class="text-[#111] font-medium underline hover:no-underline">hello@synclyst.app</a></p>
+                <p><a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline hover:no-underline">synclyst@gmail.com</a></p>
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">Support</h4>
-                <p>For product support or billing questions, use the in-app help or email <a href="mailto:support@synclyst.app" class="text-[#111] font-medium underline hover:no-underline">support@synclyst.app</a>.</p>
+                <p>For product support or billing questions, use the in-app help or email <a href="mailto:synclyst@gmail.com" class="text-[#111] font-medium underline hover:no-underline">synclyst@gmail.com</a>.</p>
             </section>
         `;
 
@@ -1564,7 +1577,7 @@
                 sessionStorage.removeItem('auralink_review_draft');
                 sessionStorage.setItem('auralink_draft_listing', JSON.stringify(payload));
                 sessionStorage.setItem('synclyst_selected_platform', 'shopify');
-                window.location.href = window.synclystAppUrl('/reading-product');
+                if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(window.synclystAppUrl('/reading-product')); else window.location.href = window.synclystAppUrl('/reading-product');
                 return true;
               } catch (err) { return false; }
             }
@@ -1574,7 +1587,7 @@
               delete payload.imageDataUrl;
               if (!saveAndGo(payload)) {
                 try { sessionStorage.removeItem('auralink_review_draft'); sessionStorage.setItem('auralink_draft_listing', JSON.stringify(payload)); sessionStorage.setItem('synclyst_selected_platform', 'shopify'); } catch (e) {}
-                window.location.href = window.synclystAppUrl('/reading-product');
+                if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(window.synclystAppUrl('/reading-product')); else window.location.href = window.synclystAppUrl('/reading-product');
               }
             }
           }
@@ -1689,7 +1702,7 @@
               try {
                 sessionStorage.setItem('auralink_pending_scan', JSON.stringify({ base64: b64 }));
                 sessionStorage.setItem('synclyst_selected_platform', 'shopify');
-                window.location.href = window.synclystAppUrl('/reading-product');
+                if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(window.synclystAppUrl('/reading-product')); else window.location.href = window.synclystAppUrl('/reading-product');
               } catch (e) {
                 if (onError) onError(e);
               }
@@ -1698,7 +1711,7 @@
               try {
                 sessionStorage.setItem('auralink_pending_scan', JSON.stringify({ base64: rawB64 }));
                 sessionStorage.setItem('synclyst_selected_platform', 'shopify');
-                window.location.href = window.synclystAppUrl('/reading-product');
+                if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(window.synclystAppUrl('/reading-product')); else window.location.href = window.synclystAppUrl('/reading-product');
               } catch (e) {
                 if (onError) onError(e);
               }
@@ -1851,9 +1864,9 @@
               sessionStorage.removeItem('auralink_review_draft');
               sessionStorage.setItem('auralink_draft_listing', JSON.stringify(payload));
               sessionStorage.setItem('synclyst_selected_platform', 'shopify');
-              window.location.href = window.synclystAppUrl('/reading-product');
+              if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(window.synclystAppUrl('/reading-product')); else window.location.href = window.synclystAppUrl('/reading-product');
             } catch (e) {
-              if (e.name === 'QuotaExceededError') { delete payload.imageDataUrl; try { sessionStorage.setItem('auralink_draft_listing', JSON.stringify(payload)); sessionStorage.setItem('synclyst_selected_platform', 'shopify'); window.location.href = window.synclystAppUrl('/reading-product'); } catch (e2) {} }
+              if (e.name === 'QuotaExceededError') { delete payload.imageDataUrl; try { sessionStorage.setItem('auralink_draft_listing', JSON.stringify(payload)); sessionStorage.setItem('synclyst_selected_platform', 'shopify'); if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(window.synclystAppUrl('/reading-product')); else window.location.href = window.synclystAppUrl('/reading-product'); } catch (e2) {} }
             }
           });
 
@@ -1861,7 +1874,7 @@
           if (scanViewBack) scanViewBack.addEventListener('click', function(e) {
             e.preventDefault();
             if (stream) stream.getTracks().forEach(function(t) { t.stop(); });
-            window.location.href = '/';
+            window.location.href = '/landing.html';
           });
 
           var popup = document.getElementById('conversion-popup');

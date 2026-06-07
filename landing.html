@@ -6,7 +6,7 @@
     <meta name="auralink-api-url" content="http://localhost:8000" />
     <meta name="synclyst-backend-url" content="https://auralink-api-299567386855.us-central1.run.app" />
     <!-- If this file is served from a static host (repo root) while the Next.js app lives elsewhere, set the Next deployment origin (no trailing slash). Injected at build via  or edit manually. Empty = same host as this page. -->
-    <meta name="synclyst-app-origin" content="" />
+    <meta name="synclyst-app-origin" content="https://app.synclyst.app" />
     <title>SyncLyst - List products. In seconds.</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/flow-page-transition.css" />
@@ -828,54 +828,55 @@
         </section>
     </main>
 
-    <!-- Footer: Vercel-style multi-column -->
-    <footer class="py-16 px-6 border-t border-[#eaeaea] bg-white">
+    <!-- Footer: matches app.synclyst.app developer pages -->
+    <footer class="py-16 px-6 border-t border-[rgba(17,24,39,0.08)]" style="background:#f0ebf9;">
         <div class="max-w-7xl mx-auto">
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 md:gap-12 mb-16">
-                <div class="col-span-2">
-                    <a href="/landing.html" class="inline-flex items-center gap-2 mb-4 no-underline">
-                        <span class="text-lg font-semibold tracking-tight text-[#111]">Synclyst <sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></span>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 md:gap-10 mb-16">
+                <div class="col-span-2 md:col-span-3 lg:col-span-2">
+                    <a href="/" class="inline-flex items-center gap-2 mb-4 no-underline">
+                        <span class="text-lg font-extrabold tracking-tight text-[#111]">SyncLyst <sup class="text-[0.55em] font-medium opacity-90 relative -top-[0.15em]">®</sup></span>
                     </a>
-                    <p class="text-sm text-[#555] max-w-xs leading-relaxed vercel-body">
-                        The high-performance listing machine for modern sellers. Built for speed, optimized for SEO.
+                    <p class="text-sm text-[#6b7280] max-w-xs leading-relaxed vercel-body">
+                        AI-powered listing tools built for resellers. One photo. Full listing. Ready to publish.
                     </p>
                 </div>
                 <div>
-                    <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Get Started</h4>
-                    <ul class="space-y-3 text-sm text-[#555]">
-                        <li><a href="/list" class="hover:text-[#111] transition-colors">Scan your first item</a></li>
-                        <li><a href="/flow-batch-upload.html" class="hover:text-[#111] transition-colors">Batch Upload <span class="text-[10px] font-semibold text-amber-600 uppercase">Premium</span></a></li>
-                        <li><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors">Chrome Extension</a></li>
-                        <li><a href="#synciq" onclick="handleNavigate(event, 'synciq')" class="hover:text-[#111] transition-colors">SyncIQ — Free Buy Scanner</a></li>
-                        <li><a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="hover:text-[#111] transition-colors">Pricing</a></li>
+                    <h4 class="text-[0.6875rem] font-extrabold text-[#570ec5] uppercase tracking-widest mb-4">Products</h4>
+                    <ul class="space-y-3 text-sm text-[#6b7280]">
+                        <li><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors no-underline">Chrome Extension</a></li>
+                        <li><a href="#synciq" onclick="handleNavigate(event, 'synciq')" class="hover:text-[#111] transition-colors no-underline">SyncIQ Scanner</a></li>
+                        <li><a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="hover:text-[#111] transition-colors no-underline">Pricing</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Product</h4>
-                    <ul class="space-y-3 text-sm text-[#555]">
-                        <li><a href="#features" onclick="handleNavigate(event, 'features')" class="hover:text-[#111] transition-colors">How it works</a></li>
-                        <li><a href="#comparison" onclick="handleNavigate(event, 'comparison')" class="hover:text-[#111] transition-colors">Benefits</a></li>
-                        <li><a href="#roadmap" onclick="handleNavigate(event, 'roadmap')" class="hover:text-[#111] transition-colors">Integrations</a></li>
+                    <h4 class="text-[0.6875rem] font-extrabold text-[#570ec5] uppercase tracking-widest mb-4">Developers</h4>
+                    <ul class="space-y-3 text-sm text-[#6b7280]">
+                        <li><a href="https://app.synclyst.app/developers" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors no-underline">Developer API docs</a></li>
+                        <li><a href="https://app.synclyst.app/developers/dashboard" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors no-underline">API dashboard</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Resources</h4>
-                    <ul class="space-y-3 text-sm text-[#555]">
-                        <li><a href="/privacy" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors">Privacy</a></li>
+                    <h4 class="text-[0.6875rem] font-extrabold text-[#570ec5] uppercase tracking-widest mb-4">Navigate</h4>
+                    <ul class="space-y-3 text-sm text-[#6b7280]">
+                        <li><a href="#roadmap" onclick="handleNavigate(event, 'roadmap')" class="hover:text-[#111] transition-colors no-underline">Integrations</a></li>
+                        <li><a href="#stack" onclick="handleNavigate(event, 'stack')" class="hover:text-[#111] transition-colors no-underline">Full Stack</a></li>
+                        <li><a href="#pricing" onclick="handleNavigate(event, 'pricing')" class="hover:text-[#111] transition-colors no-underline">Pricing</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-[0.6875rem] font-extrabold text-[#570ec5] uppercase tracking-widest mb-4">Contact</h4>
+                    <ul class="space-y-3 text-sm text-[#6b7280]">
+                        <li><a href="mailto:synclyst@gmail.com" class="hover:text-[#111] transition-colors no-underline">synclyst@gmail.com</a></li>
+                        <li><a href="/privacy" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors no-underline">Privacy</a></li>
                         <li><button onclick="openModal('terms')" class="hover:text-[#111] transition-colors text-left">Terms</button></li>
                     </ul>
                 </div>
-                <div>
-                    <h4 class="text-xs font-semibold text-[#111] uppercase tracking-wider mb-4">Company</h4>
-                    <ul class="space-y-3 text-sm text-[#555]">
-                        <li><button onclick="openModal('about')" class="hover:text-[#111] transition-colors text-left">About</button></li>
-                        <li><button onclick="openModal('contact')" class="hover:text-[#111] transition-colors text-left">Contact</button></li>
-                    </ul>
-                </div>
             </div>
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-[#eaeaea] text-xs text-[#555]">
-                <p>© 2026 SyncLyst AI. All rights reserved.</p>
-                <div class="flex gap-6 items-center text-[#555]">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-[rgba(17,24,39,0.08)] text-xs text-[#9ca3af]" style="background:rgba(255,255,255,0.55);margin:0 -1.5rem -4rem;padding:1.25rem 1.5rem;">
+                <p class="mb-0">© 2026 SyncLyst. All rights reserved.</p>
+                <div class="flex flex-wrap gap-4 md:gap-6 items-center text-[#6b7280]">
+                    <a href="https://app.synclyst.app/developers" class="hover:text-[#111] transition-colors no-underline font-semibold">Developer API</a>
+                    <a href="mailto:synclyst@gmail.com" class="hover:text-[#111] transition-colors no-underline font-semibold">Contact</a>
                     <a href="https://www.instagram.com/synclyst/" target="_blank" rel="noopener noreferrer" class="hover:text-[#111] transition-colors inline-flex items-center justify-center" aria-label="Instagram">
                         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
