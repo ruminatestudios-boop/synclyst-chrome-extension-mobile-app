@@ -118,6 +118,22 @@
           transform: rotate(360deg);
         }
       }
+      /* Scroll still works on these surfaces — just hide the visible track/thumb so the
+         popup doesn't show a scrollbar running down every page. */
+      html,
+      body,
+      .settings-overlay,
+      .legal-scroll,
+      .settings-library-list {
+        scrollbar-width: none;
+      }
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar,
+      .settings-overlay::-webkit-scrollbar,
+      .legal-scroll::-webkit-scrollbar,
+      .settings-library-list::-webkit-scrollbar {
+        display: none;
+      }
       body {
         margin: 0;
         /* Padding (not margin on .panel) so Chrome keeps equal lavender inset top + bottom; outer margins are often clipped at the popup bottom. */
@@ -268,6 +284,7 @@
         display: flex;
         flex-direction: column;
         gap: 0.1rem;
+        text-align: left;
       }
       .library-bar-title strong {
         font-size: 0.75rem;
@@ -404,14 +421,35 @@
       }
       .settings-section-title {
         font-size: 0.625rem;
-        font-weight: 600;
+        font-weight: 800;
         letter-spacing: 0.07em;
         text-transform: uppercase;
-        color: var(--text-subtle);
+        color: var(--text);
         margin: 0 0 0.5rem;
       }
       .settings-section-title--spaced {
         margin-top: 1rem;
+      }
+      .settings-section-toggle {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        background: none;
+        border: none;
+        padding: 0;
+        font: inherit;
+        cursor: pointer;
+        text-align: left;
+      }
+      .settings-section-toggle-hint {
+        font-weight: 500;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--text-muted);
+        font-size: 0.6875rem;
+        white-space: nowrap;
       }
       .settings-trust-copy {
         margin: 0 0 0.55rem;
@@ -464,6 +502,14 @@
       }
       .settings-plan-grid.is-locked .settings-plan-open {
         pointer-events: none;
+      }
+      /* "Selected"/highlighted border doesn't matter until the user can actually act on it —
+         showing it next to Starter's "Current" badge while signed out reads as two competing
+         signals at once. */
+      .settings-plan-grid.is-locked .settings-plan-row.is-selected {
+        border-color: var(--border);
+        box-shadow: none;
+        background: #fafafa;
       }
       .settings-plan-row {
         display: flex;
@@ -602,6 +648,9 @@
         font-size: 0.8125rem;
         color: var(--text-muted);
         line-height: 1.4;
+      }
+      .settings-auth-sub:empty {
+        display: none;
       }
       .settings-auth-actions {
         display: flex;
@@ -820,12 +869,7 @@
         margin: 1rem 0 0.9rem;
         height: 1px;
         width: 100%;
-        background: linear-gradient(
-          90deg,
-          rgba(139, 92, 246, 0),
-          rgba(139, 92, 246, 0.55),
-          rgba(139, 92, 246, 0)
-        );
+        background: var(--border);
       }
       .settings-help {
         margin-top: 0.85rem;
@@ -1070,8 +1114,15 @@
       }
       .label-step .label-step-num {
         font-weight: 800;
-        color: var(--text);
+        color: var(--accent);
         letter-spacing: 0.07em;
+      }
+      .label-step-total {
+        font-weight: 600;
+        color: var(--text-muted, #6b7280);
+        letter-spacing: 0.04em;
+        text-transform: none;
+        margin-left: 0.3em;
       }
       .label-step-row {
         display: flex;
@@ -1089,19 +1140,55 @@
         padding: 0 0 0.35rem;
         margin: 0;
       }
+      @property --qr-border-angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+      }
       .qr-card {
         position: relative;
         border-radius: var(--radius-card);
-        background: #fafafa;
-        border: 1px dashed var(--border-strong);
+        background: #faf5ff;
+        border: 1px dashed var(--accent);
         padding: 1.1rem 1rem 1rem;
         text-align: center;
         transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
       }
       .qr-card:hover {
-        border-color: var(--accent);
-        background: #faf5ff;
         box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      /* Purple "comet" loop traced around the card edge — draws attention to the primary
+         pairing action without being a constant, distracting glow. */
+      .qr-card::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        padding: 1.5px;
+        background: conic-gradient(
+          from var(--qr-border-angle),
+          transparent 0deg,
+          transparent 270deg,
+          var(--accent) 320deg,
+          rgba(139, 92, 246, 0.9) 340deg,
+          transparent 360deg
+        );
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        animation: qr-border-loop 3.2s linear infinite;
+      }
+      @keyframes qr-border-loop {
+        to {
+          --qr-border-angle: 360deg;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .qr-card::after {
+          animation: none;
+          display: none;
+        }
       }
       .qr-card img {
         border-radius: var(--radius-control);
@@ -1249,8 +1336,20 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .pair-copy-bucket .pair-copy-hint:empty {
-        display: none;
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      .pair-copy-bucket.is-copied {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
       }
       .pair-copy-chip {
         flex: 0 0 auto;
@@ -1397,7 +1496,7 @@
         display: flex;
         flex-direction: column;
         gap: var(--space-2);
-        margin-top: var(--space-5);
+        margin-top: var(--space-4);
       }
       .review-field .field-label {
         margin: 0;
@@ -1413,13 +1512,13 @@
         margin-top: var(--space-1);
       }
       #platform-review-section .preview-row + .review-field {
-        margin-top: var(--space-6);
+        margin-top: var(--space-4);
       }
       .review-actions {
         display: flex;
         flex-direction: column;
         gap: var(--space-3);
-        margin-top: var(--space-5);
+        margin-top: var(--space-4);
       }
       .review-actions .btn-ghost {
         margin-top: 0;
@@ -1665,6 +1764,9 @@
         resize: vertical;
         min-height: 72px;
         line-height: 1.45;
+        /* Long extracted descriptions overflow the default 4 rows — scroll instead of a
+           hard visual cutoff, and keep the drag handle visible so it reads as resizable. */
+        overflow-y: auto;
       }
       .review-input:focus,
       .review-textarea:focus,
@@ -1761,13 +1863,14 @@
         box-shadow: 0 0 0 3px var(--accent-soft);
       }
       .platform-tile--coming-soon:disabled {
-        opacity: 0.52;
+        opacity: 0.4;
         cursor: not-allowed;
         border-style: dashed;
         border-color: var(--border);
         background: #fafafa;
         color: var(--text-muted);
         box-shadow: none;
+        grid-column: 1 / -1;
       }
       .platform-tile--coming-soon:disabled:hover {
         border-color: var(--border);
@@ -1844,8 +1947,8 @@
         font-size: 0.75rem;
         font-weight: 600;
         color: var(--text-muted);
-        background: transparent;
-        border: 1px dashed var(--border);
+        background: #ffffff;
+        border: 1px solid var(--border-strong);
         border-radius: 10px;
         cursor: pointer;
         line-height: 1.35;
@@ -2106,7 +2209,7 @@
             </div>
           </div>
           <p class="settings-footnote">
-            After checkout, Stripe bills your Clerk account. Open any <strong>synclyst.app</strong> tab (or this popup
+            After checkout, your plan updates automatically. Open any <strong>synclyst.app</strong> tab (or this popup
             again) to refresh your plan label.
           </p>
           <div class="settings-divider" aria-hidden="true"></div>
@@ -2130,8 +2233,18 @@
           </div>
           <div class="settings-divider" aria-hidden="true"></div>
 
-          <p class="settings-section-title settings-section-title--spaced">Diagnostics</p>
-          <div class="settings-diagnostics" aria-label="Diagnostics">
+          <button
+            type="button"
+            class="settings-section-title settings-section-title--spaced settings-section-toggle"
+            id="btn-toggle-diagnostics"
+            aria-expanded="false"
+            aria-controls="settings-diagnostics"
+            title="Technical info for troubleshooting — tap to expand"
+          >
+            <span class="settings-section-toggle-label">Diagnostics</span>
+            <span class="settings-section-toggle-hint" id="diagnostics-toggle-hint">Tap to view technical details ▾</span>
+          </button>
+          <div class="settings-diagnostics hidden" id="settings-diagnostics" aria-label="Diagnostics">
             <div class="settings-diagnostics-row">
               <span class="settings-diagnostics-key">Origin</span>
               <span class="settings-diagnostics-val" id="diag-origin">—</span>
@@ -2312,24 +2425,26 @@
           <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
           <button
             type="button"
-            class="btn-magic qr-snap-cta"
+            class="qr-snap-cta"
             id="btn-open-snap-on-this-computer"
             style="
               display: block;
               width: 100%;
               box-sizing: border-box;
-              margin-top: 12px;
-              padding: 10px 14px;
-              min-height: 44px;
+              margin-top: 10px;
+              padding: 6px 10px;
+              min-height: 32px;
               font-size: 13px;
               font-weight: 600;
               line-height: 1.2;
-              color: #fff;
-              background: #111827;
-              border: 1px solid #0f172a;
-              border-radius: 12px;
+              color: var(--accent);
+              background: transparent;
+              border: none;
+              border-radius: 8px;
               cursor: pointer;
               font-family: inherit;
+              text-decoration: underline;
+              text-decoration-color: var(--accent-soft);
             "
           >
             Upload from Computer
@@ -2344,9 +2459,9 @@
         >
           <span class="pair-copy-left">
             <span id="pair-session-code" class="pair-copy-code"></span>
-            <span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite"></span>
+            <span class="pair-copy-hint sr-only" id="pair-copy-hint" aria-live="polite"></span>
           </span>
-          <span class="pair-copy-chip" aria-hidden="true">Copy session code</span>
+          <span class="pair-copy-chip" id="pair-copy-chip" aria-hidden="true">Copy session code</span>
         </button>
         <button
           type="button"
@@ -2368,12 +2483,6 @@
       </div>
 
       <div id="state-loaded" class="section hidden">
-        <div class="loaded-hero">
-          <p class="ready-sub" id="loaded-intro">
-            Choose a marketplace to start Magic Fill instantly<br />in your open tab and publish faster
-          </p>
-        </div>
-
         <div id="loaded-waiting" class="loaded-waiting hidden" role="status" aria-live="polite">
           <p class="loaded-waiting-title">Waiting for your scan</p>
           <p class="loaded-waiting-sub">Scan QR, upload from PC or Phone.</p>
@@ -2388,8 +2497,7 @@
 
         <div id="loaded-main">
           <div class="step-block">
-            <p class="label-step"><span class="label-step-num">2.</span> Choose platform</p>
-            <span class="field-label">Where do you want to list?</span>
+            <p class="label-step"><span class="label-step-num">2.</span> Choose platform <span class="label-step-total">(step 2 of 5)</span></p>
             <div class="platform-grid" id="platform-grid" role="radiogroup" aria-label="Marketplace">
   <button type="button" class="platform-tile" data-platform="shopify" title="Shopify" aria-pressed="false">
     <img
@@ -2465,7 +2573,7 @@
   </button>
   <button
     type="button"
-    class="platform-tile platform-tile--coming-soon"
+    class="platform-tile platform-tile--coming-soon hidden"
     disabled
     aria-disabled="true"
     tabindex="-1"
@@ -2486,7 +2594,7 @@
   </button>
   <button
     type="button"
-    class="platform-tile platform-tile--coming-soon"
+    class="platform-tile platform-tile--coming-soon hidden"
     disabled
     aria-disabled="true"
     tabindex="-1"
@@ -2561,10 +2669,6 @@
                 </span>
                 <input type="text" class="review-input" id="review-price" autocomplete="off" placeholder="0.00" />
               </label>
-              <label class="review-field review-field--readonly hidden" id="review-category-row">
-                <span class="field-label">Category</span>
-                <input type="text" class="review-input" id="review-category" readonly tabindex="-1" />
-              </label>
               <div class="sub-divider" aria-hidden="true"></div>
               <div class="review-actions">
                 <button type="button" class="btn-ghost" id="btn-open-full-review" disabled>
@@ -2576,13 +2680,14 @@
             <div class="step-block" id="platform-ready-section">
               <p class="label-step" id="platform-ready-step-label">
                 <span class="label-step-num">4.</span> Open marketplace &amp; product page
+                <span class="label-step-total">(step 4 of 5)</span>
               </p>
               <p class="ready-sub" id="platform-ready-hint"></p>
               <p class="platform-ready-must">Must do this step or extraction will fail.</p>
             </div>
 
           <div class="step-block" id="magic-send-section">
-            <p class="label-step"><span class="label-step-num">5.</span> Post to the marketplace</p>
+            <p class="label-step"><span class="label-step-num">5.</span> Post to the marketplace <span class="label-step-total">(step 5 of 5)</span></p>
             <p class="ready-sub">
               <span id="magic-post-hint">
                 Keep your <strong id="magic-tab-hint">listing</strong> open. Start from <strong>Products</strong> list;

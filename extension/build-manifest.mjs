@@ -133,7 +133,7 @@ const extensionIcons = {
 const manifest = {
   manifest_version: 3,
   name: "SyncLyst®",
-  version: "2.0.84",
+  version: "2.0.85",
   description:
     "Pair your Phone to scan products and auto-fill listings on Shopify, eBay, Etsy, Amazon, TikTok Shop, and more.",
   icons: extensionIcons,
