@@ -242,7 +242,17 @@ async function resolveSynclystOrigin() {
   }
 
   if (manual && /^https?:\/\//i.test(manual)) {
-    return manual.replace(/\/$/, "");
+    const manualClean = manual.replace(/\/$/, "");
+    if (await validateSnapPairOrigin(manualClean)) {
+      return manualClean;
+    }
+    try {
+      chrome.storage.local.remove([STORAGE_ORIGIN_MANUAL], () => {
+        /* ignore */
+      });
+    } catch {
+      /* ignore */
+    }
   }
 
   // In prod manifest (no localhost in CSP), skip cached localhost origins and local discovery
@@ -450,6 +460,29 @@ const DRAFT_LIBRARY_THUMB_SIZE = 44;
 /** Narrow popup: keep draft titles short so the library row doesn’t clip awkwardly. */
 const LIBRARY_UI_TITLE_MAX_CHARS = 32;
 
+// Vision/AI title extraction occasionally returns a refusal/error sentence
+// instead of a product title (e.g. "I cannot find any readable word or
+// number on this item."). Treat those as "no title" rather than showing
+// the raw model output to the user.
+const AI_REFUSAL_TITLE_RE =
+  /^(i\s+(cannot|can't|am unable to|couldn't|could not)\b|sorry,|there is no readable|no readable (word|text)|unable to (identify|read|determine))/i;
+// Vision extraction sometimes reads a calendar/clock screenshot instead of the product
+// (e.g. "08/06, 10:00 Mon 1 Jun smartphone…") — a date/time stamp leading the title is a
+// strong signal that's not a real product name either.
+const DATE_LIKE_TITLE_RE =
+  /^(\d{1,2}[/.-]\d{1,2}([/.-]\d{2,4})?\s*[,]|\d{1,2}:\d{2}\s|(mon|tue|wed|thu|fri|sat|sun)(day)?\s*[, ]\s*\d{1,2}\b)/i;
+function looksLikeAiRefusalText(s) {
+  const t = safeTrimStr(s);
+  return !!t && (AI_REFUSAL_TITLE_RE.test(t) || DATE_LIKE_TITLE_RE.test(t));
+}
+
+/** Session codes are opaque hex IDs — show a short head…tail form, full value stays in `title`/copy. */
+function truncateSessionCodeForDisplay(code) {
+  const c = safeTrimStr(code);
+  if (c.length <= 12) return c;
+  return `${c.slice(0, 6)}…${c.slice(-4)}`;
+}
+
 function safeTrimStr(v) {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -566,13 +599,19 @@ function writeDraftLibrary(list) {
 function updateLibraryBarUI(list) {
   const items = Array.isArray(list) ? list : [];
   const bar = document.getElementById("library-bar");
-  if (bar) bar.classList.toggle("hidden", !items.length);
+  // The bar only belongs on the pairing (QR) screen — callers fire on background events
+  // (e.g. a scan finishing saves a draft) regardless of which screen is active, so re-check
+  // visibility here instead of trusting the caller not to un-hide it on the listing steps.
+  const stateEmptyEl = document.getElementById("state-empty");
+  const onPairingScreen = !!stateEmptyEl && !stateEmptyEl.classList.contains("hidden");
+  if (bar) bar.classList.toggle("hidden", !items.length || !onPairingScreen);
   if (!items.length) return;
   const countEl = document.getElementById("library-bar-count");
   if (countEl) countEl.textContent = String(items.length || 0);
   const subEl = document.getElementById("library-bar-sub");
   if (subEl) {
-    const t0 = safeTrimStr(items[0] && items[0].title);
+    const t0raw = safeTrimStr(items[0] && items[0].title);
+    const t0 = looksLikeAiRefusalText(t0raw) ? "" : t0raw;
     const shown = t0 ? truncateLibraryTitle(t0) : "";
     subEl.textContent = shown || "Open a draft to post again";
     subEl.title = t0.length > LIBRARY_UI_TITLE_MAX_CHARS ? t0 : "";
@@ -630,12 +669,17 @@ function renderDraftLibraryOverlayUI(list) {
     lines.className = "settings-library-lines";
     const name = document.createElement("p");
     name.className = "settings-library-name";
-    const rawName = safeTrimStr(it.title) || "Untitled draft";
+    const cleanTitle = safeTrimStr(it.title);
+    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
+    const rawName = (cleanTitle && !looksLikeAiRefusalText(cleanTitle))
+      ? cleanTitle
+      // Multiple untitled drafts look identical otherwise — tag with the scan time so
+      // the user can tell them apart without opening each one.
+      : (t ? `Untitled draft · ${t}` : "Untitled draft");
     name.textContent = truncateLibraryTitle(rawName);
     if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
     const sub = document.createElement("p");
     sub.className = "settings-library-sub";
-    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
     sub.textContent = `${t || "—"} · ${sid}`;
     lines.appendChild(name);
     lines.appendChild(sub);
@@ -676,7 +720,10 @@ async function upsertDraftLibraryItem(item) {
   if (clearedAt && itemMs && itemMs <= clearedAt) return;
   const next = {
     sessionId: sid,
-    title: safeTrimStr(item && item.title) || "Untitled draft",
+    title: (() => {
+      const t = safeTrimStr(item && item.title);
+      return t && !looksLikeAiRefusalText(t) ? t : "Untitled draft";
+    })(),
     updatedAtMs: typeof item.updatedAtMs === "number" && Number.isFinite(item.updatedAtMs) ? item.updatedAtMs : Date.now(),
     stamp: safeTrimStr(item && item.stamp),
     imageUrl: safeTrimStr(item && item.imageUrl),
@@ -816,12 +863,17 @@ function renderDraftLibraryUI(list) {
     lines.className = "settings-library-lines";
     const name = document.createElement("p");
     name.className = "settings-library-name";
-    const rawName = safeTrimStr(it.title) || "Untitled draft";
+    const cleanTitle = safeTrimStr(it.title);
+    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
+    const rawName = (cleanTitle && !looksLikeAiRefusalText(cleanTitle))
+      ? cleanTitle
+      // Multiple untitled drafts look identical otherwise — tag with the scan time so
+      // the user can tell them apart without opening each one.
+      : (t ? `Untitled draft · ${t}` : "Untitled draft");
     name.textContent = truncateLibraryTitle(rawName);
     if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
     const sub = document.createElement("p");
     sub.className = "settings-library-sub";
-    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
     sub.textContent = `${t || "—"} · ${sid}`;
     lines.appendChild(name);
     lines.appendChild(sub);
@@ -887,13 +939,18 @@ function wireLibraryOverlay() {
     }
     close();
   });
-  clearBtn?.addEventListener("click", (e) => {
+  clearBtn?.addEventListener("click", async (e) => {
     try {
       e.preventDefault();
       e.stopPropagation();
     } catch {
       /* ignore */
     }
+    // Clearing is irreversible and wipes every saved scan, not just the current one — confirm first.
+    const list = await readDraftLibrary();
+    const count = Array.isArray(list) ? list.length : 0;
+    const msg = count > 1 ? `Clear all ${count} saved drafts? This can't be undone.` : "Clear this saved draft? This can't be undone.";
+    if (count > 0 && !window.confirm(msg)) return;
     clearDraftLibrary();
     close();
     showToast("Drafts cleared.", "success", 1400);
@@ -1206,15 +1263,13 @@ function refreshSettingsBillingAuthUI() {
           ? `Signed in${billingEmail ? ` · ${billingEmail}` : ""}`
           : "Signed out";
   }
+  // Title + sub used to repeat the same "sign in to upgrade" message as two stacked lines;
+  // one line covers it, and the per-plan buttons no longer repeat the phrase either.
   if (title) {
     title.textContent =
-      billingSignedIn === null ? "Checking sign-in…" : signed ? "Signed in" : "Sign in to upgrade";
+      billingSignedIn === null ? "Checking sign-in…" : signed ? "Signed in" : "Sign in to manage your plan";
   }
-  if (sub) {
-    sub.textContent = signed
-      ? "You can upgrade in one click."
-      : "Your plan is linked to your SyncLyst account. Sign in once, then upgrade in one click.";
-  }
+  if (sub) sub.textContent = "";
   if (btn) {
     btn.textContent = signed ? "Log out" : "Sign in";
   }
@@ -1238,7 +1293,9 @@ function refreshSettingsBillingAuthUI() {
     } else {
       b.disabled = true;
       b.classList.add("is-disabled");
-      b.textContent = "Sign in to upgrade";
+      // The auth card above already explains sign-in is required — repeating
+      // "Sign in to upgrade" on every plan button was redundant.
+      b.textContent = "Upgrade";
     }
   });
 }
@@ -1573,6 +1630,19 @@ function wireBillingSettings() {
     overlay?.classList.add("hidden");
   });
 
+  // Diagnostics is dev/support-facing (raw session IDs, fetch errors) — collapsed by
+  // default so it doesn't read as "the extension is broken" to a regular user.
+  document.getElementById("btn-toggle-diagnostics")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const panel = document.getElementById("settings-diagnostics");
+    const hintEl = document.getElementById("diagnostics-toggle-hint");
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    const willExpand = !expanded;
+    btn.setAttribute("aria-expanded", willExpand ? "true" : "false");
+    panel?.classList.toggle("hidden", !willExpand);
+    if (hintEl) hintEl.textContent = willExpand ? "Tap to hide ▴" : "Tap to view technical details ▾";
+  });
+
   document.getElementById("btn-open-terms")?.addEventListener("click", () => loadLegalDocIntoModal("terms"));
   document.getElementById("btn-open-privacy")?.addEventListener("click", () => loadLegalDocIntoModal("privacy"));
 
@@ -1670,12 +1740,13 @@ function wireBillingSettings() {
 }
 
 /** Bold primary step index (`2.`, `3.`, …) inside `.label-step`; remainder keeps muted styling. */
+const TOTAL_PAIRING_STEPS = 5;
 function setLabelStepHtml(el, text) {
   if (!el) return;
   const s = String(text || "").trim();
-  const m = s.match(/^(\d+\.)\s*(.*)$/);
+  const m = s.match(/^(\d+)\.\s*(.*)$/);
   if (m) {
-    el.innerHTML = `<span class="label-step-num">${m[1]}</span> ${m[2]}`;
+    el.innerHTML = `<span class="label-step-num">${m[1]}.</span> ${m[2]} <span class="label-step-total">(step ${m[1]} of ${TOTAL_PAIRING_STEPS})</span>`;
   } else {
     el.textContent = s;
   }
@@ -1946,17 +2017,28 @@ const PAIR_COPY_HINT_DEFAULT = "";
 async function copySnapPairUrl() {
   const code = snapPairSessionId;
   if (!code) return;
+  // Announce to screen readers via the (visually hidden) hint span; show sighted users a
+  // same-size chip-text swap + border flash instead of growing the box with a second line.
   const hintEl = document.getElementById("pair-copy-hint");
+  const chipEl = document.getElementById("pair-copy-chip");
+  const bucketEl = document.getElementById("btn-copy-snap-link");
+  const chipDefault = "Copy session code";
   try {
     await navigator.clipboard.writeText(code);
     if (hintEl) hintEl.textContent = "Code copied!";
+    if (chipEl) chipEl.textContent = "Copied!";
+    if (bucketEl) bucketEl.classList.add("is-copied");
     setTimeout(() => {
       if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
+      if (chipEl) chipEl.textContent = chipDefault;
+      if (bucketEl) bucketEl.classList.remove("is-copied");
     }, 1600);
   } catch {
     if (hintEl) hintEl.textContent = "Couldn’t copy — select the code";
+    if (chipEl) chipEl.textContent = "Copy failed";
     setTimeout(() => {
       if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
+      if (chipEl) chipEl.textContent = chipDefault;
     }, 2400);
   }
 }
@@ -2005,10 +2087,11 @@ function wireSnapPairCtaButtons() {
       /* ignore */
     }
   };
-  const onOpen = (e) => {
+  const onOpen = async (e) => {
     e.preventDefault();
     beginNewUploadFlow();
-    openSnapPairLink(getCurrentPairUrl());
+    const url = await resolvePairUrlForDesktopUpload();
+    openSnapPairLink(url);
   };
   const onCopy = (e) => {
     e.preventDefault();
@@ -2025,6 +2108,35 @@ function getCurrentPairUrl() {
   if (!sid) return "";
   const base = String(SYNCLYST_ORIGIN || SYNCLYST_ORIGIN_DEFAULT).replace(/\/$/, "");
   return `${base}/snap?s=${encodeURIComponent(sid)}`;
+}
+
+/**
+ * Desktop “Upload from Computer” must not open dead loopback tabs when Next is not running.
+ * Re-check origin at click time and fall back to synclyst.app.
+ */
+async function resolvePairUrlForDesktopUpload() {
+  const sid = snapPairSessionId;
+  if (!sid) return "";
+  let origin = String(SYNCLYST_ORIGIN || SYNCLYST_ORIGIN_DEFAULT).replace(/\/$/, "");
+  if (!(await validateSnapPairOrigin(origin))) {
+    try {
+      chrome.storage.local.remove([STORAGE_ORIGIN_AUTO, STORAGE_ORIGIN_MANUAL], () => {
+        /* ignore */
+      });
+    } catch {
+      /* ignore */
+    }
+    if (await validateSnapPairOrigin(SYNCLYST_ORIGIN_LIVE)) {
+      origin = SYNCLYST_ORIGIN_LIVE.replace(/\/$/, "");
+      SYNCLYST_ORIGIN = origin;
+      try {
+        chrome.storage.local.set({ [STORAGE_ORIGIN_AUTO]: origin });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return `${origin}/snap?s=${encodeURIComponent(sid)}`;
 }
 
 /**
@@ -2488,6 +2600,9 @@ function showQrHomeView() {
   if (st) st.textContent = "";
   updatePairingHeaderLabel("qr");
   updateContinueListingButton();
+  // Re-show the drafts bar (re-applies its own "hide if empty" rule) now that we're back
+  // on the pairing screen where it's relevant.
+  void readDraftLibrary().then((list) => updateLibraryBarUI(list));
 }
 
 let brandHomeWired = false;
@@ -2602,6 +2717,9 @@ function continueToListing() {
   if (loaded) loaded.classList.remove("hidden");
   const cont = document.getElementById("btn-continue-listing");
   if (cont) cont.classList.add("hidden");
+  // Drafts bar is only useful on the pairing screen — hide it once the user moves into the
+  // listing steps so it stops competing with the step content for attention.
+  document.getElementById("library-bar")?.classList.add("hidden");
   updatePairingHeaderLabel("listing");
   updateMagicLabel();
   updateFullReviewButton();
@@ -2727,23 +2845,6 @@ function resolveListingDescription(row) {
   return parts.reduce(function (a, b) {
     return b.length > a.length ? b : a;
   }, "");
-}
-
-function pickCategoryFromListing(row) {
-  const ex = row && row.listing_extra;
-  if (!ex || typeof ex !== "object") return "";
-  const shop = ex.shopify && typeof ex.shopify === "object" && !Array.isArray(ex.shopify) ? ex.shopify : null;
-  const fromShop =
-    pickStr(shop && shop.category) ||
-    pickStr(shop && shop.category_suggested) ||
-    pickStr(shop && shop.product_type);
-  if (fromShop) return fromShop;
-  return (
-    pickStr(ex.category) ||
-    pickStr(ex.category_suggested) ||
-    pickStr(ex.product_type) ||
-    ""
-  );
 }
 
 function renderExtraImagesStrip(row) {
@@ -2903,16 +3004,14 @@ function applyListing(row) {
   const titleEl = document.getElementById("review-title");
   const descEl = document.getElementById("review-description");
   const priceEl = document.getElementById("review-price");
-  if (titleEl) titleEl.value = row.title == null ? "" : String(row.title).trim();
+  if (titleEl) {
+    const rawTitle = row.title == null ? "" : String(row.title).trim();
+    // Vision extraction occasionally returns a refusal sentence or a misread date/clock
+    // screenshot instead of a product name — don't drop it into the editable title field.
+    titleEl.value = looksLikeAiRefusalText(rawTitle) ? "" : rawTitle;
+  }
   if (descEl) descEl.value = resolvedDesc;
   if (priceEl) priceEl.value = priceStr;
-  const catRow = document.getElementById("review-category-row");
-  const catInput = document.getElementById("review-category");
-  const cat = pickCategoryFromListing(row);
-  if (catRow && catInput) {
-    catInput.value = cat;
-    catRow.classList.toggle("hidden", !cat);
-  }
   renderExtraImagesStrip(row);
   /**
    * Leave the QR (step 1) shell whenever we have listing data. Previously we only called
@@ -2931,6 +3030,7 @@ function applyListing(row) {
   } else {
     stateEmptyEl?.classList.add("hidden");
     document.getElementById("state-loaded")?.classList.remove("hidden");
+    document.getElementById("library-bar")?.classList.add("hidden");
     chrome.storage.local.set({ [STORAGE_PREFERS_QR_HOME]: false });
     updatePairingHeaderLabel("listing");
   }
@@ -3517,7 +3617,10 @@ window.addEventListener("beforeunload", () => {
     wireSnapPairCtaButtons();
     void readDraftLibrary().then((list) => updateLibraryBarUI(list));
     const codeEl0 = document.getElementById("pair-session-code");
-    if (codeEl0) codeEl0.textContent = sessionId;
+    if (codeEl0) {
+      codeEl0.textContent = truncateSessionCodeForDisplay(sessionId);
+      codeEl0.title = sessionId;
+    }
     const pairUrlForQr = getPhoneQrUrl();
     const qrEl = document.getElementById("qr-img");
     if (qrEl && pairUrlForQr) {
