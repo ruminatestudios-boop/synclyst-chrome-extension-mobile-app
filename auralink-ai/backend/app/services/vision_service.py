@@ -209,7 +209,10 @@ def _apply_weak_title_composite_fallback(result: VisionExtractionResponse) -> Vi
     if len(parts) < 2:
         for k in tags.search_keywords or []:
             ks = str(k).strip()
-            if not ks or len(ks) < 2:
+            # A real keyword is a short tag ("streetwear", "graphic tee"), not a sentence. The
+            # model occasionally puts a description-like phrase in search_keywords; joining two
+            # of those here produced a run-on, mid-sentence-truncated title.
+            if not ks or len(ks) < 2 or len(ks) > 30 or ks.count(" ") > 4:
                 continue
             kl = ks.lower()
             if brand_key and (kl == brand_key or kl in brand_key or brand_key in kl):
@@ -276,7 +279,10 @@ def apply_normalizer(result: VisionExtractionResponse) -> VisionExtractionRespon
         if len(att.brand) > 1 and att.brand.isupper():
             att.brand = att.brand.title()
     if copy.seo_title and isinstance(copy.seo_title, str):
-        copy.seo_title = copy.seo_title.strip()[:200]
+        # 200 was loose enough to let description-like text bleed into the title and get cut
+        # off mid-sentence (e.g. "...this Supreme t-shirt features a prominent graphic print of
+        # rap"). A real product title fits comfortably in ~100 chars.
+        copy.seo_title = copy.seo_title.strip()[:100]
     return result
 
 

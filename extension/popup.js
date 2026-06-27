@@ -821,14 +821,13 @@ function openLibrarySession(sessionId, cachedRow) {
     }
   }
 
-  // Fallback: reload and fetch from server.
-  try {
-    chrome.storage.local.set({ snap_pair_session_id: sid, [STORAGE_PREFERS_QR_HOME]: false }, () => {
-      window.location.reload();
-    });
-  } catch {
-    window.location.reload();
-  }
+  // No cached snapshot for this draft. We can NOT safely fall back to "reload + fetch
+  // from server" here: the session endpoint only ever returns the *current* listing for a
+  // session id, and multiple drafts in the library can share one session id (re-scanned
+  // within the same pairing session). A reload would silently show the wrong (latest) item
+  // with total confidence — worse than telling the user plainly that this one can't be
+  // reopened.
+  showToast("Couldn't reopen this draft — its saved data is missing. Try scanning it again.", "error", 3200);
 }
 
 function renderDraftLibraryUI(list) {
@@ -947,6 +946,11 @@ function wireLibraryOverlay() {
     }
     close();
   });
+  // `window.confirm()` is unreliable inside extension popups (can silently return false or
+  // close the popup without ever showing a dialog) — use a tap-twice pattern instead: first
+  // click arms it and relabels the button, a second click within a few seconds actually clears.
+  let clearArmedUntil = 0;
+  let clearArmedResetTimer = null;
   clearBtn?.addEventListener("click", async (e) => {
     try {
       e.preventDefault();
@@ -954,14 +958,29 @@ function wireLibraryOverlay() {
     } catch {
       /* ignore */
     }
-    // Clearing is irreversible and wipes every saved scan, not just the current one — confirm first.
+    if (!clearBtn) return;
+    const now = Date.now();
+    if (now < clearArmedUntil) {
+      if (clearArmedResetTimer) {
+        clearTimeout(clearArmedResetTimer);
+        clearArmedResetTimer = null;
+      }
+      clearArmedUntil = 0;
+      clearBtn.textContent = "Clear drafts";
+      clearDraftLibrary();
+      close();
+      showToast("Drafts cleared.", "success", 1400);
+      return;
+    }
     const list = await readDraftLibrary();
     const count = Array.isArray(list) ? list.length : 0;
-    const msg = count > 1 ? `Clear all ${count} saved drafts? This can't be undone.` : "Clear this saved draft? This can't be undone.";
-    if (count > 0 && !window.confirm(msg)) return;
-    clearDraftLibrary();
-    close();
-    showToast("Drafts cleared.", "success", 1400);
+    if (!count) return;
+    clearArmedUntil = now + 4000;
+    clearBtn.textContent = "Tap again to confirm";
+    clearArmedResetTimer = setTimeout(() => {
+      clearArmedUntil = 0;
+      clearBtn.textContent = "Clear drafts";
+    }, 4000);
   });
 }
 
@@ -1259,18 +1278,9 @@ function refreshSettingsBillingAuthUI() {
   const authCard = document.getElementById("settings-auth");
   const title = document.getElementById("settings-auth-title");
   const sub = document.getElementById("settings-auth-sub");
-  const pill = document.getElementById("settings-auth-pill");
   const btn = document.getElementById("btn-settings-signin");
   const signed = !!billingSignedIn;
   if (authCard) authCard.classList.remove("hidden");
-  if (pill) {
-    pill.textContent =
-      billingSignedIn === null
-        ? "Checking sign-in…"
-        : signed
-          ? `Signed in${billingEmail ? ` · ${billingEmail}` : ""}`
-          : "Signed out";
-  }
   // Title + sub used to repeat the same "sign in to upgrade" message as two stacked lines;
   // one line covers it, and the per-plan buttons no longer repeat the phrase either.
   if (title) {
