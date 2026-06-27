@@ -2075,9 +2075,11 @@ function wireSnapPairCtaButtons() {
       lastPayload = null;
       lastAppliedListingStamp = null;
       lastAppliedImageUrl = null;
-      setReviewLoadingState(true, "Waiting for upload");
-      continueToListing();
-      // If the user takes a while to upload, this still keeps polling for a bit.
+      // Don't flip the popup to the loading/review screen the instant this button is
+      // clicked — the user is about to switch tabs to actually upload a photo, so an
+      // empty loading box appearing here for a few seconds is just noise. Poll quietly
+      // in the background; `applyListing` (via burstPollUntilListing) switches the view
+      // once real listing data actually arrives.
       burstPollUntilListing(snapPairSessionId, {
         stepMs: 350,
         maxAttempts: 240,
@@ -2550,7 +2552,15 @@ function burstPollUntilListing(sessionId, opts) {
     if (attempt++ >= maxAttempts) {
       if (onTimeoutMessage) {
         try {
-          setReviewLoadingState(false, onTimeoutMessage);
+          // Only force the review/loading screen open if we're already on it
+          // (extractionPending true). If polling started quietly in the background
+          // (e.g. "Upload from Computer" no longer flips the view on click), just
+          // surface the message as a status line on whichever screen is visible.
+          if (extractionPending) {
+            setReviewLoadingState(false, onTimeoutMessage);
+          } else {
+            setStatus(onTimeoutMessage);
+          }
         } catch {
           /* ignore */
         }
@@ -3371,8 +3381,9 @@ function setMagicFillLoading(loading) {
 async function runMagicFill() {
   const fillStartedAt = Date.now();
   setMagicFillLoading(true);
-  // Immediate feedback: button spinner + status line.
-  setStatus("Filling…");
+  // Button spinner + purple "is-loading" state are the in-progress signal now —
+  // no separate "Filling…" status banner needed.
+  setStatus("");
   try {
     syncPayloadFromReviewFields();
     const platform = getSelectedPlatform();
@@ -3384,9 +3395,6 @@ async function runMagicFill() {
       setStatus("Add a title to continue — or scan with your phone to import a listing.");
       return;
     }
-    const platformName =
-      (document.getElementById("magic-platform-label")?.textContent || "").trim() || platform;
-    setStatus(`Filling in ${platformName}…`);
     /** Same canonical session as “Open full review in browser” — merge so empty popup fields still get API data. */
     let merged = {
       title: lastPayload.title,

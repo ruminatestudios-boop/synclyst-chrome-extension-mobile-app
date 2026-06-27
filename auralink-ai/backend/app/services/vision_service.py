@@ -540,18 +540,30 @@ def _json_string_candidates(text: str) -> list:
     return out
 
 
+def _strip_trailing_commas(s: str) -> str:
+    """Remove a comma that immediately precedes a closing `}` or `]` (ignoring whitespace).
+    Vision models frequently emit `{"a": 1,}` / `[1, 2,]` — stdlib `json` rejects these outright."""
+    return re.sub(r",(\s*[}\]])", r"\1", s)
+
+
 def _json_loads_salvage(text: str) -> dict:
     last_err = None
     for candidate in _json_string_candidates(text):
-        try:
-            data = json.loads(candidate)
-            if isinstance(data, dict):
-                return data
-        except json.JSONDecodeError as e:
-            last_err = e
-            continue
-    if last_err:
-        logger.debug("JSON salvage failed: %s", last_err)
+        # Try the candidate as-is first, then with trailing commas stripped — most model
+        # output parses fine outright, so only pay the extra regex pass when needed.
+        for attempt in (candidate, _strip_trailing_commas(candidate)):
+            try:
+                data = json.loads(attempt)
+                if isinstance(data, dict):
+                    return data
+            except json.JSONDecodeError as e:
+                last_err = e
+                continue
+    # `logger.debug` is filtered out by Cloud Run's default log level, so every failure here
+    # was invisible in production — bump to `warning` and include a snippet of the raw model
+    # output so the next failure is actually diagnosable instead of a guess.
+    snippet = (text or "")[:800]
+    logger.warning("JSON salvage failed (%s). Raw model output (first 800 chars): %r", last_err, snippet)
     raise VisionServiceError("Vision model returned invalid JSON")
 
 
@@ -947,10 +959,15 @@ def _gemini_extract_sync(
     for model_name in model_list:
         for use_structured in (True, False):
             try:
+                # 4096 (was 2048): with `thinking_budget=0` + structured/schema output, Gemini
+                # 2.5 models sometimes still spend part of this same token pool on internal
+                # "thinking" before emitting visible text — the visible JSON was getting cut off
+                # well before 2048 tokens' worth of actual content, intermittently, depending on
+                # how much the model "thought" first. More headroom fixes the truncation.
                 if use_structured:
                     config = types.GenerateContentConfig(
                         temperature=0.1,
-                        max_output_tokens=2048,  # fast mode: less tokens needed
+                        max_output_tokens=4096,
                         response_mime_type="application/json",
                         response_schema=ucp_schema,
                         **({"thinking_config": thinking_cfg} if thinking_cfg else {}),
@@ -958,7 +975,7 @@ def _gemini_extract_sync(
                 else:
                     config = types.GenerateContentConfig(
                         temperature=0.1,
-                        max_output_tokens=2048,
+                        max_output_tokens=4096,
                         **({"thinking_config": thinking_cfg} if thinking_cfg else {}),
                     )
                 response = client.models.generate_content(
@@ -969,6 +986,16 @@ def _gemini_extract_sync(
                 text = _extract_response_text(response)
                 if not (text or "").strip():
                     raise VisionServiceError("Vision model returned empty output")
+                try:
+                    finish_reason = getattr(response.candidates[0], "finish_reason", None)
+                    if finish_reason and str(finish_reason).upper() not in ("STOP", "1", "FINISHREASON.STOP"):
+                        logger.warning(
+                            "Gemini finish_reason=%s for model=%s (truncated/blocked output likely)",
+                            finish_reason,
+                            model_name,
+                        )
+                except Exception:
+                    pass
                 return _parse_extraction_response(text)
             except VisionServiceError as e:
                 if use_structured:
