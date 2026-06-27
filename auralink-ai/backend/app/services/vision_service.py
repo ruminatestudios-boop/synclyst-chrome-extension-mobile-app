@@ -540,16 +540,25 @@ def _json_string_candidates(text: str) -> list:
     return out
 
 
+def _strip_trailing_commas(s: str) -> str:
+    """Remove a comma that immediately precedes a closing `}` or `]` (ignoring whitespace).
+    Vision models frequently emit `{"a": 1,}` / `[1, 2,]` — stdlib `json` rejects these outright."""
+    return re.sub(r",(\s*[}\]])", r"\1", s)
+
+
 def _json_loads_salvage(text: str) -> dict:
     last_err = None
     for candidate in _json_string_candidates(text):
-        try:
-            data = json.loads(candidate)
-            if isinstance(data, dict):
-                return data
-        except json.JSONDecodeError as e:
-            last_err = e
-            continue
+        # Try the candidate as-is first, then with trailing commas stripped — most model
+        # output parses fine outright, so only pay the extra regex pass when needed.
+        for attempt in (candidate, _strip_trailing_commas(candidate)):
+            try:
+                data = json.loads(attempt)
+                if isinstance(data, dict):
+                    return data
+            except json.JSONDecodeError as e:
+                last_err = e
+                continue
     if last_err:
         logger.debug("JSON salvage failed: %s", last_err)
     raise VisionServiceError("Vision model returned invalid JSON")

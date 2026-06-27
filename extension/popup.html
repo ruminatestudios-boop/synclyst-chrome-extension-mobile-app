@@ -1527,51 +1527,55 @@
         margin-top: 0;
         text-align: left;
       }
-      /* Travelling border: continuous rotating gradient around the whole border. */
-      #btn-open-full-review:not(:disabled) {
-        --btn-surface: #ffffff;
-        --full-review-border-angle: 0deg;
+      #btn-open-full-review {
+        position: relative;
+        width: 100%;
+        margin-top: 0;
+        padding: 0.65rem 1.15rem;
+        min-height: 2.5rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--text);
+        background: #ffffff;
+        border: 1px dashed var(--accent);
         border-radius: var(--radius-control);
-        border: 2px solid transparent;
-        background:
-          linear-gradient(var(--btn-surface), var(--btn-surface)) padding-box,
-          conic-gradient(
-            from var(--full-review-border-angle),
-            rgba(139, 92, 246, 0.35),
-            var(--accent),
-            var(--accent-hover),
-            var(--accent),
-            rgba(139, 92, 246, 0.35)
-          ) border-box;
-        background-origin: border-box;
-        background-clip: padding-box, border-box;
-        animation: full-review-border-sweep 2.4s linear infinite;
+        cursor: pointer;
+        font-family: inherit;
       }
-      #btn-open-full-review:not(:disabled):hover {
-        --btn-surface: #f9fafb;
-      }
-      @keyframes full-review-border-sweep {
-        to {
-          --full-review-border-angle: 360deg;
-        }
+      #btn-open-full-review::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        padding: 1.5px;
+        background: conic-gradient(
+          from var(--qr-border-angle),
+          transparent 0deg,
+          transparent 270deg,
+          var(--accent) 320deg,
+          rgba(139, 92, 246, 0.9) 340deg,
+          transparent 360deg
+        );
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        animation: qr-border-loop 3.2s linear infinite;
       }
       #btn-open-full-review:disabled {
-        animation: none;
-        border-radius: var(--radius-control);
-        border: 1px solid var(--border-strong);
+        color: var(--text-muted);
         background: #ffffff;
-        background-clip: border-box;
+        border-style: solid;
+        border-color: var(--border-strong);
+        cursor: not-allowed;
+      }
+      #btn-open-full-review:disabled::after {
+        display: none;
       }
       @media (prefers-reduced-motion: reduce) {
-        #btn-open-full-review:not(:disabled) {
+        #btn-open-full-review::after {
           animation: none;
-          border-radius: var(--radius-control);
-          border: 1px solid var(--border-strong);
-          background: #ffffff;
-          background-clip: border-box;
-        }
-        #btn-open-full-review:not(:disabled):hover {
-          background: #f9fafb;
+          display: none;
         }
       }
       select {
@@ -1625,6 +1629,8 @@
       .btn-magic.is-loading:disabled {
         opacity: 1;
         cursor: wait;
+        background: var(--accent);
+        border-color: var(--accent-hover);
       }
       /* Spinner occupies the same 18×18 slot as the external-link icon — no width jump. */
       .btn-magic-content {
@@ -1778,7 +1784,7 @@
       .step-block {
         margin-top: 0;
         padding-top: var(--section-gap);
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--border-strong);
       }
       .step-block:first-of-type {
         margin-top: 0;
@@ -1794,7 +1800,7 @@
       #post-platform-panel > .step-block:first-of-type {
         padding-top: var(--section-gap);
         margin-top: 0;
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--border-strong);
       }
       #platform-ready-section {
         margin-top: var(--space-6);
@@ -1824,6 +1830,7 @@
         gap: var(--space-3);
         row-gap: var(--space-3);
         margin-top: 0;
+        margin-bottom: var(--space-4);
         justify-items: stretch;
       }
       .platform-tile {
@@ -2669,7 +2676,6 @@
                 </span>
                 <input type="text" class="review-input" id="review-price" autocomplete="off" placeholder="0.00" />
               </label>
-              <div class="sub-divider" aria-hidden="true"></div>
               <div class="review-actions">
                 <button type="button" class="btn-ghost" id="btn-open-full-review" disabled>
                   Open full review in browser
