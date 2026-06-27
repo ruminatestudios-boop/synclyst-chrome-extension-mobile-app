@@ -1807,6 +1807,13 @@
           if (snapMUploadBtn) snapMUploadBtn.disabled = !on;
           if (snapMCaptureBtn) snapMCaptureBtn.disabled = !on;
           if (snapMRotateBtn) snapMRotateBtn.disabled = !on;
+          // Hide the (now-disabled) upload buttons and session code box while extraction is
+          // running — they were just sitting there greyed out next to the progress card,
+          // cluttering the view. Restored if upload is cancelled / errors out.
+          var photoActions = document.querySelector(".photo-actions");
+          var sessionPanel = document.querySelector(".session-panel");
+          if (photoActions) photoActions.style.display = on ? "" : "none";
+          if (sessionPanel) sessionPanel.style.display = on ? "" : "none";
         }
 
         function setSnapMCameraError(msg) {
