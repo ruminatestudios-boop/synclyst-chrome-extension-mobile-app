@@ -1295,8 +1295,10 @@
         var sessionId = (params.get("s") || "").trim();
         var root = document.getElementById("root");
 
-        /** Typical vision + push duration; bar moves toward ~90% by then, then “Almost there…” */
-        var ESTIMATE_SEC = 50;
+        /** Typical vision + push duration; bar moves toward ~90% by then, then “Almost there…”
+         * Lowered from 50 after enabling `fast_mode` on the core extraction call — real total
+         * time is now typically ~15-35s (web enrichment still runs at normal speed), not ~50s. */
+        var ESTIMATE_SEC = 22;
         var progressTimer = null;
         var uploadAbortController = null;
         var progressStart = 0;
