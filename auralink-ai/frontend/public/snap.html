@@ -1295,10 +1295,6 @@
         var sessionId = (params.get("s") || "").trim();
         var root = document.getElementById("root");
 
-        /** Typical vision + push duration; bar moves toward ~90% by then, then “Almost there…”
-         * Lowered from 50 after enabling `fast_mode` on the core extraction call — real total
-         * time is now typically ~15-35s (web enrichment still runs at normal speed), not ~50s. */
-        var ESTIMATE_SEC = 22;
         var progressTimer = null;
         var uploadAbortController = null;
         var progressStart = 0;
@@ -1691,34 +1687,26 @@
             if (progressSteps[i]) progressSteps[i].classList.remove("is-done");
           }
           progressStart = Date.now();
+          // No real per-stage signal exists until the request actually resolves — a countdown
+          // tied to a fixed-duration guess is structurally dishonest (it either finishes before
+          // the real result and stalls, or runs out and has to "catch up"). Asymptotically
+          // approach but never reach 100% on its own; only `finishProgressSuccess()` (called
+          // when the real response arrives) snaps it to 100%. Stage labels are an honest rough
+          // sequence, not a claim about exact timing.
           progressTimer = setInterval(function () {
             var elapsed = (Date.now() - progressStart) / 1000;
-            var pct;
-            var etaText;
-            if (elapsed <= ESTIMATE_SEC) {
-              pct = Math.min(88, (elapsed / ESTIMATE_SEC) * 88);
-              var left = Math.ceil(ESTIMATE_SEC - elapsed);
-              etaText = left > 1 ? "~" + left + "s" : "…";
-            } else {
-              pct = Math.min(96, 88 + Math.min(8, (elapsed - ESTIMATE_SEC) * 0.35));
-              etaText = "…";
-            }
+            // Approaches 92% but never reaches it — purely visual "still working" motion.
+            var pct = 92 * (1 - Math.exp(-elapsed / 12));
             progressFill.style.width = pct + "%";
             progressTrack.setAttribute("aria-valuenow", String(Math.round(pct)));
-            var stepIdx = Math.max(1, Math.min(4, Math.floor((elapsed / Math.max(1, ESTIMATE_SEC)) * 4) + 1));
+            var stepIdx =
+              elapsed < 3 ? 1 : elapsed < 10 ? 2 : elapsed < 20 ? 3 : 4;
             for (var i = 0; i < progressSteps.length; i++) {
               if (progressSteps[i]) progressSteps[i].classList.toggle("is-done", i + 1 < stepIdx);
             }
             var phase =
-              stepIdx >= 4
-                ? "Finalizing"
-                : stepIdx === 3
-                ? "Drafting"
-                : stepIdx === 2
-                ? "Processing"
-                : "Uploading";
-            var etaClean = String(etaText || "").replace(/^~\s*/, "");
-            if (progressEta) progressEta.textContent = "Step " + stepIdx + "/4 - " + etaClean + " left · " + phase;
+              stepIdx >= 4 ? "Finalizing" : stepIdx === 3 ? "Drafting" : stepIdx === 2 ? "Processing" : "Uploading";
+            if (progressEta) progressEta.textContent = "Step " + stepIdx + "/4 · " + phase + "…";
           }, 200);
         }
 
