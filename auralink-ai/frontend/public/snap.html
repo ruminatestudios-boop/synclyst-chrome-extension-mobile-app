@@ -1374,7 +1374,7 @@
           '<p class="brand-meta">Your listing workflow on autopilot</p>' +
           "</div></div>" +
           '<h1>Pair with desktop</h1>' +
-          '<p class="sub">Pick photos from your computer or take them on your phone.<br />After extraction completes, your draft appears in the SyncLyst extension popup.</p>' +
+          '<p class="sub" id="snap-intro-sub">Pick photos from your computer or take them on your phone.<br />After extraction completes, your draft appears in the SyncLyst extension popup.</p>' +
           '<div class="photo-actions">' +
           '<input type="file" id="file-upload" accept="image/jpeg,image/png,image/webp,image/heic,.heic" multiple />' +
           '<input type="file" id="file-camera" accept="image/*" capture="environment" />' +
@@ -1804,6 +1804,15 @@
           var sessionPanel = document.querySelector(".session-panel");
           if (photoActions) photoActions.style.display = on ? "" : "none";
           if (sessionPanel) sessionPanel.style.display = on ? "" : "none";
+          // The "Pick photos..." instructions only make sense before upload — once extraction
+          // is running, swap to a status line instead of leaving stale upload instructions
+          // showing above the progress card.
+          var introSub = document.getElementById("snap-intro-sub");
+          if (introSub) {
+            introSub.innerHTML = on
+              ? "Pick photos from your computer or take them on your phone.<br />After extraction completes, your draft appears in the SyncLyst extension popup."
+              : "Your photo is being extracted — this usually takes a few seconds.";
+          }
         }
 
         function setSnapMCameraError(msg) {
