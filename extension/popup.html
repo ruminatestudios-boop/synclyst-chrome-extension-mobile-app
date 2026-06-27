@@ -829,6 +829,10 @@
       .settings-library-open:hover {
         border-color: #111827;
       }
+      .settings-library-open:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
       .settings-diagnostics-row {
         display: flex;
         justify-content: space-between;
@@ -1037,6 +1041,13 @@
       }
       /* Step 1 (QR): keep items visually grouped/compact. */
       #state-empty.section--stack {
+        gap: var(--space-3);
+      }
+      /* Buttons here are no longer direct children of .section--stack (wrapped for the
+         single/batch mode split), so they need their own gap instead of inheriting it. */
+      #single-item-flow {
+        display: flex;
+        flex-direction: column;
         gap: var(--space-3);
       }
       .section--stack .btn-ghost {
@@ -1260,6 +1271,104 @@
         text-align: center;
         white-space: nowrap;
         letter-spacing: -0.01em;
+      }
+      .mode-tabs {
+        display: flex;
+        gap: 0.3rem;
+        background: #f1f0f7;
+        border-radius: 10px;
+        padding: 0.2rem;
+        margin-bottom: var(--space-4);
+      }
+      .mode-tab {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        padding: 0.45rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        font-family: inherit;
+        color: var(--text-muted);
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      .mode-tab.is-active {
+        background: #ffffff;
+        color: var(--text);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      }
+      .batch-intro {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.4rem;
+        border-radius: var(--radius-card);
+        background: #faf5ff;
+        border: 1px dashed var(--accent);
+        padding: 1.75rem 1.25rem;
+      }
+      .batch-intro-icon {
+        font-size: 2rem;
+        margin-bottom: 0.2rem;
+      }
+      .batch-intro-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--text);
+        margin: 0;
+      }
+      .batch-intro-sub {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        line-height: 1.45;
+        margin: 0 0 0.5rem;
+        max-width: 26rem;
+      }
+      .qr-snap-cta-solid {
+        width: 100%;
+        padding: 0.65rem 1.15rem;
+        min-height: 2.5rem;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        font-family: inherit;
+        color: #fff;
+        background: var(--accent);
+        border: 1px solid var(--accent-hover);
+        border-radius: var(--radius-control);
+        cursor: pointer;
+      }
+      .qr-snap-cta-solid:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+      .qr-snap-cta-solid:disabled {
+        background: var(--border-strong);
+        border-color: var(--border-strong);
+        color: var(--text-muted);
+        cursor: not-allowed;
+      }
+      .batch-intro-locked-note {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin: 0.3rem 0 0;
+      }
+      .qr-batch-cta-lock {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--accent-hover);
+        background: var(--accent-soft);
+        border-radius: 999px;
+        padding: 0.15rem 0.55rem;
       }
       .qr-or-divider {
         display: flex;
@@ -2415,74 +2524,155 @@
             <span class="label-step-num">1.</span> Scan to pair phone
           </p>
         </div>
-        <div class="qr-card">
-          <div class="qr-loader" id="qr-loader" aria-hidden="true">
-            <div class="qr-loader-spinner"></div>
-          </div>
-          <img id="qr-img" alt="Pairing QR" width="180" height="180" />
-          <p class="qr-hint">Scan QR, upload from PC or Phone.</p>
-          <div class="qr-or-divider" role="separator" aria-label="Option 2">
-            <span class="qr-or-divider__line" aria-hidden="true"></span>
-            <span class="qr-or-divider__text">or</span>
-            <span class="qr-or-divider__line" aria-hidden="true"></span>
-          </div>
-          <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
-          <button
-            type="button"
-            class="qr-snap-cta"
-            id="btn-open-snap-on-this-computer"
-            style="
-              display: block;
-              width: 100%;
-              box-sizing: border-box;
-              margin-top: 10px;
-              padding: 6px 10px;
-              min-height: 32px;
-              font-size: 13px;
-              font-weight: 600;
-              line-height: 1.2;
-              color: var(--accent);
-              background: transparent;
-              border: none;
-              border-radius: 8px;
-              cursor: pointer;
-              font-family: inherit;
-              text-decoration: underline;
-              text-decoration-color: var(--accent-soft);
-            "
-          >
-            Upload from Computer
+
+        <!-- Single item vs Batch are two genuinely separate screens — this just switches
+             which one is visible, rather than stacking both on one long page. -->
+        <!-- Batch upload: built but not ready to ship yet — hidden for this release, all
+             markup/JS left in place so it's a one-line re-enable (remove this `hidden`). -->
+        <div class="mode-tabs hidden" role="tablist" aria-label="Upload mode">
+          <button type="button" class="mode-tab is-active" id="tab-single-item" role="tab" aria-selected="true">
+            Single item
+          </button>
+          <button type="button" class="mode-tab" id="tab-batch-upload" role="tab" aria-selected="false">
+            Batch <span class="qr-batch-cta-lock hidden" id="btn-batch-upload-lock" aria-hidden="true">🔒 Pro</span>
           </button>
         </div>
-        <button
-          type="button"
-          class="pair-copy-bucket"
-          id="btn-copy-snap-link"
-          title="Copy session code only (not the full URL)"
-          aria-label="Copy session code for pairing"
-        >
-          <span class="pair-copy-left">
-            <span id="pair-session-code" class="pair-copy-code"></span>
-            <span class="pair-copy-hint sr-only" id="pair-copy-hint" aria-live="polite"></span>
-          </span>
-          <span class="pair-copy-chip" id="pair-copy-chip" aria-hidden="true">Copy session code</span>
-        </button>
-        <button
-          type="button"
-          class="btn-new-session"
-          id="btn-new-pairing-session"
-          title="Creates a new session ID for your next upload. Use after finishing a scan or to avoid mixing photos."
-        >
-          Generate code for new upload session
-        </button>
-        <button type="button" class="btn-ghost hidden" id="btn-continue-listing">
-          Continue to listing
-        </button>
 
-        <!-- Phone sync status banner — shown when a scan is in progress -->
-        <div id="qr-sync-status" class="qr-sync-status hidden" role="status" aria-live="polite">
-          <span class="qr-sync-spinner"></span>
-          <span id="qr-sync-text">📱 Photo received — AI is extracting your listing…</span>
+        <div id="single-item-flow">
+          <div class="qr-card">
+            <div class="qr-loader" id="qr-loader" aria-hidden="true">
+              <div class="qr-loader-spinner"></div>
+            </div>
+            <img id="qr-img" alt="Pairing QR" width="180" height="180" />
+            <p class="qr-hint">Scan QR, upload from PC or Phone.</p>
+            <div class="qr-or-divider" role="separator" aria-label="Option 2">
+              <span class="qr-or-divider__line" aria-hidden="true"></span>
+              <span class="qr-or-divider__text">or</span>
+              <span class="qr-or-divider__line" aria-hidden="true"></span>
+            </div>
+            <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
+            <button
+              type="button"
+              class="qr-snap-cta"
+              id="btn-open-snap-on-this-computer"
+              style="
+                display: block;
+                width: 100%;
+                box-sizing: border-box;
+                margin-top: 10px;
+                padding: 6px 10px;
+                min-height: 32px;
+                font-size: 13px;
+                font-weight: 600;
+                line-height: 1.2;
+                color: var(--accent);
+                background: transparent;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-family: inherit;
+                text-decoration: underline;
+                text-decoration-color: var(--accent-soft);
+              "
+            >
+              Upload from Computer
+            </button>
+          </div>
+          <button
+            type="button"
+            class="pair-copy-bucket"
+            id="btn-copy-snap-link"
+            title="Copy session code only (not the full URL)"
+            aria-label="Copy session code for pairing"
+          >
+            <span class="pair-copy-left">
+              <span id="pair-session-code" class="pair-copy-code"></span>
+              <span class="pair-copy-hint sr-only" id="pair-copy-hint" aria-live="polite"></span>
+            </span>
+            <span class="pair-copy-chip" id="pair-copy-chip" aria-hidden="true">Copy session code</span>
+          </button>
+          <button
+            type="button"
+            class="btn-new-session"
+            id="btn-new-pairing-session"
+            title="Creates a new session ID for your next upload. Use after finishing a scan or to avoid mixing photos."
+          >
+            Generate code for new upload session
+          </button>
+          <button type="button" class="qr-snap-cta-solid hidden" id="btn-continue-listing">
+            Continue to listing
+          </button>
+
+          <!-- Phone sync status banner — shown when a scan is in progress -->
+          <div id="qr-sync-status" class="qr-sync-status hidden" role="status" aria-live="polite">
+            <span class="qr-sync-spinner"></span>
+            <span id="qr-sync-text">📱 Photo received — AI is extracting your listing…</span>
+          </div>
+        </div>
+
+        <!-- Batch's own clean intro screen — same visual weight as the QR card, not a small
+             card squeezed below it. -->
+        <div id="batch-intro-screen" class="batch-intro hidden">
+          <span class="batch-intro-icon" aria-hidden="true">🗂️</span>
+          <p class="batch-intro-title">Batch upload</p>
+          <p class="batch-intro-sub">List several products in one go. Pick a platform once — it's used for every photo in this batch.</p>
+          <button type="button" class="qr-snap-cta-solid" id="btn-open-batch-upload">
+            Select photos
+          </button>
+          <p class="batch-intro-locked-note hidden" id="batch-intro-locked-note">
+            🔒 Batch upload is available on Pro and above.
+          </p>
+        </div>
+        <input type="file" id="batch-file-input" accept="image/jpeg,image/png,image/webp,image/heic,.heic" multiple hidden />
+      </div>
+
+      <!-- Batch upload: choose platform once for the whole batch, before picking photos. -->
+      <div id="state-batch-platform" class="section hidden">
+        <div class="step-block" style="border-top: none; padding-top: 0">
+          <p class="label-step">Batch upload — choose platform</p>
+          <span class="field-label">All photos in this batch go to the same platform</span>
+          <div class="platform-grid" id="batch-platform-grid" role="radiogroup" aria-label="Marketplace">
+            <button type="button" class="platform-tile" data-platform="shopify" title="Shopify">
+              <img class="platform-icon platform-icon--shopify" src="icons/shopify-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Shopify</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="ebay" title="eBay">
+              <img class="platform-icon platform-icon--ebay" src="icons/ebay-wordmark.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">eBay</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="etsy" title="Etsy">
+              <img class="platform-icon platform-icon--etsy" src="icons/etsy-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Etsy</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="shopee" title="Shopee">
+              <img class="platform-icon platform-icon--shopee" src="icons/shopee-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Shopee</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="depop" title="Depop">
+              <img class="platform-icon platform-icon--depop" src="icons/depop-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Depop</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="vinted" title="Vinted">
+              <img class="platform-icon platform-icon--vinted" src="icons/vinted-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Vinted</span>
+            </button>
+          </div>
+          <button type="button" class="btn-ghost" id="btn-batch-platform-back">
+            Back
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch upload: queue of items extracting/ready, all for the platform chosen above. -->
+      <div id="state-batch-queue" class="section hidden">
+        <div class="step-block" style="border-top: none; padding-top: 0">
+          <p class="label-step">
+            Batch upload <span class="label-step-total" id="batch-queue-progress">0 of 0 ready</span>
+          </p>
+          <div class="settings-library-list" id="batch-queue-list"></div>
+          <button type="button" class="btn-ghost" id="btn-batch-queue-done">
+            Done — back to pairing
+          </button>
         </div>
       </div>
 
@@ -2638,15 +2828,7 @@
                 <div class="review-loading-body">
                   <div class="review-loading-head">
                     <span class="review-loading-stage" id="review-loading-text">Syncing from phone…</span>
-                    <span class="review-loading-meta" id="review-loading-meta">0s</span>
                   </div>
-                  <div class="review-loading-eta" id="review-loading-eta">AI is reading your photo and drafting the listing — usually takes 5–15 seconds.</div>
-                  <ul class="review-loading-steps" aria-label="Extraction steps">
-                    <li class="review-loading-step" id="extract-step-upload">📱 Photo received from phone</li>
-                    <li class="review-loading-step" id="extract-step-process">🔍 AI analysing product</li>
-                    <li class="review-loading-step" id="extract-step-draft">✏️ Drafting title &amp; description</li>
-                    <li class="review-loading-step" id="extract-step-finalize">💰 Estimating price &amp; finalising</li>
-                  </ul>
                 </div>
               </div>
               <div class="preview-row">
