@@ -438,6 +438,11 @@ async function handleSnapPairPush(request: NextRequest) {
     mime_type: mimeType,
     skip_web_enrichment: false,
     extraction_type: "product",
+    // gemini-2.5-flash-lite + thinking disabled — ~3-5s vs ~15-20s for the default model on
+    // just the core extraction call. Web enrichment (kept on above) still runs at normal
+    // speed; this only speeds up the part it controls. Revert by removing this line if real
+    // photos show a meaningful accuracy drop.
+    fast_mode: true,
   });
 
   let visionRes: Response;
