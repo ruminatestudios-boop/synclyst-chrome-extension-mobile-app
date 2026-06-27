@@ -1089,36 +1089,27 @@ function resolveScanHeroImageUrl(scan) {
 
 function resolveScanImageUrls(scan) {
   const urls = [];
+  // `media.original_image_urls[0]` (full-res upload) and `media.image_urls[0]` / the hero
+  // (resized for AI extraction) are the SAME physical photo at different resolutions — two
+  // different base64 strings for one shot. Exact-string dedup below can't catch that, so treat
+  // them as one logical photo here and prefer the full-res original when both exist.
   const hero = resolveScanHeroImageUrl(scan);
-  if (hero) urls.push(hero);
+  let usedOriginalInsteadOfHero = false;
   try {
     const extra = scan.listing_extra && typeof scan.listing_extra === "object" ? scan.listing_extra : null;
     const media =
       extra && extra.media && typeof extra.media === "object" && !Array.isArray(extra.media) ? extra.media : null;
     // Only use the first original_image_url — the array accumulates across scans causing duplicates.
     const orig = media && Array.isArray(media.original_image_urls) ? media.original_image_urls.slice(0, 1) : [];
-    if (Array.isArray(orig)) {
-      for (const u of orig) {
-        if (typeof u !== "string") continue;
-        const clean = u.trim();
-        if (!clean) continue;
-        if (!urls.includes(clean)) urls.push(clean);
-      }
-    }
-    // Only use the first image_url (the hero/primary scan). The array accumulates all phone
-    // scans of the same session — using all of them causes duplicate images on Shopify etc.
-    const mu = media && Array.isArray(media.image_urls) ? media.image_urls.slice(0, 1) : [];
-    if (Array.isArray(mu)) {
-      for (const u of mu) {
-        if (typeof u !== "string") continue;
-        const clean = u.trim();
-        if (!clean) continue;
-        if (!urls.includes(clean)) urls.push(clean);
-      }
+    const origClean = orig.length && typeof orig[0] === "string" ? orig[0].trim() : "";
+    if (origClean) {
+      urls.push(origClean);
+      usedOriginalInsteadOfHero = true;
     }
   } catch {
     /* ignore */
   }
+  if (hero && !usedOriginalInsteadOfHero && !urls.includes(hero)) urls.push(hero);
   try {
     const extra = scan.listing_extra || null;
     const ebay = extra && extra.ebay && typeof extra.ebay === "object" ? extra.ebay : null;
@@ -1181,13 +1172,20 @@ function findShopifyProductMediaFileInput(rootEl) {
 function shopifyAttachProductMediaFromScan(scan, root) {
   const rootEl = documentRootElement(root);
   const urls = resolveScanImageUrls(scan).slice(0, 20);
-  if (!urls.length) return;
+  if (!urls.length) {
+    console.warn("[SyncLyst] Shopify Media: resolveScanImageUrls() returned none");
+    return;
+  }
 
   const win = rootEl.defaultView || (typeof window !== "undefined" ? window : null);
   if (!win) return;
   const cacheKey = urls.join("\n");
-  if (win.__synclystShopifyMediaAttachedKey === cacheKey) return;
+  if (win.__synclystShopifyMediaAttachedKey === cacheKey) {
+    console.log("[SyncLyst] Shopify Media: already attached this exact image set on this page — skipping (this is expected on a 2nd+ click without navigating away, not a bug)");
+    return;
+  }
   if (win.__synclystShopifyMediaAttachPromise) return;
+  console.log("[SyncLyst] Shopify Media: attempting to attach", urls.length, "image(s)");
 
   win.__synclystShopifyMediaAttachPromise = (async () => {
     try {
@@ -1206,6 +1204,7 @@ function shopifyAttachProductMediaFromScan(scan, root) {
       /** One file per change event — Shopify Admin’s media uploader often handles multi-select, but sequential assignment is more reliable. */
       for (let fi = 0; fi < files.length; fi++) {
         const file = files[fi];
+        let attached = false;
         for (let attempt = 0; attempt < 18; attempt++) {
           if (attempt) await new Promise((r) => setTimeout(r, 400));
           shopifyRevealMediaFileInput(rootEl);
@@ -1220,15 +1219,20 @@ function shopifyAttachProductMediaFromScan(scan, root) {
             target.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
             target.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
             pulseShopifyDirtySignals();
+            attached = true;
             break;
           } catch {
             /* Admin may ignore synthetic file assignment */
           }
         }
+        if (!attached) {
+          console.warn("[SyncLyst] Shopify Media: never found the file input for image " + (fi + 1) + "/" + files.length + " after 18 attempts");
+        }
         if (fi < files.length - 1) {
           await new Promise((r) => setTimeout(r, 450));
         }
       }
+      console.log("[SyncLyst] Shopify Media: attach loop finished");
       win.__synclystShopifyMediaAttachedKey = cacheKey;
     } finally {
       win.__synclystShopifyMediaAttachPromise = null;
@@ -2920,6 +2924,58 @@ function queryPriceDeepExcluding(root, platform, excludeEl) {
 }
 
 /** Vinted sell form: pick the main listing price, not promos / shipping / compare fields. */
+/**
+ * Vinted had no dedicated title finder and fell back to `queryBestShopifyTitleInput` — tuned
+ * for Shopify's DOM, it could mismatch on Vinted's page and grab the price field instead,
+ * filling the price into Title and leaving Price unfilled/NaN.
+ */
+function scoreVintedTitleInput(el) {
+  if ((!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) || el.readOnly || el.disabled) {
+    return -Infinity;
+  }
+  if (el instanceof HTMLInputElement) {
+    const ty = (el.type || "").toLowerCase();
+    if (ty === "hidden" || ty === "search" || ty === "checkbox" || ty === "radio" || ty === "file" || ty === "number") {
+      return -Infinity;
+    }
+  }
+  const al = shopifyControlAccessibleName(el).toLowerCase();
+  const ph = (el.getAttribute("placeholder") || "").toLowerCase();
+  const nm = (el.name || "").toLowerCase();
+  const id = (el.id || "").toLowerCase();
+  const tid = (el.getAttribute("data-testid") || "").toLowerCase();
+  const blob = `${al} ${ph} ${nm} ${id} ${tid}`;
+  if (/price|amount|cost|£|\$|€|description|brand|size|condition|colou?r|material/i.test(blob)) {
+    return -Infinity;
+  }
+  let s = 0;
+  if (al === "title" || nm === "title") s += 120;
+  else if (/\btitle\b/.test(blob)) s += 90;
+  else if (/\bname\b/.test(blob) && !/brand/.test(blob)) s += 40;
+  if ((el.getAttribute("maxlength") | 0) > 0 && (el.getAttribute("maxlength") | 0) <= 80) s += 10;
+  return s;
+}
+
+function queryBestVintedTitleInput(root) {
+  const rootEl = documentRootElement(root);
+  let best = null;
+  let bestScore = -Infinity;
+  try {
+    const all = querySelectorAllDeep("input, textarea", rootEl);
+    for (const el of all) {
+      if (!(isVisible(el) || vintedLayoutInteractable(el, 2, 2))) continue;
+      const sc = scoreVintedTitleInput(el);
+      if (sc > bestScore) {
+        bestScore = sc;
+        best = el;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return bestScore > 0 ? best : null;
+}
+
 function scoreVintedPriceInput(el) {
   if (!(el instanceof HTMLInputElement) || el.readOnly || el.disabled) return -Infinity;
   const ty = (el.type || "").toLowerCase();
@@ -3278,8 +3334,13 @@ function shopifyFillProductTypeField(rootEl, val) {
   } catch {
     /* ignore */
   }
-  if (!best || bestSc < 55) return false;
-  return fillField(best, str);
+  if (!best || bestSc < 55) {
+    console.warn("[SyncLyst] Shopify Type field: no input match found (best score " + bestSc + "), trying <select>", best);
+    return shopifyFillSelectByLabel(rootEl, /\btype\b/i, str, "Type field");
+  }
+  const ok = fillField(best, str);
+  console.log("[SyncLyst] Shopify Type field: filled =", ok, "score =", bestSc, best);
+  return ok;
 }
 
 function shopifyFillCategoryField(rootEl, raw, depth) {
@@ -3318,6 +3379,7 @@ function shopifyFillCategoryField(rootEl, raw, depth) {
   }
   if (best && bestSc >= 45) {
     if (fillField(best, searchBit)) {
+      console.log("[SyncLyst] Shopify Category field: typed '" + searchBit + "', score =", bestSc, best);
       try {
         setTimeout(() => {
           best.dispatchEvent(
@@ -3367,6 +3429,7 @@ function shopifyFillCategoryField(rootEl, raw, depth) {
   } catch {
     /* ignore */
   }
+  console.warn("[SyncLyst] Shopify Category field: no input/Browse button match found (depth " + d + ", best score " + bestSc + ")", best);
   return false;
 }
 
@@ -4025,6 +4088,24 @@ function shopifyTagsContainerLikelyHasTag(container, tag) {
   return re.test(all);
 }
 
+/** Tags section often shows only a "+ Add tags" button until clicked — no input exists until then. */
+function shopifyRevealTagsInput(rootEl) {
+  try {
+    const nodes = querySelectorAllDeep("button, [role='button']", rootEl);
+    for (const b of nodes) {
+      if (!(b instanceof HTMLElement) || !isVisible(b)) continue;
+      const t = (b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+      if (!/^\+?\s*add tags?\b/.test(t)) continue;
+      b.click();
+      console.log("[SyncLyst] Shopify Tags: clicked '" + t + "' to reveal the input");
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 function findShopifyTagsInput(rootEl) {
   const selectors = [
     'input[aria-label*="Tag" i]',
@@ -4082,10 +4163,44 @@ function findShopifyTagsInput(rootEl) {
  */
 function shopifyFillTagsCombobox(scan, root) {
   const tags = collectShopifyTagsForFill(scan);
-  if (!tags.length) return 0;
+  if (!tags.length) {
+    console.warn("[SyncLyst] Shopify Tags: collectShopifyTagsForFill() returned none — check listing_extra.shopify.tags", scan && scan.listing_extra);
+    return 0;
+  }
   const rootEl = documentRootElement(root);
   const input = findShopifyTagsInput(rootEl);
-  if (!input) return 0;
+  if (!input) {
+    // No input exists until the "+ Add tags" button is clicked to reveal it. Click it, then
+    // retry finding the input a few times (React needs a moment to mount it) before giving up.
+    const clicked = shopifyRevealTagsInput(rootEl);
+    if (!clicked) {
+      console.warn("[SyncLyst] Shopify Tags: no input field and no '+ Add tags' button found", tags);
+      return 0;
+    }
+    let attempt = 0;
+    const retry = () => {
+      attempt++;
+      const found = findShopifyTagsInput(rootEl);
+      if (found) {
+        console.log("[SyncLyst] Shopify Tags: input appeared after reveal click (attempt " + attempt + ")");
+        shopifyApplyTagsToInput(found, tags);
+        return;
+      }
+      if (attempt < 8) {
+        setTimeout(retry, 250);
+      } else {
+        console.warn("[SyncLyst] Shopify Tags: input never appeared after clicking '+ Add tags'", tags);
+      }
+    };
+    setTimeout(retry, 250);
+    return 1;
+  }
+  console.log("[SyncLyst] Shopify Tags: found input, attempting to add", tags);
+  shopifyApplyTagsToInput(input, tags);
+  return 1;
+}
+
+function shopifyApplyTagsToInput(input, tags) {
   const container =
     input.closest('[role="combobox"]') ||
     input.closest("form") ||
@@ -4132,7 +4247,6 @@ function shopifyFillTagsCombobox(scan, root) {
     applyOne(tag, idx < tags.length ? step : undefined);
   }
   step();
-  return 1;
 }
 
 function collectShopifyCollectionsForFill(scan) {
@@ -4227,6 +4341,50 @@ function shopifyFillCollectionsCombobox(scan, root) {
   }
   step();
   return 1;
+}
+
+/**
+ * Generic <select> fill by matching the select's accessible name against `nameRe`, then
+ * matching `val` against its <option> values/text (exact match first, then case-insensitive
+ * substring). Shopify's newer Admin renders Type/Vendor as real <select> elements (visible as
+ * a chevron-style dropdown), which the input-only search in shopifyFillProductTypeField/the
+ * Vendor tryOne() selectors never considered.
+ */
+function shopifyFillSelectByLabel(rootEl, nameRe, val, logLabel) {
+  const str = String(val || "").trim();
+  if (!str) return false;
+  const strLower = str.toLowerCase();
+  let nodes;
+  try {
+    nodes = querySelectorAllDeep("select", rootEl);
+  } catch {
+    return false;
+  }
+  for (const sel of nodes) {
+    if (!(sel instanceof HTMLSelectElement) || !isVisible(sel) || sel.disabled) continue;
+    const nl = shopifyControlAccessibleName(sel).toLowerCase();
+    if (!nameRe.test(nl)) continue;
+    const options = Array.from(sel.options || []);
+    let opt = options.find((o) => String(o.value).trim().toLowerCase() === strLower || String(o.textContent || "").trim().toLowerCase() === strLower);
+    if (!opt) {
+      opt = options.find((o) => {
+        const t = String(o.textContent || "").trim().toLowerCase();
+        return t && (t.includes(strLower) || strLower.includes(t));
+      });
+    }
+    if (opt) {
+      sel.value = opt.value;
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+      sel.dispatchEvent(new Event("input", { bubbles: true }));
+      console.log("[SyncLyst] Shopify " + (logLabel || "select") + ": matched <select> option '" + opt.textContent.trim() + "' for value '" + str + "'");
+      return true;
+    }
+    console.warn(
+      "[SyncLyst] Shopify " + (logLabel || "select") + ": found <select> (name='" + nl + "') but no option matched '" + str + "'. Available options:",
+      options.map((o) => o.textContent.trim())
+    );
+  }
+  return false;
 }
 
 function tryShopifyWeightUnitSelect(rootEl, unit) {
@@ -12845,20 +13003,22 @@ function fillShopifyListingExtraFields(scan, root) {
     return false;
   }
 
-  if (
-    tryOne(
-      [
-        'input[aria-label*="Vendor" i]',
-        'input[name="vendor"]',
-        'input[id*="vendor" i]',
-        'input[id*="Vendor" i]',
-        '[role="combobox"] input[aria-label*="Vendor" i]',
-        'input[placeholder*="vendor" i]',
-      ],
-      s.vendor
-    )
-  ) {
+  const vendorFilled = tryOne(
+    [
+      'input[aria-label*="Vendor" i]',
+      'input[name="vendor"]',
+      'input[id*="vendor" i]',
+      'input[id*="Vendor" i]',
+      '[role="combobox"] input[aria-label*="Vendor" i]',
+      'input[placeholder*="vendor" i]',
+    ],
+    s.vendor
+  );
+  if (vendorFilled) {
     n++;
+  } else if (s.vendor) {
+    console.warn("[SyncLyst] Shopify Vendor field: no input selector matched, trying <select> (value was '" + s.vendor + "')");
+    if (shopifyFillSelectByLabel(rootEl, /vendor/i, s.vendor, "Vendor field")) n++;
   }
   if (s.product_type) {
     const pt =
@@ -12875,6 +13035,7 @@ function fillShopifyListingExtraFields(scan, root) {
         s.product_type
       );
     if (pt) n++;
+    else console.warn("[SyncLyst] Shopify Type field: all strategies failed (value was '" + s.product_type + "')");
   }
   if (
     tryOne(
@@ -12958,6 +13119,7 @@ function fillShopifyListingExtraFields(scan, root) {
         s.category
       );
     if (cat) n++;
+    else console.warn("[SyncLyst] Shopify Category field: all strategies failed (value was '" + s.category + "')");
   }
   if (
     tryOne(
@@ -13088,6 +13250,8 @@ function fillFromMapper(platform, scan, root) {
       titleEl = null;
     } else if (platform === "etsy") {
       titleEl = queryBestEtsyTitleInput(r);
+    } else if (platform === "vinted") {
+      titleEl = queryBestVintedTitleInput(r);
     } else {
       titleEl = queryBestShopifyTitleInput(r);
     }
