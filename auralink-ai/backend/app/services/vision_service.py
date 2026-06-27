@@ -559,8 +559,11 @@ def _json_loads_salvage(text: str) -> dict:
             except json.JSONDecodeError as e:
                 last_err = e
                 continue
-    if last_err:
-        logger.debug("JSON salvage failed: %s", last_err)
+    # `logger.debug` is filtered out by Cloud Run's default log level, so every failure here
+    # was invisible in production — bump to `warning` and include a snippet of the raw model
+    # output so the next failure is actually diagnosable instead of a guess.
+    snippet = (text or "")[:800]
+    logger.warning("JSON salvage failed (%s). Raw model output (first 800 chars): %r", last_err, snippet)
     raise VisionServiceError("Vision model returned invalid JSON")
 
 
