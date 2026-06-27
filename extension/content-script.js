@@ -2924,6 +2924,58 @@ function queryPriceDeepExcluding(root, platform, excludeEl) {
 }
 
 /** Vinted sell form: pick the main listing price, not promos / shipping / compare fields. */
+/**
+ * Vinted had no dedicated title finder and fell back to `queryBestShopifyTitleInput` — tuned
+ * for Shopify's DOM, it could mismatch on Vinted's page and grab the price field instead,
+ * filling the price into Title and leaving Price unfilled/NaN.
+ */
+function scoreVintedTitleInput(el) {
+  if ((!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) || el.readOnly || el.disabled) {
+    return -Infinity;
+  }
+  if (el instanceof HTMLInputElement) {
+    const ty = (el.type || "").toLowerCase();
+    if (ty === "hidden" || ty === "search" || ty === "checkbox" || ty === "radio" || ty === "file" || ty === "number") {
+      return -Infinity;
+    }
+  }
+  const al = shopifyControlAccessibleName(el).toLowerCase();
+  const ph = (el.getAttribute("placeholder") || "").toLowerCase();
+  const nm = (el.name || "").toLowerCase();
+  const id = (el.id || "").toLowerCase();
+  const tid = (el.getAttribute("data-testid") || "").toLowerCase();
+  const blob = `${al} ${ph} ${nm} ${id} ${tid}`;
+  if (/price|amount|cost|£|\$|€|description|brand|size|condition|colou?r|material/i.test(blob)) {
+    return -Infinity;
+  }
+  let s = 0;
+  if (al === "title" || nm === "title") s += 120;
+  else if (/\btitle\b/.test(blob)) s += 90;
+  else if (/\bname\b/.test(blob) && !/brand/.test(blob)) s += 40;
+  if ((el.getAttribute("maxlength") | 0) > 0 && (el.getAttribute("maxlength") | 0) <= 80) s += 10;
+  return s;
+}
+
+function queryBestVintedTitleInput(root) {
+  const rootEl = documentRootElement(root);
+  let best = null;
+  let bestScore = -Infinity;
+  try {
+    const all = querySelectorAllDeep("input, textarea", rootEl);
+    for (const el of all) {
+      if (!(isVisible(el) || vintedLayoutInteractable(el, 2, 2))) continue;
+      const sc = scoreVintedTitleInput(el);
+      if (sc > bestScore) {
+        bestScore = sc;
+        best = el;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return bestScore > 0 ? best : null;
+}
+
 function scoreVintedPriceInput(el) {
   if (!(el instanceof HTMLInputElement) || el.readOnly || el.disabled) return -Infinity;
   const ty = (el.type || "").toLowerCase();
@@ -3283,8 +3335,8 @@ function shopifyFillProductTypeField(rootEl, val) {
     /* ignore */
   }
   if (!best || bestSc < 55) {
-    console.warn("[SyncLyst] Shopify Type field: no good match found (best score " + bestSc + ")", best);
-    return false;
+    console.warn("[SyncLyst] Shopify Type field: no input match found (best score " + bestSc + "), trying <select>", best);
+    return shopifyFillSelectByLabel(rootEl, /\btype\b/i, str, "Type field");
   }
   const ok = fillField(best, str);
   console.log("[SyncLyst] Shopify Type field: filled =", ok, "score =", bestSc, best);
@@ -4036,6 +4088,24 @@ function shopifyTagsContainerLikelyHasTag(container, tag) {
   return re.test(all);
 }
 
+/** Tags section often shows only a "+ Add tags" button until clicked — no input exists until then. */
+function shopifyRevealTagsInput(rootEl) {
+  try {
+    const nodes = querySelectorAllDeep("button, [role='button']", rootEl);
+    for (const b of nodes) {
+      if (!(b instanceof HTMLElement) || !isVisible(b)) continue;
+      const t = (b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+      if (!/^\+?\s*add tags?\b/.test(t)) continue;
+      b.click();
+      console.log("[SyncLyst] Shopify Tags: clicked '" + t + "' to reveal the input");
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 function findShopifyTagsInput(rootEl) {
   const selectors = [
     'input[aria-label*="Tag" i]',
@@ -4100,10 +4170,37 @@ function shopifyFillTagsCombobox(scan, root) {
   const rootEl = documentRootElement(root);
   const input = findShopifyTagsInput(rootEl);
   if (!input) {
-    console.warn("[SyncLyst] Shopify Tags: no input field found for tags", tags);
-    return 0;
+    // No input exists until the "+ Add tags" button is clicked to reveal it. Click it, then
+    // retry finding the input a few times (React needs a moment to mount it) before giving up.
+    const clicked = shopifyRevealTagsInput(rootEl);
+    if (!clicked) {
+      console.warn("[SyncLyst] Shopify Tags: no input field and no '+ Add tags' button found", tags);
+      return 0;
+    }
+    let attempt = 0;
+    const retry = () => {
+      attempt++;
+      const found = findShopifyTagsInput(rootEl);
+      if (found) {
+        console.log("[SyncLyst] Shopify Tags: input appeared after reveal click (attempt " + attempt + ")");
+        shopifyApplyTagsToInput(found, tags);
+        return;
+      }
+      if (attempt < 8) {
+        setTimeout(retry, 250);
+      } else {
+        console.warn("[SyncLyst] Shopify Tags: input never appeared after clicking '+ Add tags'", tags);
+      }
+    };
+    setTimeout(retry, 250);
+    return 1;
   }
   console.log("[SyncLyst] Shopify Tags: found input, attempting to add", tags);
+  shopifyApplyTagsToInput(input, tags);
+  return 1;
+}
+
+function shopifyApplyTagsToInput(input, tags) {
   const container =
     input.closest('[role="combobox"]') ||
     input.closest("form") ||
@@ -4150,7 +4247,6 @@ function shopifyFillTagsCombobox(scan, root) {
     applyOne(tag, idx < tags.length ? step : undefined);
   }
   step();
-  return 1;
 }
 
 function collectShopifyCollectionsForFill(scan) {
@@ -4245,6 +4341,50 @@ function shopifyFillCollectionsCombobox(scan, root) {
   }
   step();
   return 1;
+}
+
+/**
+ * Generic <select> fill by matching the select's accessible name against `nameRe`, then
+ * matching `val` against its <option> values/text (exact match first, then case-insensitive
+ * substring). Shopify's newer Admin renders Type/Vendor as real <select> elements (visible as
+ * a chevron-style dropdown), which the input-only search in shopifyFillProductTypeField/the
+ * Vendor tryOne() selectors never considered.
+ */
+function shopifyFillSelectByLabel(rootEl, nameRe, val, logLabel) {
+  const str = String(val || "").trim();
+  if (!str) return false;
+  const strLower = str.toLowerCase();
+  let nodes;
+  try {
+    nodes = querySelectorAllDeep("select", rootEl);
+  } catch {
+    return false;
+  }
+  for (const sel of nodes) {
+    if (!(sel instanceof HTMLSelectElement) || !isVisible(sel) || sel.disabled) continue;
+    const nl = shopifyControlAccessibleName(sel).toLowerCase();
+    if (!nameRe.test(nl)) continue;
+    const options = Array.from(sel.options || []);
+    let opt = options.find((o) => String(o.value).trim().toLowerCase() === strLower || String(o.textContent || "").trim().toLowerCase() === strLower);
+    if (!opt) {
+      opt = options.find((o) => {
+        const t = String(o.textContent || "").trim().toLowerCase();
+        return t && (t.includes(strLower) || strLower.includes(t));
+      });
+    }
+    if (opt) {
+      sel.value = opt.value;
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+      sel.dispatchEvent(new Event("input", { bubbles: true }));
+      console.log("[SyncLyst] Shopify " + (logLabel || "select") + ": matched <select> option '" + opt.textContent.trim() + "' for value '" + str + "'");
+      return true;
+    }
+    console.warn(
+      "[SyncLyst] Shopify " + (logLabel || "select") + ": found <select> (name='" + nl + "') but no option matched '" + str + "'. Available options:",
+      options.map((o) => o.textContent.trim())
+    );
+  }
+  return false;
 }
 
 function tryShopifyWeightUnitSelect(rootEl, unit) {
@@ -12877,7 +13017,8 @@ function fillShopifyListingExtraFields(scan, root) {
   if (vendorFilled) {
     n++;
   } else if (s.vendor) {
-    console.warn("[SyncLyst] Shopify Vendor field: no selector matched (value was '" + s.vendor + "')");
+    console.warn("[SyncLyst] Shopify Vendor field: no input selector matched, trying <select> (value was '" + s.vendor + "')");
+    if (shopifyFillSelectByLabel(rootEl, /vendor/i, s.vendor, "Vendor field")) n++;
   }
   if (s.product_type) {
     const pt =
@@ -13109,6 +13250,8 @@ function fillFromMapper(platform, scan, root) {
       titleEl = null;
     } else if (platform === "etsy") {
       titleEl = queryBestEtsyTitleInput(r);
+    } else if (platform === "vinted") {
+      titleEl = queryBestVintedTitleInput(r);
     } else {
       titleEl = queryBestShopifyTitleInput(r);
     }
