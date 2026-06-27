@@ -1641,6 +1641,10 @@ function depopAttachProductPhotosFromScan(scan, root) {
         else target.files = dt.files;
         target.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
         target.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+        // Some forms only clear a "Please insert at least one image" validation message on
+        // blur, not on input/change alone — the photo can render successfully (preview comes
+        // straight from the File object) while the stale error message lingers.
+        target.dispatchEvent(new Event("blur", { bubbles: true }));
         win.__synclystDepopMediaAttachedSig = sig;
         break;
       } catch {
