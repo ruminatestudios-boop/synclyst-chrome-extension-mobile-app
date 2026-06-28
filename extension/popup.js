@@ -3873,9 +3873,12 @@ async function runMagicFill() {
           ? "Running Magic Fill in your Shopify tab… (watch for the SyncLyst banner)."
           : "Filling your listing tab… spinner stops when Magic Fill finishes."
       );
-      /** eBay (and similar) run deferred description / extras after the main tick loop — poll long enough. */
-      const pollMs = platform === "ebay" ? 1000 : 900;
-      const pollIters = platform === "ebay" ? 28 : 12;
+      /** eBay / Vinted / Depop run deferred description / photo / combobox-retry work after the main
+       * tick loop (Depop's photo-attach loop alone awaits up to ~10s) — poll long enough or the popup
+       * reports "still running" even though the fill finishes correctly a few seconds later. */
+      const longPollPlatforms = platform === "ebay" || platform === "vinted" || platform === "depop";
+      const pollMs = longPollPlatforms ? 1000 : 900;
+      const pollIters = longPollPlatforms ? 28 : 12;
       for (let i = 0; i < pollIters; i++) {
         await new Promise((r) => setTimeout(r, pollMs));
         const o = await storageGet([

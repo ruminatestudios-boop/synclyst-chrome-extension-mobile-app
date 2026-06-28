@@ -7,7 +7,7 @@
  */
 (function () {
   window.SYNCYLST_LISTING_PUBLISHED_URL = "/listing/published";
-  /** Shopify listing review (rewrites to flow-3.html). */
+  /** Listing review after AI extraction (rewrites to flow-3.html). */
   window.SYNCYLST_LISTING_REVIEW_URL = "/review";
   /** Product scan camera/upload (rewrites to home.html). */
   window.SYNCYLST_SCAN_URL = "/scan";

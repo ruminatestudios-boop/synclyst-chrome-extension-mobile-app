@@ -147,6 +147,18 @@ export function buildEtsyListingExtraFromVision(visionJson: VisionPayload): Reco
   return Object.fromEntries(Object.entries(out).filter(([, v]) => !isEmptyVal(v)));
 }
 
+/** Without this, a later re-extraction in the same session (e.g. a different photo reusing
+ * the same session_id) could never overwrite a stale title/category/brand from an earlier,
+ * unrelated scan — matches the EBAY_ALWAYS_OVERWRITE / SHOPIFY_ALWAYS_OVERWRITE safeguard. */
+const ETSY_ALWAYS_OVERWRITE = new Set([
+  "title",
+  "category_leaf",
+  "category_breadcrumb",
+  "category_search",
+  "brand",
+  "tags",
+]);
+
 export function mergeEtsyIntoListingExtra(
   prevListingExtra: unknown,
   incomingEtsy: Record<string, unknown>
@@ -158,7 +170,7 @@ export function mergeEtsyIntoListingExtra(
   for (const [k, v] of Object.entries(incomingEtsy)) {
     if (isEmptyVal(v)) continue;
     const cur = prevE[k];
-    if (!isEmptyVal(cur)) continue;
+    if (!ETSY_ALWAYS_OVERWRITE.has(k) && !isEmptyVal(cur)) continue;
     prevE[k] = v;
   }
 
