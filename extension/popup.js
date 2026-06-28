@@ -3876,7 +3876,8 @@ async function runMagicFill() {
       /** eBay / Vinted / Depop run deferred description / photo / combobox-retry work after the main
        * tick loop (Depop's photo-attach loop alone awaits up to ~10s) — poll long enough or the popup
        * reports "still running" even though the fill finishes correctly a few seconds later. */
-      const longPollPlatforms = platform === "ebay" || platform === "vinted" || platform === "depop";
+      const longPollPlatforms =
+        platform === "ebay" || platform === "vinted" || platform === "depop" || platform === "shopee";
       const pollMs = longPollPlatforms ? 1000 : 900;
       const pollIters = longPollPlatforms ? 28 : 12;
       for (let i = 0; i < pollIters; i++) {
@@ -3897,10 +3898,16 @@ async function runMagicFill() {
                   : "Magic Fill failed. Refresh the listing tab and try again.")
             );
           } else if (typeof res.filled === "number") {
+            /** Shopee's listing form is multi-step (Images/Name → Next Step → more fields) — Magic
+             * Fill only handles the current step, so the user must click Next Step themselves to
+             * reveal and fill the rest. */
+            const shopeeNextStepNote = " Click \"Next Step\" in Shopee, then run Magic Fill again for the next page.";
             setStatus(
               res.saved
                 ? `Done — filled ${res.filled} field(s) and tried Save.`
-                : `Filled ${res.filled} field(s). Click Save if needed.`
+                : platform === "shopee"
+                  ? `Filled ${res.filled} field(s).${shopeeNextStepNote}`
+                  : `Filled ${res.filled} field(s). Click Save if needed.`
             );
           } else {
             setStatus(platform === "shopify" ? "Magic Fill finished. Check your Shopify tab." : "Magic Fill finished. Check your listing tab.");

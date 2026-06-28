@@ -70,7 +70,7 @@ export default function TermsPage() {
           <section>
             <h2>5. Credits and Billing</h2>
             <p>
-              SyncLyst operates on a credit-based model. Free accounts receive 3 scans per month. Paid plans are billed
+              SyncLyst operates on a credit-based model. Free accounts receive 5 scans total. Paid plans are billed
               monthly in advance. All fees are non-refundable unless required by law. We reserve the right to change
               pricing with 30 days notice.
             </p>
