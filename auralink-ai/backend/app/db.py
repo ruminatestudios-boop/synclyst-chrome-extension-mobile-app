@@ -499,11 +499,15 @@ def starter_monthly_limit() -> int:
 
 
 def _quota_period_key() -> str:
-    """Bucket label for streak scan counts: daily (YYYY-MM-DD) or monthly (YYYY-MM UTC), matching starter_scan_quota_window."""
+    """Bucket label for streak scan counts: daily (YYYY-MM-DD), monthly (YYYY-MM UTC), or a fixed
+    "lifetime" label that never changes — matching starter_scan_quota_window. A constant key means
+    the same usage row keeps accumulating forever instead of resetting, giving a true one-time cap."""
     from datetime import datetime, timezone
 
-    now = datetime.now(timezone.utc)
     w = (get_settings().starter_scan_quota_window or "daily").strip().lower()
+    if w == "lifetime":
+        return "lifetime"
+    now = datetime.now(timezone.utc)
     if w == "daily":
         return f"{now.year:04d}-{now.month:02d}-{now.day:02d}"
     return f"{now.year:04d}-{now.month:02d}"
@@ -589,7 +593,7 @@ def get_scan_usage(supabase, clerk_user_id: str) -> dict:
     except Exception:
         used = 0
     qwin = (get_settings().starter_scan_quota_window or "daily").strip().lower()
-    if qwin not in ("daily", "monthly"):
+    if qwin not in ("daily", "monthly", "lifetime"):
         qwin = "daily"
     return {
         "tier": tier,
@@ -679,7 +683,7 @@ def add_bonus_credits(supabase, quota_key: str, delta: int) -> int:
 def get_scan_usage_unified(supabase, quota_key: Optional[str]) -> dict:
     """Starter limits + optional purchased credits for guest anon:* keys."""
     qwin = (get_settings().starter_scan_quota_window or "daily").strip().lower()
-    if qwin not in ("daily", "monthly"):
+    if qwin not in ("daily", "monthly", "lifetime"):
         qwin = "daily"
     if not quota_key or not supabase:
         return {

@@ -99,7 +99,8 @@ function saveLabelRegex(platform) {
   if (p === "shopee") {
     return /^(Save and Publish|Save and Delist|Save|Next|Continue|Submit|ถัดไป|ต่อไป|Berikutnya|Lanjutkan)$/i;
   }
-  if (p === "depop") return /^(Post|Save as a draft|Save)$/i;
+  /** "Post" is Depop's literal publish-live button — auto-save must never click it, only a real draft-save control. */
+  if (p === "depop") return /^(Save as a draft|Save draft|Save)$/i;
   return /^(Save|Save as draft|Submit|Publish|Continue|List it)$/i;
 }
 
@@ -2636,11 +2637,25 @@ function titleHasTooManyCaps(title) {
  * This keeps short acronyms (<=4) and turns the rest into a readable Title Case-ish string.
  */
 /** scan.title sometimes arrives as "brand model type — start of description run-on...";
- * cut it down to a real title instead of dumping the whole run-on string into the title field. */
-function trimListingTitleRunOn(title, maxLen) {
+ * cut it down to a real title instead of dumping the whole run-on string into the title field.
+ * The backend can hard-truncate this mid-sentence before any punctuation exists, so a
+ * punctuation-based cut alone misses it — when the title's tail is literally a verbatim
+ * continuation of the item's own description, that's the real cut point, not a length guess. */
+function trimListingTitleRunOn(title, maxLen, description) {
   const max = maxLen || 80;
   let t = String(title || "").replace(/\s+/g, " ").trim();
   if (!t) return t;
+
+  const desc = String(description || "").replace(/\s+/g, " ").trim();
+  if (desc.length >= 20) {
+    const descPrefix = desc.slice(0, 24).toLowerCase();
+    const idx = t.toLowerCase().indexOf(descPrefix);
+    if (idx > 4) {
+      t = t.slice(0, idx).trim();
+      return t.replace(/[,;:\-–—]+$/, "").trim();
+    }
+  }
+
   // If there's an early sentence break and what's before it is still a reasonable title, cut there.
   const m = t.match(/^(.{8,}?)\s*[.!?;]+(?:\s|$)/);
   if (m && m[1].length <= max) {
@@ -9441,12 +9456,23 @@ function fillEtsyListingExtraFields(scan, root) {
     const wantAny = [wantCrumb, wantLeaf].filter(Boolean);
     if (!wantAny.length) return false;
     try {
-      const opts = querySelectorAllDeep(
-        '[role="option"], li[role="option"], [role="listbox"] li, [role="listbox"] div, ul li, [data-testid*="option" i]',
-        document.body
-      );
+      /** Tag/role guesses (li[role=option] etc.) don't match every Etsy build's dropdown markup —
+       * the rows in this particular UI render as plain divs with no role/data-testid at all. Query
+       * every element and rely on text-shape matching instead, same fix as Depop's pill-matching. */
+      const allEls = querySelectorAllDeep("*", document.body);
+      const opts = [];
+      for (const el of allEls) {
+        if (!(el instanceof HTMLElement) || !isVisible(el)) continue;
+        const tx = (el.textContent || "").replace(/\s+/g, " ").trim();
+        if (!tx || tx.length > 260 || tx.length < 3) continue;
+        const hasMatchingChild = Array.from(el.children).some(
+          (c) => (c.textContent || "").replace(/\s+/g, " ").trim() === tx
+        );
+        if (hasMatchingChild) continue;
+        opts.push(el);
+      }
       function rowMightBeEtsyCategoryOption(low, tx, leafLow, crumbLow) {
-        if (/[›>»]|→/.test(tx)) return true;
+        if (/[›>»▸‣◂◦]|→/.test(tx)) return true;
         if (leafLow.length >= 3 && low.includes(leafLow)) return true;
         if (crumbLow.length >= 5) {
           if (low.includes(crumbLow.slice(0, Math.min(96, crumbLow.length)))) return true;
@@ -9489,7 +9515,13 @@ function fillEtsyListingExtraFields(scan, root) {
         }
       }
       if (bestS < 20) return false;
-      best.el.click();
+      const clickTarget = best.el.closest('button, [role="button"], a, li, [tabindex]') || best.el;
+      try {
+        clickTarget.scrollIntoView({ block: "nearest", behavior: "auto" });
+      } catch {
+        /* ignore */
+      }
+      clickTarget.click();
       return true;
     } catch {
       return false;
@@ -13499,7 +13531,7 @@ function fillFromMapper(platform, scan, root) {
       : platform === "etsy"
         ? etsyTitleForFill(scan)
         : scan.title;
-  const titleFillTrimmed = trimListingTitleRunOn(titleFill, 80);
+  const titleFillTrimmed = trimListingTitleRunOn(titleFill, 80, scan.description);
   const titleFillNorm = normalizeTitleCaps(titleFillTrimmed);
   if (titleEl && fillField(titleEl, titleFillNorm)) n++;
 
