@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_starter_quota_window(cls, v):
         s = str(v or "daily").strip().lower()
-        return s if s in ("daily", "monthly") else "daily"
+        return s if s in ("daily", "monthly", "lifetime") else "daily"
 
     @field_validator("gemini_api_key", "openai_api_key", "ebay_app_id", "upcitemdb_user_key", mode="before")
     @classmethod

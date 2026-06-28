@@ -34,7 +34,7 @@ async def get_usage(_auth: dict = Depends(verify_clerk)):
             "scans_limit": lim,
             "can_scan": True,
             "demo": True,
-            "quota_window": qw if qw in ("daily", "monthly") else "daily",
+            "quota_window": qw if qw in ("daily", "monthly", "lifetime") else "daily",
         }
     user_id = _auth.get("sub")
     if not user_id:
@@ -72,7 +72,7 @@ async def get_usage_guest(request: Request):
             "bonus_credits": 0,
             "can_scan": True,
             "demo": True,
-            "quota_window": qw if qw in ("daily", "monthly") else "daily",
+            "quota_window": qw if qw in ("daily", "monthly", "lifetime") else "daily",
         }
     result = get_scan_usage_unified(supabase, f"anon:{raw}")
     # Factor in the IP-based count so the UI shows the correct remaining number
