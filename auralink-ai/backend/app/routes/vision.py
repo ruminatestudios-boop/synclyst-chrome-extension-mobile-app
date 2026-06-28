@@ -101,6 +101,80 @@ def _resolve_quota_key(http_request: Request, _auth: dict | None) -> str | None:
     return None
 
 
+_RESELLER_FAST_PROMPT = """You are a resale product scanner used by resellers at markets and thrift stores. Look at this image and return ONLY a JSON object:
+{
+  "brand": "exact brand name or null — check ALL visible text, tags, logos, even faded/worn ones",
+  "model": "exact model name or product line or null",
+  "product_type": "e.g. T-Shirt, Sneakers, Denim Jacket, Hoodie, etc.",
+  "color": "main color or null",
+  "condition": "New / Like New / Good / Fair / Poor based on visible wear, fading, stains",
+  "seo_title": "concise resale title under 80 chars, e.g. Carhartt Detroit Jacket Brown XL",
+  "ebay_price_estimate": estimated resale price range on eBay as [low, high] numbers in USD, or null,
+  "depop_price_estimate": estimated resale price on Depop/Vinted (often 1.5-3x eBay for fashion/vintage) as [low, high] or null,
+  "identification_confidence": "high / medium / low — how confident are you in the brand/model identification"
+}
+IMPORTANT: Even for worn, faded, or vintage items — look carefully at all labels, stitching, hardware, logos. Output ONLY the JSON."""
+
+
+async def _fast_reseller_extract(image_b64: str, mime: str) -> dict:
+    """
+    Lightweight Gemini call for reseller scans only.
+    Uses gemini-2.5-flash-lite + thinking_budget=0 + small image + simple prompt.
+    Target: 2-4s vs 14-20s for full UCP pipeline.
+    """
+    import json as _json
+    from google import genai as _genai
+    from google.genai import types as _types
+
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        return {}
+
+    # Resize aggressively for speed — 480px is plenty to read labels/logos
+    small_b64 = _resize_image_if_large(image_b64, mime, max_px=480, max_bytes=150_000)
+
+    client = _genai.Client(api_key=settings.gemini_api_key)
+    try:
+        raw = base64.b64decode(small_b64 + "==")
+    except Exception:
+        raw = base64.b64decode(image_b64.split(",", 1)[-1] + "==")
+
+    image_part = _types.Part.from_bytes(data=raw, mime_type=mime)
+
+    try:
+        thinking_cfg = _types.ThinkingConfig(thinking_budget=0)
+    except Exception:
+        thinking_cfg = None
+
+    config_kwargs = dict(temperature=0.1, max_output_tokens=512)
+    if thinking_cfg:
+        config_kwargs["thinking_config"] = thinking_cfg
+
+    # Try flash-lite first, fall back to 2.5-flash
+    for model in ["gemini-2.5-flash-lite", "gemini-2.5-flash"]:
+        try:
+            resp = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.models.generate_content,
+                    model=model,
+                    contents=[_RESELLER_FAST_PROMPT, image_part],
+                    config=_types.GenerateContentConfig(**config_kwargs),
+                ),
+                timeout=12.0,
+            )
+            text = (getattr(resp, "text", None) or "").strip()
+            # Strip markdown code fences if present
+            text = text.lstrip("```json").lstrip("```").rstrip("```").strip()
+            data = _json.loads(text)
+            if isinstance(data, dict):
+                return data
+        except asyncio.TimeoutError:
+            logger.info("Fast reseller extract timed out on %s", model)
+        except Exception as e:
+            logger.debug("Fast reseller extract error (%s): %s", model, e)
+    return {}
+
+
 def _maybe_scan_quota_block(http_request: Request, _auth: dict | None) -> JSONResponse | None:
     supabase = get_supabase()
     if not supabase:
@@ -354,74 +428,44 @@ async def reseller_scan(
 
     settings = get_settings()
 
-    raw_b64 = _resize_image_if_large(rs.image_base64, rs.mime_type or "image/jpeg")
     mime = rs.mime_type or "image/jpeg"
 
-    # Use existing product extraction path.
-    # Always skip web enrichment for reseller scans — it adds 10-20s and the
-    # enriched SEO copy isn't needed here; the raw vision extraction is enough
-    # to build a tight eBay query and resale estimate.
-    extraction = await extract(
-        http_request,
-        VisionExtractionRequest(
-            image_base64=raw_b64,
-            mime_type=mime,
-            include_ocr=bool(rs.include_ocr),
-            skip_web_enrichment=True,
-            extraction_type="product",
-        ),
-        _auth,
-    )
-    if isinstance(extraction, JSONResponse):
-        return extraction
+    # FAST PATH: lightweight Gemini call — simple prompt, 480px image, no thinking tokens.
+    # Skips the entire UCP pipeline (OCR, web enrichment, verification, normalizer).
+    # Target: 3-5s total (vision ~2-3s + eBay ~1-2s).
+    fast_data = await _fast_reseller_extract(rs.image_base64, mime)
 
-    # Optional: barcode lookup to tighten product identity + eBay query when a UPC/EAN is visible.
-    # This is best-effort and never blocks the scan if the service is unavailable.
-    try:
-        from app.services.barcode_service import extract_barcode_candidates, lookup_upcitemdb
+    # Convert the lightweight extraction into the dict shape the rest of the code expects
+    raw_b64 = _resize_image_if_large(rs.image_base64, mime)
+    id_conf = fast_data.get("identification_confidence", "medium")
+    conf_score = 0.9 if id_conf == "high" else 0.65 if id_conf == "medium" else 0.4
+    extraction = {
+        "attributes": {
+            "brand": fast_data.get("brand"),
+            "product_type": fast_data.get("product_type"),
+            "color": fast_data.get("color"),
+            "condition": fast_data.get("condition"),
+            "exact_model": fast_data.get("model"),
+        },
+        "extraction_copy": {
+            "seo_title": fast_data.get("seo_title") or fast_data.get("model") or "",
+        },
+        "tags": {
+            "category": fast_data.get("product_type"),
+            "search_keywords": [k for k in [
+                fast_data.get("brand"), fast_data.get("model"), fast_data.get("product_type")
+            ] if k],
+        },
+        "confidence_score": conf_score if fast_data else 0.0,
+        "identification_confidence": id_conf,
+        "platform_estimates": {
+            "ebay": fast_data.get("ebay_price_estimate"),
+            "depop_vinted": fast_data.get("depop_price_estimate"),
+        },
+    }
 
-        if isinstance(extraction, dict):
-            ocr_snips = extraction.get("raw_ocr_snippets") or []
-            ocr_snips = [str(x) for x in ocr_snips] if isinstance(ocr_snips, list) else []
-            candidates = extract_barcode_candidates(ocr_snips[:25])
-            if candidates:
-                info = await lookup_upcitemdb(candidates[0])
-                if info:
-                    att = extraction.get("attributes") or {}
-                    copy = extraction.get("extraction_copy") or extraction.get("copy") or {}
-                    tags = extraction.get("tags") or {}
-
-                    # Fill missing identity fields only (don't override strong vision results).
-                    if info.get("brand") and not (att.get("brand") or "").strip():
-                        att["brand"] = info["brand"]
-                    if info.get("model") and not (att.get("exact_model") or "").strip():
-                        att["exact_model"] = info["model"]
-                    if info.get("title"):
-                        t = str(info["title"]).strip()
-                        if t:
-                            if not (copy.get("seo_title") or "").strip() or str(copy.get("seo_title") or "").strip().lower() in (
-                                "product",
-                                "item from photo",
-                                "item",
-                            ):
-                                copy["seo_title"] = t
-                            # Add a couple of high-signal keywords for marketplace queries.
-                            kws = tags.get("search_keywords") if isinstance(tags.get("search_keywords"), list) else []
-                            kws = [str(x).strip() for x in kws if x is not None and str(x).strip()]
-                            for k in [info.get("brand"), info.get("model")]:
-                                if not k:
-                                    continue
-                                kl = str(k).strip()
-                                if kl and not any(kl.lower() == str(x).lower() for x in kws):
-                                    kws.insert(0, kl)
-                            tags["search_keywords"] = kws[:12]
-
-                    extraction["attributes"] = att
-                    extraction["extraction_copy"] = copy
-                    extraction["tags"] = tags
-    except Exception:
-        pass
-
+    # Build eBay query immediately from vision result — no barcode lookup needed
+    # (OCR is disabled for reseller fast mode so there are no raw_ocr_snippets anyway).
     clean_title, ebay_query = _build_clean_title_and_query(extraction)
 
     # Guard: if the query looks like an OCR/vision error string, skip eBay and return a clear warning.
@@ -437,9 +481,9 @@ async def reseller_scan(
         or ebay_query == "Item from photo"
     )
 
-    # Market comps: eBay Finding API → Gemini+Google Search grounding fallback.
-    # When EBAY_APP_ID is unset we skip the eBay call and let fetch_ebay_market_summary
-    # go straight to the Gemini Google Search grounding path (uses GEMINI_API_KEY).
+    # FAST MODE: skip Gemini grounded search (saves 5-18s).
+    # Go straight to eBay Finding API — 1-3s for real sold comps.
+    # Gemini fallback only fires if eBay is rate-limited AND skip_gemini_search=False.
     if _query_is_junk:
         market = {
             "query": ebay_query,
@@ -461,6 +505,7 @@ async def reseller_scan(
                 cert_id=settings.ebay_cert_id,
                 gemini_api_key=settings.gemini_api_key,
                 keywords=ebay_query,
+                skip_gemini_search=True,  # FAST: skip 5-18s Gemini grounded search
             )
             market = {
                 "query": m.query,
@@ -725,6 +770,7 @@ async def extract(
             image_base64=raw_b64,
             mime_type=mime,
             ocr_snippets=ocr_snippets or None,
+            fast_mode=getattr(vreq, "fast_mode", False),
         )
     except asyncio.TimeoutError:
         logger.warning("Vision extraction timed out (Gemini >120s)")

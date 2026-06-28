@@ -82,7 +82,7 @@ class Settings(BaseSettings):
 
     # Starter tier: free product scans before 402 — cap is per STARTER_SCAN_QUOTA_WINDOW ("daily" or "monthly").
     # Defaults: 10/day. Set STARTER_SCAN_QUOTA_WINDOW=monthly and STARTER_SCAN_LIMIT=3 for legacy monthly behavior.
-    starter_scan_limit: int = 10
+    starter_scan_limit: int = 20
     starter_scan_quota_window: str = "daily"
 
     # eBay API credentials.
@@ -136,7 +136,13 @@ class Settings(BaseSettings):
         if not self.cors_origins or self.cors_origins.strip() == "*":
             return ["*"]
         origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
-        for o in local_origins:
+        synclyst_origins = [
+            "https://app.synclyst.app",
+            "https://synclyst.app",
+            "https://www.synclyst.app",
+            "https://scan.synclyst.app",
+        ]
+        for o in local_origins + synclyst_origins:
             if o not in origins:
                 origins.append(o)
         return origins

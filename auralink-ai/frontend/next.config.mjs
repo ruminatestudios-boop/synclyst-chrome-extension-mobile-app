@@ -35,8 +35,34 @@ const listingFlowRewrites = [
 const nextConfig = {
   reactStrictMode: true,
   ...(resolvedPublicApiUrl ? { env: { NEXT_PUBLIC_API_URL: resolvedPublicApiUrl } } : {}),
+  async headers() {
+    return [
+      {
+        // Never CDN-cache these app pages — they contain inline JS that must stay fresh
+        source: "/(scan|list|reading-product|reseller-results|reseller-library|reseller-listing-draft)",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Permissions-Policy", value: "camera=*, microphone=()" },
+        ],
+      },
+      {
+        // Broad allow for all pages so iframes / subdomain variations don't block camera
+        source: "/:path*",
+        headers: [
+          { key: "Permissions-Policy", value: "camera=*, microphone=()" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
+      // scan.synclyst.app root → scanner (so old links to scan.synclyst.app still work)
+      {
+        source: "/",
+        has: [{ type: "host", value: "scan.synclyst.app" }],
+        destination: "/scan",
+        permanent: false,
+      },
       { source: "/shopify/launch", destination: "/api/shopify/oauth-start", permanent: false },
       { source: "/shopify/launch/", destination: "/api/shopify/oauth-start", permanent: false },
       { source: "/flow-3.html", destination: "/review", permanent: false },

@@ -6,6 +6,14 @@ const BACKEND =
   "http://localhost:8000";
 
 export default async function handler(req, res) {
+  const origin = req.headers.origin || "";
+  const allowed = ["https://scan.synclyst.app", "https://synclyst.app", "https://app.synclyst.app"];
+  if (allowed.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-SyncLyst-Anon-Id");
+  }
+  if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") {
     return res.status(405).json({ detail: "Method not allowed" });
   }

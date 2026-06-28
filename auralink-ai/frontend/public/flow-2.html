@@ -300,6 +300,23 @@
         if (typeof window.synclystPageNavigate === 'function') window.synclystPageNavigate(next);
         else window.location.href = next;
       }
+      function humanizeExtractError(err, rawIn) {
+        var raw = rawIn != null ? String(rawIn) : ((err && err.message) ? String(err.message) : '');
+        if (err && err.name === 'AbortError') {
+          return 'Could not complete extraction in time. Please try again with a clearer photo.';
+        }
+        var lower = raw.toLowerCase();
+        var networkFail = err && (err.name === 'TypeError' || raw === 'Failed to fetch' || raw === 'fetch failed' || lower.indexOf('networkerror') !== -1);
+        if (networkFail) {
+          return 'Cannot reach the AI service. Check your connection and try again, or tap Continue & edit manually.';
+        }
+        if (lower.indexOf('502') !== -1 || lower.indexOf('503') !== -1 || lower.indexOf('504') !== -1 ||
+            lower.indexOf('timed out') !== -1 || lower.indexOf('unavailable') !== -1) {
+          return 'The AI service timed out or is busy. Try again in a moment, or continue and edit manually.';
+        }
+        return raw || 'Could not read the image. Try again or use a different photo.';
+      }
+
       function showError(message) {
         extractionDone = true;
         if (cardEl) cardEl.classList.add('hidden');
@@ -309,7 +326,61 @@
         if (lower.indexOf('quota') !== -1 || lower.indexOf('resource exhausted') !== -1 || lower.indexOf('429') !== -1) {
           msg = 'Gemini quota exceeded. Try again in a minute, or continue without AI and edit the draft manually.';
         }
+        if (lower === 'failed to fetch' || lower === 'fetch failed') {
+          msg = humanizeExtractError({ name: 'TypeError', message: msg }, msg);
+        }
         if (errorMsg) errorMsg.textContent = msg;
+      }
+
+      /** Shrink large gallery uploads so POST stays under Vercel limits and mobile networks stay reliable. */
+      var MAX_EXTRACT_PX = 1600;
+      var MAX_EXTRACT_B64_CHARS = 2800000;
+      function optimizePendingImage(done) {
+        if (!pending || !pending.base64) return done(pending);
+        if (pending.base64.length <= MAX_EXTRACT_B64_CHARS) {
+          var probe = new Image();
+          probe.onload = function() {
+            var w = probe.naturalWidth || probe.width;
+            var h = probe.naturalHeight || probe.height;
+            if (w <= MAX_EXTRACT_PX && h <= MAX_EXTRACT_PX) return done(pending);
+            resizePending(probe, done);
+          };
+          probe.onerror = function() { done(pending); };
+          probe.src = 'data:' + ((pending.mime_type) ? String(pending.mime_type) : 'image/jpeg') + ';base64,' + pending.base64;
+          return;
+        }
+        var img = new Image();
+        img.onload = function() { resizePending(img, done); };
+        img.onerror = function() { done(pending); };
+        img.src = 'data:' + ((pending.mime_type) ? String(pending.mime_type) : 'image/jpeg') + ';base64,' + pending.base64;
+      }
+      function resizePending(img, done) {
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+        if (!w || !h) return done(pending);
+        var scale = 1;
+        if (w > MAX_EXTRACT_PX || h > MAX_EXTRACT_PX) scale = MAX_EXTRACT_PX / Math.max(w, h);
+        var c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * scale));
+        c.height = Math.max(1, Math.round(h * scale));
+        var ctx = c.getContext('2d');
+        if (!ctx) return done(pending);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        try {
+          var out = c.toDataURL('image/jpeg', 0.82).split(',')[1];
+          if (out && out.length > 100) {
+            pending.base64 = out;
+            pending.mime_type = 'image/jpeg';
+          }
+        } catch (eR) {}
+        done(pending);
+      }
+
+      function canUseDirectBackendFallback() {
+        try {
+          var h = window.location.hostname;
+          return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+        } catch (e) { return false; }
       }
 
       function continueWithoutAiDraft() {
@@ -397,14 +468,22 @@
       var host = window.location.hostname;
       var prodBackend = document.querySelector('meta[name="synclyst-backend-url"]');
       var fallbackApiUrl = (prodBackend && prodBackend.getAttribute('content')) ? prodBackend.getAttribute('content').trim().replace(/\/$/, '') : '';
-      // Same-origin /api/v1/vision/* (Next route → backend): works on Vercel, avoids CORS, and proxies both
-      // extract + reseller-scan (reseller-scan had no Next route before and 404'd in production).
+      // Hosts that are known NOT to have /api/v1 proxy routes — go straight to Cloud Run.
+      // scan.synclyst.app is a separate Vercel project with no API proxy.
+      var NO_PROXY_HOSTS = ['scan.synclyst.app', 'synclyst.app'];
+      var skipProxy = NO_PROXY_HOSTS.indexOf(host) !== -1;
+      // Same-origin /api/v1/vision/* (Next route → backend): works on Vercel, avoids CORS.
+      // On known no-proxy hosts, skip straight to Cloud Run (fallbackApiUrl).
       var apiUrl = '';
-      try {
-        if ((window.location.protocol === 'http:' || window.location.protocol === 'https:') && host)
-          apiUrl = String(window.location.origin || '').replace(/\/$/, '');
-      } catch (eO) {}
-      if (!apiUrl) apiUrl = metaApi || 'http://localhost:8000';
+      if (skipProxy && fallbackApiUrl) {
+        apiUrl = fallbackApiUrl;
+      } else {
+        try {
+          if ((window.location.protocol === 'http:' || window.location.protocol === 'https:') && host)
+            apiUrl = String(window.location.origin || '').replace(/\/$/, '');
+        } catch (eO) {}
+        if (!apiUrl) apiUrl = metaApi || 'http://localhost:8000';
+      }
 
       // If you're on localhost but want Cloud Run, we can auto-fallback on network failure.
       var triedFallback = false;
@@ -420,10 +499,10 @@
       if (procBrandText) {
         if (isResellerFlow) {
           procBrandText.innerHTML = 'SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
-          if (procBrandLink) { procBrandLink.title = 'SyncIQ®'; procBrandLink.setAttribute('aria-label', 'SyncIQ'); }
+          if (procBrandLink) { procBrandLink.href = '/scan'; procBrandLink.title = 'SyncIQ®'; procBrandLink.setAttribute('aria-label', 'SyncIQ'); }
         } else {
           procBrandText.innerHTML = 'Synclyst<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup>';
-          if (procBrandLink) { procBrandLink.title = 'Synclyst®'; procBrandLink.setAttribute('aria-label', 'Synclyst'); }
+          if (procBrandLink) { procBrandLink.href = '/list'; procBrandLink.title = 'Synclyst®'; procBrandLink.setAttribute('aria-label', 'Synclyst'); }
         }
       }
 
@@ -509,7 +588,7 @@
       var start = Date.now();
       /** Reseller-scan runs vision + eBay comps; listing extract is faster (~30s).
        *  Use a generous timeout so slow backends don't silently kill the scan. */
-      var EXTRACTION_TIMEOUT_MS = isResellerFlow ? 75000 : 28000;
+      var EXTRACTION_TIMEOUT_MS = isResellerFlow ? 75000 : 55000;
       var DRAFT_INTRO_MS = 4000;
       /** Linear progress: bar fills at a steady pace over this window, then holds at PENDING_CAP. */
       var EXPECTED_DURATION_MS = isResellerFlow ? 38000 : 22000;
@@ -541,7 +620,7 @@
         }
 
         var att = data.attributes || {};
-        var suggestedPrice = 199;
+        var suggestedPrice = null;
         if (att.price_value != null && typeof att.price_value === 'number' && att.price_value > 0) suggestedPrice = att.price_value;
         else if (att.price_display && typeof att.price_display === 'string') {
           var match = att.price_display.replace(/[^\d.]/g, '').match(/[\d.]+/);
@@ -621,6 +700,7 @@
 
       if (draftOnly) return;
 
+      function startExtraction() {
       extractionInFlight = true;
       setWaiting(true);
 
@@ -691,41 +771,29 @@
         if (extractionDone) return;
         setWaiting(false);
         var raw = (err && err.message) ? String(err.message) : '';
-        var networkFail = err && (err.name === 'TypeError' || raw === 'Failed to fetch' || raw === 'fetch failed' || raw.indexOf('NetworkError') !== -1);
+        var proxyMiss = raw.indexOf('404') !== -1 || raw.indexOf('Server error (404)') !== -1 || raw.indexOf('NOT_FOUND') !== -1;
 
-        // Auto-fallback: if the Next.js proxy or local dev server isn't reachable,
-        // retry once against the Cloud Run backend directly (works on localhost AND production).
+        // Direct browser → Cloud Run only works on localhost (CORS blocks app.synclyst.app on Cloud Run).
         var originTry = '';
         try { originTry = String(window.location.origin || '').replace(/\/$/, ''); } catch (eOg) {}
         var usingDirect8000 = apiUrl.indexOf('localhost:8000') !== -1;
         var usingNextProxy = originTry && apiUrl === originTry;
-        // Allow fallback on any host (not just localhost) so production Vercel can recover
-        // if the /api/v1 proxy rewrite is misconfigured or missing.
-        if (!triedFallback && fallbackApiUrl && (usingDirect8000 || usingNextProxy)) {
+        if (!triedFallback && fallbackApiUrl && canUseDirectBackendFallback() && (usingDirect8000 || usingNextProxy || proxyMiss)) {
           triedFallback = true;
           apiUrl = fallbackApiUrl;
           setWaiting(true);
           return runExtract().catch(function(err2) {
             if (extractionDone) return;
             setWaiting(false);
-            var raw2 = (err2 && err2.message) ? String(err2.message) : '';
-            var msg2 = (err2 && err2.name === 'AbortError')
-              ? 'Could not complete extraction in time. Please try again.'
-              : (raw2 || 'Could not read the image. Try again or use a different photo.');
-            showError(msg2);
+            showError(humanizeExtractError(err2, (err2 && err2.message) ? String(err2.message) : ''));
           });
         }
 
-        var msg;
-        if (err && err.name === 'AbortError') {
-          msg = 'Could not complete extraction in time. Please try again with a clearer photo.';
-        } else if (networkFail) {
-          msg = 'Cannot reach the AI service. Please check your connection and try again.';
-        } else {
-          msg = raw || 'Could not read the image. Try again or use a different photo.';
-        }
-        showError(msg);
+        showError(humanizeExtractError(err, raw));
       });
+      }
+
+      optimizePendingImage(function() { startExtraction(); });
 
       (function wireErrorActions() {
         var retryBtn = document.getElementById('proc-retry-btn');
@@ -751,3 +819,4 @@
   </script>
 </body>
 </html>
+<!-- Sun May 31 12:43:32 +07 2026 -->

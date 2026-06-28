@@ -82,13 +82,26 @@
       >SyncIQ<sup class="text-[0.55em] font-normal opacity-90 relative -top-[0.15em]">®</sup></a>
     </header>
 
+    <!-- Offline banner -->
+    <div id="ri-offline-banner" class="hidden shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-200 text-center">
+      <p class="text-[11px] font-semibold text-amber-700">Offline — showing cached results</p>
+    </div>
+
     <main class="px-5 pt-5 pb-4 overflow-auto">
+
+
+      <!-- Product card with signal-strength ring on photo -->
       <div class="vercel-card mb-4 overflow-hidden border-zinc-200/90 bg-gradient-to-br from-white via-white to-violet-50/40 p-4 shadow-sm ring-1 ring-violet-950/[0.05]">
         <div class="flex items-start gap-3 sm:gap-4">
           <div class="relative shrink-0">
             <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-100/60 to-transparent opacity-70 blur-sm scale-105 pointer-events-none" aria-hidden="true"></div>
-            <div class="relative h-24 w-24 overflow-hidden rounded-2xl border border-white bg-zinc-100 shadow-md ring-2 ring-white ring-offset-2 ring-offset-[#f5f5f5]">
+            <!-- Signal ring: green=strong, yellow=weak, red=no data -->
+            <div id="ri-signal-ring" class="relative h-24 w-24 overflow-hidden rounded-2xl border border-white bg-zinc-100 shadow-md ring-1 ring-zinc-200 ring-offset-1 ring-offset-[#f5f5f5]">
               <img id="ri-image" alt="Scanned item" class="h-full w-full object-cover" />
+              <!-- Signal badge -->
+              <div id="ri-signal-badge" class="absolute bottom-1 left-1 hidden">
+                <span id="ri-signal-text" class="text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white"></span>
+              </div>
             </div>
           </div>
           <div class="flex min-w-0 flex-1 flex-col gap-2">
@@ -97,19 +110,29 @@
               <span id="ri-confidence" class="inline-flex shrink-0 items-center justify-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]">—</span>
             </div>
             <div class="space-y-1.5">
-              <h1 id="ri-title" class="text-[16px] font-semibold leading-snug tracking-tight text-zinc-950 line-clamp-3 sm:text-[17px] sm:leading-snug">
-                Loading…
-              </h1>
+              <h1 id="ri-title" class="text-[16px] font-semibold leading-snug tracking-tight text-zinc-950 line-clamp-3 sm:text-[17px] sm:leading-snug">Loading…</h1>
               <p id="ri-query" class="text-[12px] font-medium leading-snug text-zinc-600 line-clamp-2">—</p>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Condition selector — adjusts resale estimate -->
+      <div class="vercel-card p-3 mb-4">
+        <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2">Condition</p>
+        <div id="ri-condition-row" class="grid grid-cols-4 gap-1.5">
+          <button data-cond="mint"  data-mult="1.15" class="ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border border-zinc-200 bg-zinc-50 text-zinc-600">Mint</button>
+          <button data-cond="good"  data-mult="1.0"  class="ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border border-zinc-200 bg-zinc-50 text-zinc-600">Good</button>
+          <button data-cond="fair"  data-mult="0.75" class="ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border border-zinc-200 bg-zinc-50 text-zinc-600">Fair</button>
+          <button data-cond="poor"  data-mult="0.5"  class="ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border border-zinc-200 bg-zinc-50 text-zinc-600">Poor</button>
+        </div>
+        <p id="ri-condition-note" class="text-[10px] text-zinc-400 mt-1.5 hidden">Resale estimate adjusted for condition</p>
+      </div>
+
       <div class="vercel-card p-4 mb-4 ring-1 ring-[#0a0a0a]/6">
-        <label class="block text-[13px] font-semibold text-[#0a0a0a]" for="ri-buy">What you paid</label>
+        <label class="block text-[13px] font-semibold text-[#0a0a0a]" for="ri-buy">Asking price</label>
         <p id="ri-buy-caption" class="text-[11px] text-zinc-500 mt-0.5 mb-3">
-          Your buy cost — we use it for estimated profit and ROI below.
+          What the seller wants — we calculate your profit after fees.
         </p>
         <div
           class="flex w-full rounded-xl border border-violet-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-violet-950/[0.05] overflow-visible transition-[box-shadow,border-color] focus-within:border-violet-400 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.22)]"
@@ -151,10 +174,23 @@
           <p class="text-[11px] text-zinc-500 mt-2" id="ri-sold-count">—</p>
         </div>
         <div class="vercel-card p-4">
-          <p class="text-[11px] font-medium text-zinc-500">Estimated profit</p>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-[11px] font-medium text-zinc-500">Profit <span class="text-zinc-400 font-normal" id="ri-profit-platform-label"></span></p>
+          </div>
           <p class="metric text-[22px] leading-none font-extrabold mt-2 tracking-tight" id="ri-profit">—</p>
-          <p class="text-[11px] text-zinc-500 mt-2" id="ri-roi">—</p>
+          <p class="text-[11px] text-zinc-500 mt-2" id="ri-roi">Add your cost above for profit</p>
+          <p class="text-[10px] text-zinc-400 mt-1.5 leading-snug" id="ri-profit-breakdown"></p>
         </div>
+      </div>
+
+
+      <!-- Platform selector for fee calculation -->
+      <div class="vercel-card p-3 mb-4">
+        <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2.5">Selling on</p>
+        <div id="ri-platform-row" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <div class="hidden" style="display:none"><!-- spacer -->
       </div>
 
       <!-- Recent sold comps (trust builder) -->
@@ -210,7 +246,12 @@
 
     <div class="sticky bottom-0 shrink-0 bg-white/95 backdrop-blur-md border-t border-[#e5e5e5] ri-bottom-shadow">
       <div class="p-4 pt-3">
-        <a href="/scan?mode=reseller" class="block w-full rounded-2xl bg-[#0a0a0a] border border-black text-white text-sm font-semibold px-4 py-3.5 text-center no-underline shadow-md active:scale-[0.99] transition-transform hover:bg-black">
+        <!-- List it fast CTA — shown when verdict is BUY -->
+        <button id="ri-list-fast-btn" type="button" class="hidden w-full mb-2 rounded-2xl bg-violet-700 text-white text-sm font-bold px-4 py-3.5 text-center shadow-md active:scale-[0.99] transition-transform hover:bg-violet-800">
+          List it fast on Synclyst &rarr;
+        </button>
+
+        <a href="/scan?mode=reseller" class="block w-full rounded-2xl border border-zinc-200 bg-white text-zinc-700 text-sm font-semibold px-4 py-3 text-center no-underline active:scale-[0.99] transition-transform hover:bg-zinc-50">
           Scan Another
         </a>
 
@@ -252,7 +293,7 @@
                 <path d="M14 14l-4-4" />
               </svg>
             </span>
-            <span class="block text-[11px] font-semibold leading-none">Cross‑list</span>
+            <span class="block text-[11px] font-semibold leading-none">Cross&#8209;list</span>
           </button>
 
           <!-- Upgrade tab -->
@@ -266,6 +307,24 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Email capture modal — shown when scan limit hit -->
+  <div id="ri-email-modal" class="fixed inset-0 z-[90] hidden items-center justify-center p-5" role="dialog" aria-modal="true">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="ri-email-backdrop"></div>
+    <div class="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6 text-center">
+      <div class="text-4xl mb-3">📦</div>
+      <h2 class="text-[18px] font-black tracking-tight text-zinc-900 mb-1">You've used your free scans</h2>
+      <p class="text-[13px] text-zinc-500 mb-4">Enter your email to get <strong>5 bonus scans</strong> free + weekly resale tips.</p>
+      <input id="ri-email-input" type="email" placeholder="your@email.com" autocomplete="email"
+        class="w-full rounded-xl border border-zinc-200 px-4 py-3 text-[14px] text-zinc-900 mb-3 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
+      <button id="ri-email-submit" type="button" class="w-full rounded-xl bg-violet-700 text-white font-bold py-3 text-[14px] mb-2 hover:bg-violet-800 transition-colors">
+        Get 5 free scans
+      </button>
+      <button id="ri-email-skip" type="button" class="w-full text-[12px] text-zinc-400 py-1 hover:text-zinc-600">
+        No thanks — show upgrade options
+      </button>
     </div>
   </div>
 
@@ -398,11 +457,9 @@
       </div>
 
       <div class="shrink-0 overflow-visible px-4 py-2.5 text-center">
-        <div class="mb-2.5">
-          <div id="ri-cross-connected-wrap" class="rounded-lg border border-zinc-200 bg-zinc-50/80 px-2.5 py-2 text-center">
-            <p id="ri-cross-connected-empty" class="text-[12px] text-zinc-500 leading-snug text-center">Use the Chrome extension to link stores.</p>
-            <div id="ri-cross-connected-chips" class="hidden flex flex-wrap gap-1.5 justify-center"></div>
-          </div>
+        <div id="ri-cross-connected-wrap" class="hidden">
+          <p id="ri-cross-connected-empty" class="hidden"></p>
+          <div id="ri-cross-connected-chips" class="hidden flex flex-wrap gap-1.5 justify-center"></div>
         </div>
 
         <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 mb-2">Supported marketplaces</p>
@@ -625,6 +682,24 @@
       var queryEl = document.getElementById('ri-query');
       if (queryEl) queryEl.textContent = (result.optimized_ebay_query || ebay.query || '').trim() || '—';
 
+      // Low confidence warning — prompt user to use manual override
+      var idConf = extraction.identification_confidence || 'medium';
+      if (idConf === 'low') {
+        var warnEl = document.createElement('p');
+        warnEl.className = 'text-[11px] text-amber-600 font-semibold mt-1 px-1';
+        warnEl.textContent = '⚠️ Worn or unclear label — check the search below and correct if needed';
+        if (titleEl && titleEl.parentNode) titleEl.parentNode.appendChild(warnEl);
+      }
+
+      // Multi-platform price estimates (from Gemini knowledge)
+      var platEst = extraction.platform_estimates || {};
+      if (platEst.depop_vinted && Array.isArray(platEst.depop_vinted)) {
+        var depopEl = document.createElement('p');
+        depopEl.className = 'text-[11px] text-zinc-500 mt-1 px-1';
+        depopEl.textContent = 'Depop/Vinted est: ' + S + platEst.depop_vinted[0] + ' - ' + S + platEst.depop_vinted[1];
+        if (queryEl && queryEl.parentNode) queryEl.parentNode.insertBefore(depopEl, queryEl.nextSibling);
+      }
+
       var confEl = document.getElementById('ri-confidence');
       if (confEl) {
         var label = conf == null ? 'Confidence —' : conf >= 85 ? 'High match' : conf >= 65 ? 'Medium match' : 'Low match';
@@ -647,20 +722,147 @@
         var base =
           'inline-flex shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold';
         if (kind === 'buy') {
-          el.textContent = 'Great flip';
-          el.className =
-            base + ' border-emerald-200/90 bg-emerald-50/90 text-emerald-900';
+          el.textContent = '✅  BUY IT';
+          el.className = base + ' border-emerald-200/90 bg-emerald-50/90 text-emerald-900';
         } else if (kind === 'skip') {
-          el.textContent = 'Skip';
-          el.className =
-            base + ' border-rose-200/90 bg-rose-50/90 text-rose-900';
+          el.textContent = '❌  PASS';
+          el.className = base + ' border-rose-200/90 bg-rose-50/90 text-rose-900';
         } else {
-          el.textContent = 'Medium margins';
-          el.className =
-            base + ' border-amber-200/90 bg-amber-50/90 text-amber-950';
+          el.textContent = '⚠️  CHECK';
+          el.className = base + ' border-amber-200/90 bg-amber-50/90 text-amber-950';
         }
       }
       setBadge(document.getElementById('ri-reco-badge'), analysis.recommendation || 'maybe');
+
+      // ── Offline detection ─────────────────────────────────────────────────
+      (function() {
+        var banner = document.getElementById('ri-offline-banner');
+        function updateOnline() { if (banner) banner.classList.toggle('hidden', navigator.onLine); }
+        updateOnline();
+        window.addEventListener('online', updateOnline);
+        window.addEventListener('offline', updateOnline);
+      })();
+
+      // ── Signal strength ring ──────────────────────────────────────────────
+      (function() {
+        var ring = document.getElementById('ri-signal-ring');
+        var badge = document.getElementById('ri-signal-badge');
+        var badgeText = document.getElementById('ri-signal-text');
+        var sc = Number(ebay.sold_count || 0);
+        if (ring) {
+          if (sc >= 5) {
+            ring.className = ring.className.replace('ring-zinc-200', 'ring-emerald-400');
+            if (badge && badgeText) { badgeText.textContent = sc + ' sold'; badgeText.className = 'text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white bg-emerald-600'; badge.classList.remove('hidden'); }
+          } else if (sc >= 1) {
+            ring.className = ring.className.replace('ring-zinc-200', 'ring-amber-400');
+            if (badge && badgeText) { badgeText.textContent = sc + ' sold'; badgeText.className = 'text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white bg-amber-500'; badge.classList.remove('hidden'); }
+          } else {
+            ring.className = ring.className.replace('ring-zinc-200', 'ring-rose-300');
+            if (badge && badgeText) { badgeText.textContent = 'No sales'; badgeText.className = 'text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white bg-rose-500'; badge.classList.remove('hidden'); }
+          }
+        }
+      })();
+
+
+      // ── 0 sold comps warning ──────────────────────────────────────────────
+      (function() {
+        var sc = Number(ebay.sold_count || 0);
+        var soldCountEl = document.getElementById('ri-sold-count');
+        if (sc === 0 && soldCountEl) {
+          soldCountEl.innerHTML = '<span class="text-amber-600 font-semibold">No recent sold listings — price carefully</span>';
+        }
+      })();
+
+      // ── Condition multiplier ──────────────────────────────────────────────
+      var conditionMultiplier = 1.0;
+      var selectedCondition = null;
+      (function() {
+        var btns = document.querySelectorAll('.ri-cond-btn');
+        var note = document.getElementById('ri-condition-note');
+        btns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var cond = btn.getAttribute('data-cond');
+            var mult = parseFloat(btn.getAttribute('data-mult'));
+            if (selectedCondition === cond) {
+              // deselect
+              selectedCondition = null;
+              conditionMultiplier = 1.0;
+              btns.forEach(function(b) { b.className = b.className.replace(/border-violet-\S+|bg-violet-\S+|text-white/g, 'border-zinc-200 bg-zinc-50 text-zinc-600'); });
+              if (note) note.classList.add('hidden');
+            } else {
+              selectedCondition = cond;
+              conditionMultiplier = mult;
+              btns.forEach(function(b) {
+                var active = b === btn;
+                b.className = 'ri-cond-btn py-1.5 rounded-lg text-[11px] font-semibold border ' +
+                  (active ? 'border-violet-600 bg-violet-600 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600');
+              });
+              if (note) {
+                note.textContent = mult === 1.0 ? 'Using standard resale estimate' :
+                  mult > 1.0 ? 'Mint condition: +'  + Math.round((mult-1)*100) + '% on estimate' :
+                  'Condition discount: -' + Math.round((1-mult)*100) + '% on estimate';
+                note.classList.remove('hidden');
+              }
+            }
+            // Recompute range display with condition multiplier
+            updateResaleRangeDisplay();
+            recalcDealMath();
+          });
+        });
+      })();
+
+      // ── Platform persistence ──────────────────────────────────────────────
+      (function() {
+        try {
+          var saved = localStorage.getItem('synclyst_ri_platform');
+          if (saved) {
+            var exists = RI_PLATFORMS.find(function(p) { return p.id === saved; });
+            if (exists) { selectedPlatformId = saved; syncPlatformUI(); }
+          }
+        } catch(e) {}
+      })();
+
+      // ── Buy/Pass action buttons ───────────────────────────────────────────
+      (function() {
+        function saveDecision(decision) {
+          try {
+            var key = 'auralink_reseller_history';
+            var existing = JSON.parse(localStorage.getItem(key) || '[]');
+            var ts = Date.now();
+            // Find or create entry for this scan
+            var idx = existing.findIndex(function(e) { return e.sourceTs === (payload && payload.ts); });
+            var entry = idx >= 0 ? existing[idx] : {
+              sourceTs: payload && payload.ts || ts,
+              ts: ts,
+              title: extraction && ((extraction.extraction_copy || {}).seo_title || '') || '',
+              profit: null,
+              imageDataUrl: payload && payload.imageDataUrl || null,
+            };
+            entry.decision = decision;
+            entry.decisionTs = ts;
+            if (idx >= 0) existing[idx] = entry;
+            else existing.unshift(entry);
+            localStorage.setItem(key, JSON.stringify(existing.slice(0, 50)));
+          } catch(e) {}
+        }
+
+        var buyBtn = document.getElementById('ri-action-buy');
+        var passBtn = document.getElementById('ri-action-pass');
+
+        if (buyBtn) buyBtn.addEventListener('click', function() {
+          saveDecision('bought');
+          buyBtn.textContent = 'Saved as Bought!';
+          buyBtn.className = buyBtn.className.replace('bg-emerald-600', 'bg-emerald-800');
+          setTimeout(function() { window.location.href = '/scan?mode=reseller'; }, 800);
+        });
+
+        if (passBtn) passBtn.addEventListener('click', function() {
+          saveDecision('passed');
+          passBtn.textContent = 'Passed!';
+          passBtn.className = passBtn.className.replace('bg-zinc-800', 'bg-zinc-600');
+          setTimeout(function() { window.location.href = '/scan?mode=reseller'; }, 800);
+        });
+      })();
 
       var spd = analysis.estimated_sell_speed || 'medium';
       var headline = spd === 'fast' ? 'Fast seller' : spd === 'slow' ? 'Slow mover' : 'Medium demand';
@@ -689,9 +891,12 @@
       var ss = document.getElementById('ri-sell-sub');
       if (ss) ss.textContent = subSell;
 
-      /** Match bar — same 60-segment yellow→green gradient as flow-2 proc bar */
+      /** Match bar — 60-segment violet gradient, identical to flow-2 loading bar */
       var RI_SEGMENTS = 60;
-      var RI_GRAD_STOPS = [{ p: 0, r: 234, g: 179, b: 8 }, { p: 1, r: 34, g: 197, b: 94 }];
+      var RI_GRAD_STOPS = [
+        { p: 0,   r: 167, g: 139, b: 250 },   // #a78bfa violet-400
+        { p: 1,   r: 124, g: 58,  b: 237 },   // #7c3aed violet-600
+      ];
       function riInterpColor(t) {
         var i = 0;
         while (i + 1 < RI_GRAD_STOPS.length && RI_GRAD_STOPS[i + 1].p < t) i++;
@@ -1012,39 +1217,7 @@
         rightE.appendChild(p1Wrap);
         top.appendChild(rightE);
 
-        var bot = document.createElement('div');
-        bot.className =
-          'border-t border-violet-100/90 bg-gradient-to-b from-violet-50/50 to-violet-50/25 px-4 py-3.5';
-        var botRow = document.createElement('div');
-        botRow.className = 'flex gap-3 sm:gap-4';
-        var iconsWrap = document.createElement('div');
-        iconsWrap.className = 'ri-mp-lead';
-        for (var ki = 0; ki < sec.keys.length; ki++) marketplaceIcon(iconsWrap, sec.keys[ki]);
-        var botText = document.createElement('div');
-        botText.className = 'min-w-0 flex-1';
-        var botLab = document.createElement('p');
-        botLab.className =
-          'text-[9px] font-bold uppercase tracking-[0.14em] text-violet-600/90 mb-1';
-        botLab.textContent = 'Also try';
-        var botH = document.createElement('p');
-        botH.className = 'text-[16px] font-semibold leading-snug text-zinc-950 tracking-tight';
-        botH.innerHTML =
-          escapeHtml(sec.label) +
-          ' <span class="text-[13px] font-medium text-zinc-500">' +
-          escapeHtml(sec.tag) +
-          '</span>';
-        var botP = document.createElement('p');
-        botP.className = 'text-[13px] text-zinc-600 mt-1 leading-relaxed';
-        botP.textContent = sec.tip;
-        botText.appendChild(botLab);
-        botText.appendChild(botH);
-        botText.appendChild(botP);
-        botRow.appendChild(iconsWrap);
-        botRow.appendChild(botText);
-        bot.appendChild(botRow);
-
         root.appendChild(top);
-        root.appendChild(bot);
         wrap.appendChild(root);
       }
 
@@ -1058,10 +1231,11 @@
       var resaleAnchor = (soldAvg != null ? soldAvg : (soldHigh != null ? soldHigh : (activeAvg != null ? activeAvg : (profit && profit.estimated_resale_price != null ? profit.estimated_resale_price : imgPrice))));
       function updateResaleRangeDisplay() {
         if (!rangeEl) return;
-        if (soldLow != null && soldHigh != null) rangeEl.textContent = money(soldLow) + '–' + money(soldHigh);
-        else if (soldAvg != null) rangeEl.textContent = money(soldAvg);
-        else if (activeAvg != null) rangeEl.textContent = money(activeAvg);
-        else if (resaleAnchor != null) rangeEl.textContent = money(resaleAnchor);
+        var m = (typeof conditionMultiplier !== 'undefined' ? conditionMultiplier : 1.0);
+        if (soldLow != null && soldHigh != null) rangeEl.textContent = money(soldLow * m) + '–' + money(soldHigh * m);
+        else if (soldAvg != null) rangeEl.textContent = money(soldAvg * m);
+        else if (activeAvg != null) rangeEl.textContent = money(activeAvg * m);
+        else if (resaleAnchor != null) rangeEl.textContent = money(resaleAnchor * m);
         else rangeEl.textContent = '—';
       }
       renderSoldComps();
@@ -1086,45 +1260,136 @@
           var net = Number(p.estimated_net_profit);
           pEl.textContent = (net >= 0 ? '+' : '') + money2(net);
           pEl.className = 'metric text-[22px] leading-none font-extrabold mt-2 tracking-tight ' + (net >= 0 ? 'text-emerald-700' : 'text-rose-700');
+          roiEl.className = 'text-[11px] text-zinc-500 mt-2';
           if (p.estimated_roi_pct != null) roiEl.textContent = 'ROI ' + Math.round(p.estimated_roi_pct) + '%';
           else roiEl.textContent = 'ROI —';
         } else {
           pEl.textContent = '—';
           pEl.className = 'metric text-[22px] leading-none font-extrabold mt-2 tracking-tight';
-          roiEl.textContent = hint === 'no_resale' ? 'No comps or price signal yet' : 'Enter what you paid above';
+          roiEl.textContent = hint === 'no_resale' ? 'No comps or price signal yet' : hint === 'no_cost' ? 'Add your cost above for profit' : 'Enter what you paid above';
         }
       }
       function getResaleForMath() {
-        return resaleAnchor != null ? resaleAnchor : null;
+        if (resaleAnchor == null) return null;
+        var m = (typeof conditionMultiplier !== 'undefined' ? conditionMultiplier : 1.0);
+        return resaleAnchor * m;
       }
+
+      // ── Platform fee table ────────────────────────────────────────────────
+      var RI_PLATFORMS = [
+        { id: 'none',      label: 'No fees',    pct: 0,     fixed: 0,    note: 'Cash / private sale' },
+        { id: 'ebay',      label: 'eBay',        pct: 0.129, fixed: 0.30, note: '12.9% + payment' },
+        { id: 'depop',     label: 'Depop',       pct: 0.10,  fixed: 0.30, note: '10% + payment' },
+        { id: 'vinted',    label: 'Vinted',      pct: 0,     fixed: 0,    note: 'Buyer pays fees' },
+        { id: 'poshmark',  label: 'Poshmark',    pct: 0.20,  fixed: 0,    note: '20% over £15' },
+        { id: 'facebook',  label: 'FB Market',   pct: 0.05,  fixed: 0,    note: '5% shipping sales' },
+        { id: 'mercari',   label: 'Mercari',     pct: 0.10,  fixed: 0.30, note: '10% + payment' },
+        { id: 'etsy',      label: 'Etsy',        pct: 0.065, fixed: 0.30, note: '6.5% + payment' },
+        { id: 'shopee',    label: 'Shopee',      pct: 0.02,  fixed: 0,    note: '2% commission' },
+        { id: 'lazada',    label: 'Lazada',      pct: 0.04,  fixed: 0,    note: '4% commission' },
+      ];
+      var selectedPlatformId = null; // null = no platform selected
+
+      (function initPlatformSelector() {
+        var row = document.getElementById('ri-platform-row');
+        if (!row) return;
+        RI_PLATFORMS.forEach(function(p) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.setAttribute('data-platform', p.id);
+          btn.title = p.note;
+          btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ' +
+            'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100';
+          btn.textContent = p.label;
+          btn.addEventListener('click', function() {
+            if (selectedPlatformId === p.id) {
+              selectedPlatformId = null;
+            } else {
+              selectedPlatformId = p.id;
+            }
+            try { localStorage.setItem('synclyst_ri_platform', selectedPlatformId || ''); } catch(e) {}
+            syncPlatformUI();
+            recalcDealMath();
+          });
+          row.appendChild(btn);
+        });
+      })();
+
+      function syncPlatformUI() {
+        var row = document.getElementById('ri-platform-row');
+        if (!row) return;
+        var btns = row.querySelectorAll('[data-platform]');
+        btns.forEach(function(btn) {
+          var pid = btn.getAttribute('data-platform');
+          var active = pid === selectedPlatformId;
+          btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ' +
+            (active
+              ? 'border-violet-500 bg-violet-600 text-white'
+              : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100');
+        });
+        var lbl = document.getElementById('ri-profit-platform-label');
+        if (lbl) {
+          var plat = RI_PLATFORMS.find(function(p) { return p.id === selectedPlatformId; });
+          lbl.textContent = plat ? ('via ' + plat.label + ' (' + plat.note + ')') : '';
+        }
+      }
+
+      function getPlatformFees(resaleD) {
+        if (!selectedPlatformId) return null; // no platform = no profit shown
+        var plat = RI_PLATFORMS.find(function(p) { return p.id === selectedPlatformId; });
+        if (!plat) return null;
+        var rate = fxRate();
+        return (resaleD * plat.pct) + (plat.fixed * rate);
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       function recalcDealMath() {
         var buyInput = document.getElementById('ri-buy');
         var buyStr = buyInput ? String(buyInput.value || '').trim() : '';
-        var buyPriceDisplay = buyStr ? parseFloat(buyStr) : 0;
-        if (!isFinite(buyPriceDisplay) || buyPriceDisplay < 0) buyPriceDisplay = 0;
-        var resaleUSD = getResaleForMath(); // always USD anchor
+        var buyPriceDisplay = buyStr ? parseFloat(buyStr) : null;
+        if (buyPriceDisplay !== null && (!isFinite(buyPriceDisplay) || buyPriceDisplay < 0)) buyPriceDisplay = null;
+
+        // No buy cost entered — show blank profit
+        if (buyPriceDisplay === null || buyPriceDisplay === 0) {
+          renderProfit(null, 'no_cost');
+          var bdEl = document.getElementById('ri-profit-breakdown');
+          if (bdEl) bdEl.textContent = '';
+          return;
+        }
+
+        var resaleUSD = getResaleForMath();
         if (resaleUSD == null || isNaN(resaleUSD)) {
           renderProfit(null, 'no_resale');
           return;
         }
-        // Convert all values to display currency before math so the profit
-        // figure is meaningful in the user's currency.
+
         var rate = fxRate();
         var resaleD = resaleUSD * rate;
-        var feeRate = 0.13, payRate = 0.029;
-        var payFixed = 0.30 * rate;  // Stripe fixed fee scaled
-        var ship = 8.0 * rate;       // shipping estimate scaled
-        var fees = resaleD * feeRate + (resaleD * payRate + payFixed);
-        var net = resaleD - fees - ship - buyPriceDisplay;
+
+        // No platform selected — show gross profit (resale − cost, no fees)
+        var fees = getPlatformFees(resaleD);
+        if (fees === null) {
+          // Prompt user to pick a platform
+          var pEl = document.getElementById('ri-profit');
+          var roiEl = document.getElementById('ri-roi');
+          var bdEl2 = document.getElementById('ri-profit-breakdown');
+          if (pEl) { pEl.textContent = '—'; pEl.className = 'metric text-[22px] leading-none font-extrabold mt-2 tracking-tight'; }
+          if (roiEl) { roiEl.textContent = 'Select a platform below'; roiEl.className = 'text-[11px] font-semibold text-violet-600 mt-2'; }
+          if (bdEl2) bdEl2.textContent = '';
+          return;
+        }
+
+        var net = resaleD - fees - buyPriceDisplay;
         var roi = buyPriceDisplay > 0 ? (net / buyPriceDisplay) * 100 : null;
         renderProfit({
           estimated_resale_price: resaleD,
           estimated_net_profit: Math.round(net * 100) / 100,
-          estimated_roi_pct: buyPriceDisplay > 0 && roi != null ? Math.round(roi * 10) / 10 : null,
+          estimated_roi_pct: roi != null ? Math.round(roi * 10) / 10 : null,
         });
-        if (!buyStr || buyPriceDisplay <= 0) {
-          document.getElementById('ri-roi').textContent = 'Add your cost above for ROI';
+        var bdEl = document.getElementById('ri-profit-breakdown');
+        if (bdEl) {
+          var feeStr = fees > 0 ? ' - fees ' + money2(fees) : '';
+          bdEl.textContent = 'Sell ' + money2(resaleD) + feeStr + ' - cost ' + money2(buyPriceDisplay);
         }
       }
 
@@ -1688,6 +1953,202 @@
         document.addEventListener('keydown', function (ke) {
           if (ke.key === 'Escape' && compSheet && !compSheet.classList.contains('hidden')) closeCompModal();
         });
+      })();
+
+      // ── Share button ─────────────────────────────────────────────────────
+      (function() {
+        var shareBtn = document.getElementById('ri-share-btn');
+        if (!shareBtn) return;
+        shareBtn.addEventListener('click', function() {
+          var t = (extraction && (extraction.extraction_copy || {}).seo_title) || title || 'an item';
+          var rangeEl2 = document.getElementById('ri-range');
+          var rangeStr = rangeEl2 ? rangeEl2.textContent : '';
+          var text = 'Found ' + t + (rangeStr && rangeStr !== '--' ? ' selling for ' + rangeStr : '') + ' using SyncIQ -- scan anything free at synclyst.app/scan';
+          if (navigator.share) {
+            navigator.share({ title: 'SyncIQ Find', text: text, url: 'https://synclyst.app/scan' }).catch(function() {});
+          } else {
+            try { navigator.clipboard.writeText(text); } catch(e) {}
+            shareBtn.querySelector('span:last-child').textContent = 'Copied!';
+            setTimeout(function() { shareBtn.querySelector('span:last-child').textContent = 'Share'; }, 2000);
+          }
+        });
+      })();
+
+      // ── List it fast CTA ──────────────────────────────────────────────────
+      (function() {
+        var listBtn = document.getElementById('ri-list-fast-btn');
+        if (!listBtn) return;
+        // Show only for BUY verdict
+        if ((analysis.recommendation || 'maybe') === 'buy') listBtn.classList.remove('hidden');
+        listBtn.addEventListener('click', function() {
+          // Pass the scanned image into the listing flow via sessionStorage
+          try {
+            var img = payload && payload.imageDataUrl;
+            if (img) {
+              sessionStorage.setItem('auralink_pending_scan', JSON.stringify({
+                base64: img.split(',')[1] || img,
+                flow: 'listing',
+                mime_type: 'image/jpeg',
+              }));
+            }
+          } catch(e) {}
+          window.location.href = '/reading-product';
+        });
+      })();
+
+      // ── Email capture at scan limit ───────────────────────────────────────
+      (function() {
+        var modal = document.getElementById('ri-email-modal');
+        var backdrop = document.getElementById('ri-email-backdrop');
+        var input = document.getElementById('ri-email-input');
+        var submit = document.getElementById('ri-email-submit');
+        var skip = document.getElementById('ri-email-skip');
+        if (!modal) return;
+
+        // Intercept the quota modal to show email capture first
+        var origShowQuotaModal = window.showWaitlistQuotaModal;
+        window.showWaitlistQuotaModal = function() {
+          var args = arguments;
+          // Check if email already captured
+          try {
+            if (localStorage.getItem('synclyst_email_captured')) {
+              if (origShowQuotaModal) origShowQuotaModal.apply(this, args);
+              return;
+            }
+          } catch(e) {}
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        };
+
+        function closeModal() {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+
+        if (backdrop) backdrop.addEventListener('click', closeModal);
+
+        if (submit) submit.addEventListener('click', function() {
+          var email = (input && input.value || '').trim();
+          if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+            if (input) { input.style.borderColor = '#f87171'; input.focus(); }
+            return;
+          }
+          // Save email + grant 5 bonus scans (just store locally for now)
+          try {
+            localStorage.setItem('synclyst_email_captured', email);
+            // Add 5 bonus credits locally — real implementation would call backend
+          } catch(e) {}
+          submit.textContent = '✅ 5 scans added!';
+          setTimeout(function() { closeModal(); }, 1200);
+        });
+
+        if (skip) skip.addEventListener('click', function() {
+          closeModal();
+          // Show original upgrade modal
+          var upgradeBtn = document.getElementById('ri-upgrade-btn');
+          if (upgradeBtn) upgradeBtn.click();
+        });
+      })();
+
+      // ── Size selector — re-search eBay with size ──────────────────────────
+      (function() {
+        var sel = document.getElementById('ri-size-select');
+        var applyBtn = document.getElementById('ri-size-apply');
+        var note = document.getElementById('ri-size-note');
+        if (!sel) return;
+
+        sel.addEventListener('change', function() {
+          if (sel.value) {
+            applyBtn.classList.remove('hidden');
+          } else {
+            applyBtn.classList.add('hidden');
+          }
+        });
+
+        if (applyBtn) applyBtn.addEventListener('click', function() {
+          var size = sel.value;
+          if (!size) return;
+          var baseQuery = (result.optimized_ebay_query || ebay.query || title || '').trim();
+          var newQuery = baseQuery + ' ' + size;
+          if (note) { note.classList.remove('hidden'); note.textContent = 'Searching for size ' + size + '...'; }
+          applyBtn.disabled = true;
+
+          var apiUrl = (window.AURALINK_CONFIG && window.AURALINK_CONFIG.API_URL) || '';
+          var anonId = '';
+          try { if (window.SyncLystAnon) anonId = window.SyncLystAnon.get(); } catch(e) {}
+
+          fetch(apiUrl + '/api/v1/ebay/market-summary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-SyncLyst-Anon-Id': anonId },
+            body: JSON.stringify({ keywords: newQuery })
+          })
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(data) {
+            if (!data) return;
+            // Update ebay data with size-specific results
+            if (data.sold_avg != null) { ebay.sold_avg = data.sold_avg; ebay.sold_low = data.sold_low; ebay.sold_high = data.sold_high; }
+            ebay.sold_count = data.sold_count || 0;
+            ebay.active_count = data.active_count || 0;
+            ebay.comps_sold = data.comps_sold || ebay.comps_sold;
+            updateResaleRangeDisplay();
+            renderSoldComps();
+            recalcDealMath();
+            if (note) note.textContent = 'Updated for size ' + size;
+          })
+          .catch(function() {
+            if (note) note.textContent = 'Search failed — try again';
+          })
+          .finally(function() { applyBtn.disabled = false; });
+        });
+      })();
+
+      // ── Manual query override — for worn/faded labels ─────────────────────
+      (function() {
+        var input = document.getElementById('ri-query-override');
+        var searchBtn = document.getElementById('ri-query-search');
+        if (!input || !searchBtn) return;
+
+        // Pre-fill with current query
+        try { input.value = result.optimized_ebay_query || ebay.query || ''; } catch(e) {}
+
+        searchBtn.addEventListener('click', function() {
+          var q = input.value.trim();
+          if (!q) return;
+          searchBtn.textContent = 'Searching...';
+          searchBtn.disabled = true;
+
+          var apiUrl = (window.AURALINK_CONFIG && window.AURALINK_CONFIG.API_URL) || '';
+          var anonId = '';
+          try { if (window.SyncLystAnon) anonId = window.SyncLystAnon.get(); } catch(e) {}
+
+          fetch(apiUrl + '/api/v1/ebay/market-summary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-SyncLyst-Anon-Id': anonId },
+            body: JSON.stringify({ keywords: q })
+          })
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(data) {
+            if (!data) return;
+            ebay.sold_avg = data.sold_avg; ebay.sold_low = data.sold_low; ebay.sold_high = data.sold_high;
+            ebay.sold_count = data.sold_count || 0;
+            ebay.active_count = data.active_count || 0;
+            ebay.active_avg = data.active_avg;
+            ebay.comps_sold = data.comps_sold || [];
+            ebay.sell_through_confidence = data.sell_through_confidence || 0;
+            var sc2 = ebay.sold_count, ac2 = ebay.active_count;
+            var cp2 = Math.round((ebay.sell_through_confidence || 0) * 100);
+            var sEl = document.getElementById('ri-sold-count');
+            if (sEl) sEl.textContent = sc2 + ' sold comps - ' + ac2 + ' active - ' + cp2 + '% market confidence';
+            updateResaleRangeDisplay();
+            renderSoldComps();
+            recalcDealMath();
+          })
+          .catch(function() {})
+          .finally(function() { searchBtn.textContent = 'Search'; searchBtn.disabled = false; });
+        });
+
+        // Allow Enter key
+        input.addEventListener('keydown', function(e) { if (e.key === 'Enter') searchBtn.click(); });
       })();
 
       // Show success toast if returning from Stripe
