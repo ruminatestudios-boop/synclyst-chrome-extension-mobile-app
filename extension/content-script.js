@@ -1089,36 +1089,27 @@ function resolveScanHeroImageUrl(scan) {
 
 function resolveScanImageUrls(scan) {
   const urls = [];
+  // `media.original_image_urls[0]` (full-res upload) and `media.image_urls[0]` / the hero
+  // (resized for AI extraction) are the SAME physical photo at different resolutions — two
+  // different base64 strings for one shot. Exact-string dedup below can't catch that, so treat
+  // them as one logical photo here and prefer the full-res original when both exist.
   const hero = resolveScanHeroImageUrl(scan);
-  if (hero) urls.push(hero);
+  let usedOriginalInsteadOfHero = false;
   try {
     const extra = scan.listing_extra && typeof scan.listing_extra === "object" ? scan.listing_extra : null;
     const media =
       extra && extra.media && typeof extra.media === "object" && !Array.isArray(extra.media) ? extra.media : null;
     // Only use the first original_image_url — the array accumulates across scans causing duplicates.
     const orig = media && Array.isArray(media.original_image_urls) ? media.original_image_urls.slice(0, 1) : [];
-    if (Array.isArray(orig)) {
-      for (const u of orig) {
-        if (typeof u !== "string") continue;
-        const clean = u.trim();
-        if (!clean) continue;
-        if (!urls.includes(clean)) urls.push(clean);
-      }
-    }
-    // Only use the first image_url (the hero/primary scan). The array accumulates all phone
-    // scans of the same session — using all of them causes duplicate images on Shopify etc.
-    const mu = media && Array.isArray(media.image_urls) ? media.image_urls.slice(0, 1) : [];
-    if (Array.isArray(mu)) {
-      for (const u of mu) {
-        if (typeof u !== "string") continue;
-        const clean = u.trim();
-        if (!clean) continue;
-        if (!urls.includes(clean)) urls.push(clean);
-      }
+    const origClean = orig.length && typeof orig[0] === "string" ? orig[0].trim() : "";
+    if (origClean) {
+      urls.push(origClean);
+      usedOriginalInsteadOfHero = true;
     }
   } catch {
     /* ignore */
   }
+  if (hero && !usedOriginalInsteadOfHero && !urls.includes(hero)) urls.push(hero);
   try {
     const extra = scan.listing_extra || null;
     const ebay = extra && extra.ebay && typeof extra.ebay === "object" ? extra.ebay : null;
@@ -1181,13 +1172,20 @@ function findShopifyProductMediaFileInput(rootEl) {
 function shopifyAttachProductMediaFromScan(scan, root) {
   const rootEl = documentRootElement(root);
   const urls = resolveScanImageUrls(scan).slice(0, 20);
-  if (!urls.length) return;
+  if (!urls.length) {
+    console.warn("[SyncLyst] Shopify Media: resolveScanImageUrls() returned none");
+    return;
+  }
 
   const win = rootEl.defaultView || (typeof window !== "undefined" ? window : null);
   if (!win) return;
   const cacheKey = urls.join("\n");
-  if (win.__synclystShopifyMediaAttachedKey === cacheKey) return;
+  if (win.__synclystShopifyMediaAttachedKey === cacheKey) {
+    console.log("[SyncLyst] Shopify Media: already attached this exact image set on this page — skipping (this is expected on a 2nd+ click without navigating away, not a bug)");
+    return;
+  }
   if (win.__synclystShopifyMediaAttachPromise) return;
+  console.log("[SyncLyst] Shopify Media: attempting to attach", urls.length, "image(s)");
 
   win.__synclystShopifyMediaAttachPromise = (async () => {
     try {
@@ -1206,6 +1204,7 @@ function shopifyAttachProductMediaFromScan(scan, root) {
       /** One file per change event — Shopify Admin’s media uploader often handles multi-select, but sequential assignment is more reliable. */
       for (let fi = 0; fi < files.length; fi++) {
         const file = files[fi];
+        let attached = false;
         for (let attempt = 0; attempt < 18; attempt++) {
           if (attempt) await new Promise((r) => setTimeout(r, 400));
           shopifyRevealMediaFileInput(rootEl);
@@ -1220,15 +1219,20 @@ function shopifyAttachProductMediaFromScan(scan, root) {
             target.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
             target.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
             pulseShopifyDirtySignals();
+            attached = true;
             break;
           } catch {
             /* Admin may ignore synthetic file assignment */
           }
         }
+        if (!attached) {
+          console.warn("[SyncLyst] Shopify Media: never found the file input for image " + (fi + 1) + "/" + files.length + " after 18 attempts");
+        }
         if (fi < files.length - 1) {
           await new Promise((r) => setTimeout(r, 450));
         }
       }
+      console.log("[SyncLyst] Shopify Media: attach loop finished");
       win.__synclystShopifyMediaAttachedKey = cacheKey;
     } finally {
       win.__synclystShopifyMediaAttachPromise = null;
@@ -1637,6 +1641,10 @@ function depopAttachProductPhotosFromScan(scan, root) {
         else target.files = dt.files;
         target.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
         target.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+        // Some forms only clear a "Please insert at least one image" validation message on
+        // blur, not on input/change alone — the photo can render successfully (preview comes
+        // straight from the File object) while the stale error message lingers.
+        target.dispatchEvent(new Event("blur", { bubbles: true }));
         win.__synclystDepopMediaAttachedSig = sig;
         break;
       } catch {
@@ -2627,6 +2635,24 @@ function titleHasTooManyCaps(title) {
  * Vinted (and some other marketplaces) warn on "too many capital letters".
  * This keeps short acronyms (<=4) and turns the rest into a readable Title Case-ish string.
  */
+/** scan.title sometimes arrives as "brand model type — start of description run-on...";
+ * cut it down to a real title instead of dumping the whole run-on string into the title field. */
+function trimListingTitleRunOn(title, maxLen) {
+  const max = maxLen || 80;
+  let t = String(title || "").replace(/\s+/g, " ").trim();
+  if (!t) return t;
+  // If there's an early sentence break and what's before it is still a reasonable title, cut there.
+  const m = t.match(/^(.{8,}?)\s*[.!?;]+(?:\s|$)/);
+  if (m && m[1].length <= max) {
+    t = m[1].trim();
+  } else if (t.length > max) {
+    t = t.slice(0, max);
+    const lastSpace = t.lastIndexOf(" ");
+    if (lastSpace > max * 0.6) t = t.slice(0, lastSpace);
+  }
+  return t.replace(/[,;:\-–—]+$/, "").trim();
+}
+
 function normalizeTitleCaps(title) {
   const raw = String(title || "").replace(/\s+/g, " ").trim();
   if (!raw) return raw;
@@ -2920,6 +2946,58 @@ function queryPriceDeepExcluding(root, platform, excludeEl) {
 }
 
 /** Vinted sell form: pick the main listing price, not promos / shipping / compare fields. */
+/**
+ * Vinted had no dedicated title finder and fell back to `queryBestShopifyTitleInput` — tuned
+ * for Shopify's DOM, it could mismatch on Vinted's page and grab the price field instead,
+ * filling the price into Title and leaving Price unfilled/NaN.
+ */
+function scoreVintedTitleInput(el) {
+  if ((!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) || el.readOnly || el.disabled) {
+    return -Infinity;
+  }
+  if (el instanceof HTMLInputElement) {
+    const ty = (el.type || "").toLowerCase();
+    if (ty === "hidden" || ty === "search" || ty === "checkbox" || ty === "radio" || ty === "file" || ty === "number") {
+      return -Infinity;
+    }
+  }
+  const al = shopifyControlAccessibleName(el).toLowerCase();
+  const ph = (el.getAttribute("placeholder") || "").toLowerCase();
+  const nm = (el.name || "").toLowerCase();
+  const id = (el.id || "").toLowerCase();
+  const tid = (el.getAttribute("data-testid") || "").toLowerCase();
+  const blob = `${al} ${ph} ${nm} ${id} ${tid}`;
+  if (/price|amount|cost|£|\$|€|description|brand|size|condition|colou?r|material/i.test(blob)) {
+    return -Infinity;
+  }
+  let s = 0;
+  if (al === "title" || nm === "title") s += 120;
+  else if (/\btitle\b/.test(blob)) s += 90;
+  else if (/\bname\b/.test(blob) && !/brand/.test(blob)) s += 40;
+  if ((el.getAttribute("maxlength") | 0) > 0 && (el.getAttribute("maxlength") | 0) <= 80) s += 10;
+  return s;
+}
+
+function queryBestVintedTitleInput(root) {
+  const rootEl = documentRootElement(root);
+  let best = null;
+  let bestScore = -Infinity;
+  try {
+    const all = querySelectorAllDeep("input, textarea", rootEl);
+    for (const el of all) {
+      if (!(isVisible(el) || vintedLayoutInteractable(el, 2, 2))) continue;
+      const sc = scoreVintedTitleInput(el);
+      if (sc > bestScore) {
+        bestScore = sc;
+        best = el;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return bestScore > 0 ? best : null;
+}
+
 function scoreVintedPriceInput(el) {
   if (!(el instanceof HTMLInputElement) || el.readOnly || el.disabled) return -Infinity;
   const ty = (el.type || "").toLowerCase();
@@ -2930,7 +3008,11 @@ function scoreVintedPriceInput(el) {
   const id = (el.id || "").toLowerCase();
   const tid = (el.getAttribute("data-testid") || "").toLowerCase();
   const blob = `${al} ${ph} ${nm} ${id} ${tid}`;
-  if (/original|was|compare|strike|rrp|discount|coupon|promo|shipping|postage|bundle|fee/i.test(blob)) {
+  if (
+    /original|was|compare|strike|rrp|discount|coupon|promo|shipping|postage|bundle|fee|title|description|brand|size|condition|colou?r|material|measurement|length|width|height|chest|waist|inseam|sleeve/i.test(
+      blob
+    )
+  ) {
     return -Infinity;
   }
   let s = 0;
@@ -3102,14 +3184,6 @@ function vintedSetPriceInputReactFriendly(el, numericStr) {
       if (desc && desc.set) desc.set.call(el, v);
       else el.value = v;
     };
-    setVal("");
-    try {
-      el.dispatchEvent(
-        new InputEvent("input", { bubbles: true, composed: true, inputType: "deleteContentBackward" })
-      );
-    } catch {
-      el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-    }
     setVal(str);
     el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
     el.dispatchEvent(
@@ -3123,7 +3197,6 @@ function vintedSetPriceInputReactFriendly(el, numericStr) {
     el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
     try {
       el.dispatchEvent(new Event("blur", { bubbles: true, composed: true }));
-      el.focus();
     } catch {
       /* ignore */
     }
@@ -3189,13 +3262,25 @@ function vintedApplyPriceToInput(el, priceStr) {
 /** Returns 1 if a price field was written or repaired. */
 function vintedForceFillPriceFromScan(scan, root) {
   const priceStr = resolveVintedPriceStringForFill(scan);
-  if (!priceStr) return 0;
+  if (!priceStr) {
+    console.warn("[SyncLyst] Vinted Price: resolveVintedPriceStringForFill() returned empty", {
+      "scan.price": scan && scan.price,
+    });
+    return 0;
+  }
   const want = parseFloat(priceStr);
-  if (!Number.isFinite(want) || want < 1) return 0;
+  if (!Number.isFinite(want) || want < 1) {
+    console.warn("[SyncLyst] Vinted Price: resolved value rejected (not finite or < 1)", priceStr);
+    return 0;
+  }
 
   const rootEl = documentRootElement(root);
   const candidates = vintedCollectAllPriceInputCandidates(rootEl);
-  if (!candidates.length) return 0;
+  if (!candidates.length) {
+    console.warn("[SyncLyst] Vinted Price: no candidate <input> scored >= 18 (resolved price was '" + priceStr + "')");
+    return 0;
+  }
+  console.log("[SyncLyst] Vinted Price: resolved '" + priceStr + "', " + candidates.length + " candidate input(s)", candidates);
 
   const valueLooksOk = (el) => {
     const raw = String(el.value || "").trim().toLowerCase();
@@ -3204,11 +3289,30 @@ function vintedForceFillPriceFromScan(scan, root) {
     return Number.isFinite(curNum) && Math.abs(curNum - want) <= 0.009;
   };
 
-  for (const el of candidates.slice(0, 10)) {
-    if (!(el instanceof HTMLInputElement)) continue;
-    if (valueLooksOk(el)) continue;
-    if (vintedApplyPriceToInput(el, priceStr)) return 1;
+  /** If the top-scoring candidate already holds the right price (e.g. a repeat call), stop — never cascade into the next-best field. */
+  const best = candidates[0];
+  if (best instanceof HTMLInputElement && valueLooksOk(best)) {
+    console.log("[SyncLyst] Vinted Price: best candidate already correct, leaving as-is", best);
+    return 0;
   }
+  if (!(best instanceof HTMLInputElement)) {
+    console.warn("[SyncLyst] Vinted Price: best candidate is not an <input>", best);
+    return 0;
+  }
+  const ok = vintedApplyPriceToInput(best, priceStr);
+  console.log("[SyncLyst] Vinted Price: applied to best candidate, result value =", best.value, "ok =", ok, best);
+  if (ok) {
+    /** Vinted's React tree can re-render a tick later and stomp our value back to NaN — verify it actually stuck. */
+    setTimeout(() => {
+      console.log(
+        "[SyncLyst] Vinted Price: 400ms later, value =",
+        best.value,
+        valueLooksOk(best) ? "(still correct)" : "(REVERTED)"
+      );
+    }, 400);
+    return 1;
+  }
+  console.warn("[SyncLyst] Vinted Price: best candidate did not accept the value");
   return 0;
 }
 
@@ -3278,8 +3382,13 @@ function shopifyFillProductTypeField(rootEl, val) {
   } catch {
     /* ignore */
   }
-  if (!best || bestSc < 55) return false;
-  return fillField(best, str);
+  if (!best || bestSc < 55) {
+    console.warn("[SyncLyst] Shopify Type field: no input match found (best score " + bestSc + "), trying <select>", best);
+    return shopifyFillSelectByLabel(rootEl, /\btype\b/i, str, "Type field");
+  }
+  const ok = fillField(best, str);
+  console.log("[SyncLyst] Shopify Type field: filled =", ok, "score =", bestSc, best);
+  return ok;
 }
 
 function shopifyFillCategoryField(rootEl, raw, depth) {
@@ -3318,6 +3427,7 @@ function shopifyFillCategoryField(rootEl, raw, depth) {
   }
   if (best && bestSc >= 45) {
     if (fillField(best, searchBit)) {
+      console.log("[SyncLyst] Shopify Category field: typed '" + searchBit + "', score =", bestSc, best);
       try {
         setTimeout(() => {
           best.dispatchEvent(
@@ -3367,6 +3477,7 @@ function shopifyFillCategoryField(rootEl, raw, depth) {
   } catch {
     /* ignore */
   }
+  console.warn("[SyncLyst] Shopify Category field: no input/Browse button match found (depth " + d + ", best score " + bestSc + ")", best);
   return false;
 }
 
@@ -4025,6 +4136,24 @@ function shopifyTagsContainerLikelyHasTag(container, tag) {
   return re.test(all);
 }
 
+/** Tags section often shows only a "+ Add tags" button until clicked — no input exists until then. */
+function shopifyRevealTagsInput(rootEl) {
+  try {
+    const nodes = querySelectorAllDeep("button, [role='button']", rootEl);
+    for (const b of nodes) {
+      if (!(b instanceof HTMLElement) || !isVisible(b)) continue;
+      const t = (b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+      if (!/^\+?\s*add tags?\b/.test(t)) continue;
+      b.click();
+      console.log("[SyncLyst] Shopify Tags: clicked '" + t + "' to reveal the input");
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 function findShopifyTagsInput(rootEl) {
   const selectors = [
     'input[aria-label*="Tag" i]',
@@ -4082,10 +4211,44 @@ function findShopifyTagsInput(rootEl) {
  */
 function shopifyFillTagsCombobox(scan, root) {
   const tags = collectShopifyTagsForFill(scan);
-  if (!tags.length) return 0;
+  if (!tags.length) {
+    console.warn("[SyncLyst] Shopify Tags: collectShopifyTagsForFill() returned none — check listing_extra.shopify.tags", scan && scan.listing_extra);
+    return 0;
+  }
   const rootEl = documentRootElement(root);
   const input = findShopifyTagsInput(rootEl);
-  if (!input) return 0;
+  if (!input) {
+    // No input exists until the "+ Add tags" button is clicked to reveal it. Click it, then
+    // retry finding the input a few times (React needs a moment to mount it) before giving up.
+    const clicked = shopifyRevealTagsInput(rootEl);
+    if (!clicked) {
+      console.warn("[SyncLyst] Shopify Tags: no input field and no '+ Add tags' button found", tags);
+      return 0;
+    }
+    let attempt = 0;
+    const retry = () => {
+      attempt++;
+      const found = findShopifyTagsInput(rootEl);
+      if (found) {
+        console.log("[SyncLyst] Shopify Tags: input appeared after reveal click (attempt " + attempt + ")");
+        shopifyApplyTagsToInput(found, tags);
+        return;
+      }
+      if (attempt < 8) {
+        setTimeout(retry, 250);
+      } else {
+        console.warn("[SyncLyst] Shopify Tags: input never appeared after clicking '+ Add tags'", tags);
+      }
+    };
+    setTimeout(retry, 250);
+    return 1;
+  }
+  console.log("[SyncLyst] Shopify Tags: found input, attempting to add", tags);
+  shopifyApplyTagsToInput(input, tags);
+  return 1;
+}
+
+function shopifyApplyTagsToInput(input, tags) {
   const container =
     input.closest('[role="combobox"]') ||
     input.closest("form") ||
@@ -4132,7 +4295,6 @@ function shopifyFillTagsCombobox(scan, root) {
     applyOne(tag, idx < tags.length ? step : undefined);
   }
   step();
-  return 1;
 }
 
 function collectShopifyCollectionsForFill(scan) {
@@ -4227,6 +4389,50 @@ function shopifyFillCollectionsCombobox(scan, root) {
   }
   step();
   return 1;
+}
+
+/**
+ * Generic <select> fill by matching the select's accessible name against `nameRe`, then
+ * matching `val` against its <option> values/text (exact match first, then case-insensitive
+ * substring). Shopify's newer Admin renders Type/Vendor as real <select> elements (visible as
+ * a chevron-style dropdown), which the input-only search in shopifyFillProductTypeField/the
+ * Vendor tryOne() selectors never considered.
+ */
+function shopifyFillSelectByLabel(rootEl, nameRe, val, logLabel) {
+  const str = String(val || "").trim();
+  if (!str) return false;
+  const strLower = str.toLowerCase();
+  let nodes;
+  try {
+    nodes = querySelectorAllDeep("select", rootEl);
+  } catch {
+    return false;
+  }
+  for (const sel of nodes) {
+    if (!(sel instanceof HTMLSelectElement) || !isVisible(sel) || sel.disabled) continue;
+    const nl = shopifyControlAccessibleName(sel).toLowerCase();
+    if (!nameRe.test(nl)) continue;
+    const options = Array.from(sel.options || []);
+    let opt = options.find((o) => String(o.value).trim().toLowerCase() === strLower || String(o.textContent || "").trim().toLowerCase() === strLower);
+    if (!opt) {
+      opt = options.find((o) => {
+        const t = String(o.textContent || "").trim().toLowerCase();
+        return t && (t.includes(strLower) || strLower.includes(t));
+      });
+    }
+    if (opt) {
+      sel.value = opt.value;
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+      sel.dispatchEvent(new Event("input", { bubbles: true }));
+      console.log("[SyncLyst] Shopify " + (logLabel || "select") + ": matched <select> option '" + opt.textContent.trim() + "' for value '" + str + "'");
+      return true;
+    }
+    console.warn(
+      "[SyncLyst] Shopify " + (logLabel || "select") + ": found <select> (name='" + nl + "') but no option matched '" + str + "'. Available options:",
+      options.map((o) => o.textContent.trim())
+    );
+  }
+  return false;
 }
 
 function tryShopifyWeightUnitSelect(rootEl, unit) {
@@ -8408,9 +8614,13 @@ function vintedPickSizeWithFallbacks(rootEl, negatives, primary) {
 function fillVintedListingExtraFields(scan, root) {
   const rootEl = documentRootElement(root);
   let n = 0;
-  n += vintedForceFillPriceFromScan(scan, root);
-  const pv0 = resolveVintedPriceStringForFill(scan);
-  if (pv0) vintedFireMainWorldPriceThrottled(pv0);
+  const priceFilled = vintedForceFillPriceFromScan(scan, root);
+  n += priceFilled;
+  /** Only fall back to the page-realm fill if the isolated-world attempt didn't land — avoids both racing the same field. */
+  if (!priceFilled) {
+    const pv0 = resolveVintedPriceStringForFill(scan);
+    if (pv0) vintedFireMainWorldPriceThrottled(pv0);
+  }
   const raw = scan.listing_extra;
   let v = null;
   if (raw && typeof raw === "object") {
@@ -8925,16 +9135,22 @@ function etsyFillTagsComboboxFromExtra(etsyExtra, rootEl) {
       new InputEvent("input", { bubbles: true, composed: true, data: tag, inputType: "insertText" })
     );
     etsyFireEnterOnInput(input);
-    const addBtn = etsyFindTagAddButton(input);
-    if (addBtn) {
-      setTimeout(() => {
+    /** Enter alone usually adds the tag and clears the input — only fall back to clicking the
+     * "Add" button if that didn't happen, instead of firing both unconditionally (which could
+     * submit the same tag twice and trip Etsy's "can't add the same tag more than once" check). */
+    setTimeout(() => {
+      if (container && etsyTagsUiLikelyHasTag(container, tag)) return;
+      const stillTyped = String(input.value || "").trim().toLowerCase() === tag.toLowerCase();
+      if (!stillTyped) return;
+      const addBtn = etsyFindTagAddButton(input);
+      if (addBtn) {
         try {
           addBtn.click();
         } catch {
           /* ignore */
         }
-      }, 35);
-    }
+      }
+    }, 120);
   }
   function step() {
     if (idx >= tags.length) return;
@@ -9286,7 +9502,13 @@ function fillEtsyListingExtraFields(scan, root) {
     return vintedFillByHints(rootEl, hints, negatives, str);
   };
 
-  const catQ = [e.category_search, e.category_leaf, e.category_breadcrumb].filter(Boolean).join(" ");
+  /** category_search/category_leaf/category_breadcrumb are often the same value from upstream
+   * extraction — joining all three with spaces produced literal "Headphones Headphones Headphones"
+   * in the search box. Just use the first non-empty one as the search term; the pick step below
+   * separately matches against category_leaf/category_breadcrumb. */
+  const catQ = [e.category_search, e.category_leaf, e.category_breadcrumb]
+    .map((x) => (x != null ? String(x).trim() : ""))
+    .find(Boolean) || "";
   if (catQ && hint(["find a category", "category"], [...neg, "shop section"], catQ)) {
     n++;
     // Etsy requires clicking a suggestion to "finalize" the category combobox.
@@ -11623,8 +11845,17 @@ function depopPickSizeComboboxWithFallbacks(rootEl, negatives, primary) {
   push("Unisex one size");
   push("One size fits all");
   push("Standard");
+  const sizeTriggers = depopFindComboboxTriggersForHints(rootEl, ["size"], negatives);
+  console.log(
+    "[SyncLyst] Depop Size: will try in order",
+    tries,
+    "— " + sizeTriggers.length + " trigger(s) found",
+    sizeTriggers
+  );
   for (const s of tries) {
-    if (depopPickComboboxConfirmed(rootEl, ["size"], negatives, s)) return true;
+    const ok = depopPickComboboxConfirmed(rootEl, ["size"], negatives, s);
+    console.log("[SyncLyst] Depop Size: tried '" + s + "', ok =", ok);
+    if (ok) return true;
   }
   return false;
 }
@@ -12033,6 +12264,11 @@ function depopActivateListboxOption(want, triggerOpt) {
   } catch {
     return false;
   }
+  /** This is a page-wide fallback search — without a proximity check it can match and click
+   * unrelated text elsewhere on the page (e.g. a sidebar listing) that happens to share the
+   * option's label, reporting false success while the real combobox stays empty. */
+  const triggerRect =
+    triggerOpt instanceof HTMLElement ? triggerOpt.getBoundingClientRect() : null;
   for (const el of opts) {
     if (!(el instanceof HTMLElement) || !isVisible(el)) continue;
     const raw = (el.textContent || "").replace(/\s+/g, " ").trim();
@@ -12044,6 +12280,11 @@ function depopActivateListboxOption(want, triggerOpt) {
       (wantNorm.length >= 2 &&
         (depopNormalizeOptionTextForMatch(raw).includes(wantNorm) || wantNorm.includes(depopNormalizeOptionTextForMatch(raw))));
     if (!exact) continue;
+    if (triggerRect) {
+      const r = el.getBoundingClientRect();
+      const dy = Math.abs(r.top - triggerRect.top);
+      if (dy > 700) continue;
+    }
     try {
       el.scrollIntoView({ block: "nearest", behavior: "auto" });
       el.focus();
@@ -12266,6 +12507,19 @@ function depopPickComboboxConfirmed(rootEl, hints, negatives, value) {
   const trigger = triggers[0] || null;
   if (!trigger) return false;
 
+  /** Callers like the per-tick fill loop (up to 30 ticks, every 360ms) invoke this on every tick
+   * until it succeeds — without this guard, each failing call schedules its own full set of retry
+   * timers below, so dozens of overlapping retry chains for the same hint pile up and can stall the
+   * page enough to blow past the overall fill response timeout. One in-flight chain per hint+value. */
+  const win = rootEl.defaultView || (typeof window !== "undefined" ? window : null);
+  const inFlightKey = hints.join(",") + "::" + want;
+  if (win) {
+    if (!win.__synclystDepopComboInFlight) win.__synclystDepopComboInFlight = new Set();
+    if (win.__synclystDepopComboInFlight.has(inFlightKey)) return false;
+    win.__synclystDepopComboInFlight.add(inFlightKey);
+    setTimeout(() => win.__synclystDepopComboInFlight.delete(inFlightKey), 4200);
+  }
+
   try {
     trigger.scrollIntoView({ block: "nearest", behavior: "auto" });
     trigger.focus();
@@ -12276,9 +12530,41 @@ function depopPickComboboxConfirmed(rootEl, hints, negatives, value) {
   }
 
   const sweepClose = () => depopCloseDropdownUi(rootEl);
+  const wantNorm0 = depopNormalizeOptionTextForMatch(want);
+  const triggerShowsValue = () => {
+    const cur = String((trigger instanceof HTMLInputElement && trigger.value) || trigger.textContent || "").trim();
+    const curNorm = depopNormalizeOptionTextForMatch(cur);
+    return !!curNorm && !!wantNorm0 && (curNorm.includes(wantNorm0) || wantNorm0.includes(curNorm));
+  };
+  /** depopActivateListboxOption falling back to a page-wide search can report a click that
+   * landed on unrelated text elsewhere — verify the trigger's own displayed value actually
+   * changed before trusting "true", and retry once (reopen + reselect) if it didn't stick. */
+  const verifyAndMaybeRetry = (label) => {
+    setTimeout(() => {
+      if (triggerShowsValue()) return;
+      console.warn(
+        "[SyncLyst] Depop combobox (" + label + "): reported success but trigger still shows '" +
+          String((trigger instanceof HTMLInputElement && trigger.value) || trigger.textContent || "").trim() +
+          "' — retrying"
+      );
+      try {
+        trigger.scrollIntoView({ block: "nearest", behavior: "auto" });
+        trigger.focus();
+        trigger.click();
+        trigger.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+      } catch {
+        /* ignore */
+      }
+      setTimeout(() => {
+        const ok = depopActivateListboxOption(want, trigger);
+        if (ok) [90, 240, 450].forEach((ms) => setTimeout(sweepClose, ms));
+      }, 80);
+    }, 350);
+  };
   let got = depopActivateListboxOption(want, trigger);
   if (got) {
     [90, 240, 450].forEach((ms) => setTimeout(sweepClose, ms));
+    verifyAndMaybeRetry(hints.join(","));
     return true;
   }
   const delays = [40, 100, 220, 480, 900, 1600, 2400, 3200];
@@ -12289,6 +12575,7 @@ function depopPickComboboxConfirmed(rootEl, hints, negatives, value) {
     }, ms);
   });
   [200, 550, 1100, 1780].forEach((ms) => setTimeout(sweepClose, ms));
+  setTimeout(() => verifyAndMaybeRetry(hints.join(",")), 3600);
   /** Async retries may still succeed; caller uses repeated fill ticks. */
   return got;
 }
@@ -12466,6 +12753,18 @@ function depopCategoryHintIsBroadDepopUnfriendly(hint) {
   );
 }
 
+/** Mismatched Shopify category guesses (e.g. "Digital Services" on a t-shirt scan) share no
+ * tokens with the item's own title/description — treat those as untrustworthy rather than
+ * typing them straight into Depop's combobox. */
+function depopCategoryHintLooksMismatchedWithScan(hint, scan) {
+  const htoks = depopCategoryTokens(hint);
+  if (!htoks.length) return true;
+  const blob = `${(scan && scan.title) || ""} ${(scan && scan.description) || ""}`.toLowerCase();
+  const blobToks = new Set(depopCategoryTokens(blob));
+  if (!blobToks.size) return false;
+  return !htoks.some((t) => t.length > 2 && blobToks.has(t));
+}
+
 /** Rough Depop path `Dept / Leaf` when session only has broad Shopify categories. */
 function depopGuessCategoryPathFromScan(scan) {
   const t = [scan && scan.title, scan && scan.description].filter(Boolean).join(" \n ").toLowerCase();
@@ -12487,52 +12786,76 @@ function depopGuessCategoryPathFromScan(scan) {
 /**
  * Depop Category: typing alone often leaves “This field is required” until a **Suggested** chip is chosen.
  */
+/** Requiring "suggested" AND "categor" inside the same fixed-length text slice falsely rejects
+ * real chips once a long description/hashtag block pushes the section header past that slice —
+ * the pill-shape match (caller already filters to "X / Y" text) is specific enough on its own;
+ * this only needs to rule out an unrelated "+ A / B" string appearing far from any "Suggested" label. */
 function depopSuggestedCategoryContextOk(el, rootEl) {
   let p = el;
-  for (let d = 0; d < 18 && p instanceof HTMLElement; d++) {
-    const chunk = (p.textContent || "").replace(/\s+/g, " ").trim().slice(0, 3500);
-    if (/suggested/i.test(chunk) && /categor/i.test(chunk)) return true;
+  for (let d = 0; d < 24 && p instanceof HTMLElement; d++) {
+    const chunk = (p.textContent || "").replace(/\s+/g, " ").trim();
+    if (chunk.length < 4000 && /suggested/i.test(chunk)) return true;
     p = p.parentElement;
   }
-  const rootChunk = (rootEl && rootEl.textContent) || "";
-  const rc = rootChunk.replace(/\s+/g, " ").toLowerCase().slice(0, 22000);
-  return /suggested/.test(rc) && (/categor|list an item|info\b/.test(rc) || /\/\s*t-?shirt|\/\s*shirt/i.test(rc));
+  const rootChunk = ((rootEl && rootEl.textContent) || "").replace(/\s+/g, " ").toLowerCase();
+  return /suggested/.test(rootChunk);
 }
 
 function depopClickBestSuggestedCategoryPill(rootEl, scan, hint) {
-  if (!hint || !String(hint).trim()) return false;
+  if (!hint || !String(hint).trim()) {
+    console.warn("[SyncLyst] Depop Category: no hint passed to pill-matcher");
+    return false;
+  }
   let nodes;
   try {
-    nodes = querySelectorAllDeep(
-      'button, a, [role="button"], [role="option"], span[tabindex], div[tabindex="0"]',
-      rootEl
-    );
+    /** Tag/role guesses (button, [role=button], etc.) don't match every Depop build's pill markup —
+     * match by text shape instead, then resolve the actual clickable ancestor. */
+    nodes = querySelectorAllDeep("*", rootEl);
   } catch {
     return false;
   }
   let best = null;
   let bestSc = -1;
+  let pillCandidatesSeen = 0;
+  let contextRejected = 0;
   for (const el of nodes) {
     if (!(el instanceof HTMLElement) || !isVisible(el)) continue;
     const t = (el.textContent || "").replace(/\s+/g, " ").trim();
-    if (t.length < 6 || t.length > 140) continue;
-    if (!/^\+\s*.+\s\/\s*.+/.test(t)) continue;
-    if (!depopSuggestedCategoryContextOk(el, rootEl)) continue;
+    if (t.length < 4 || t.length > 140) continue;
+    // The leading "+" is usually a separate SVG/icon glyph, not part of textContent — don't require it as text.
+    if (!/^\+?\s*\S[\w\s&'-]*\s\/\s[\w\s&'-]*\S$/.test(t)) continue;
+    // Prefer the innermost element carrying this exact text (skip ancestor wrappers duplicating a child's text).
+    const hasMatchingChild = Array.from(el.children).some(
+      (c) => (c.textContent || "").replace(/\s+/g, " ").trim() === t
+    );
+    if (hasMatchingChild) continue;
+    pillCandidatesSeen++;
+    if (!depopSuggestedCategoryContextOk(el, rootEl)) {
+      contextRejected++;
+      continue;
+    }
     const sc = depopScoreSuggestedCategoryPill(t, hint, scan);
     if (sc > bestSc) {
       bestSc = sc;
-      best = el;
+      best = el.closest('button, [role="button"], a, [tabindex]') || el;
     }
   }
   const minSc = depopCategoryHintIsBroadDepopUnfriendly(hint) ? 10 : 20;
+  console.log(
+    "[SyncLyst] Depop Category: hint='" + hint + "', " + pillCandidatesSeen + " pill-shaped node(s) seen, " +
+      contextRejected + " rejected by context check, best='" + (best ? (best.textContent || "").trim() : "none") +
+      "' score=" + bestSc + " (need >= " + minSc + ")"
+  );
   if (!best || bestSc < minSc) return false;
   try {
     best.scrollIntoView({ block: "nearest", behavior: "auto" });
     best.focus();
     best.click();
     best.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+    console.log("[SyncLyst] Depop Category: clicked pill", best);
     return true;
-  } catch {
+  } catch (e) {
+    console.warn("[SyncLyst] Depop Category: click threw", e);
     return false;
   }
 }
@@ -12563,9 +12886,14 @@ function fillDepopListingExtraFields(scan, root) {
   const neg = ["search", "coupon", "promote", "boost", "fee", "twitter", "facebook"];
   const negShip = ["item", "list", "post", "price"];
   let n = 0;
+  const fillWin = rootEl.defaultView || (typeof window !== "undefined" ? window : null);
   {
     const catHint = resolveDepopCategoryHint(scan, v);
-    if (catHint) {
+    /** This whole function can run multiple times across the orchestrator's retry cycle — once
+     * a category is confirmed picked, later calls must not clear/re-touch it (each call was
+     * unconditionally clearing the combobox text first, wiping out a previous call's success). */
+    const catAlreadyPicked = !!(fillWin && fillWin.__synclystDepopCategoryDone);
+    if (catHint && !catAlreadyPicked) {
       const fillStr =
         v && v.category != null && String(v.category).trim()
           ? String(v.category).trim()
@@ -12581,27 +12909,59 @@ function fillDepopListingExtraFields(scan, root) {
         }
       }
       const pathGuess = depopGuessCategoryPathFromScan(scan);
-      const broad = depopCategoryHintIsBroadDepopUnfriendly(fillStr);
+      const broad =
+        depopCategoryHintIsBroadDepopUnfriendly(fillStr) ||
+        depopCategoryHintLooksMismatchedWithScan(fillStr, scan);
+      if (broad) {
+        console.warn(
+          "[SyncLyst] Depop Category: hint '" + fillStr + "' looks broad/mismatched with scan title, " +
+            "falling back to title-derived guess '" + pathGuess + "'"
+        );
+      }
+      /** A click() reporting "true" doesn't guarantee Depop actually committed the value — verify
+       * the trigger's own displayed text changed before trusting it, same class of bug as Condition. */
+      const verifyCategoryStuck = () => {
+        const trig = (depopFindComboboxTriggersForHints(rootEl, ["category"], neg) || [])[0];
+        const cur = String((trig && trig.value) || (trig && trig.textContent) || "").trim();
+        const stuck = cur.length > 1 && !/required|select|choose/i.test(cur);
+        console.log("[SyncLyst] Depop Category: verify — trigger shows '" + cur + "', stuck =", stuck);
+        if (fillWin) fillWin.__synclystDepopCategoryDone = stuck;
+        return stuck;
+      };
+
       let pickedSuggested = false;
       const trySuggestedPill = () => {
-        if (pickedSuggested) return;
+        if (pickedSuggested || (fillWin && fillWin.__synclystDepopCategoryDone)) return;
         if (depopClickBestSuggestedCategoryPill(rootEl, scan, catHint)) pickedSuggested = true;
         else if (pathGuess && depopClickBestSuggestedCategoryPill(rootEl, scan, pathGuess)) pickedSuggested = true;
+        if (pickedSuggested) setTimeout(verifyCategoryStuck, 250);
       };
       trySuggestedPill();
-      [120, 280, 520, 900, 1600, 2600, 4000].forEach((ms) => setTimeout(trySuggestedPill, ms));
-      /** Typing “Apparel” etc. leaves “required” until a real path or chip — avoid combobox typing for broad hints. */
-      if (
-        (!broad &&
-          (depopPickComboboxConfirmed(rootEl, ["category"], neg, fillStr) ||
-            vintedFillByHints(rootEl, ["category"], neg, fillStr))) ||
-        (broad &&
-          pathGuess &&
-          (depopPickComboboxConfirmed(rootEl, ["category"], neg, pathGuess) ||
-            vintedFillByHints(rootEl, ["category"], neg, pathGuess)))
-      ) {
-        n++;
+      /** This function runs on every fill tick (up to 30x, every 360ms) — without this guard,
+       * every single tick scheduled its own fresh batch of retry timers + the 4200ms fallback
+       * below, piling up dozens of overlapping full-page scans and stalling the page long enough
+       * to blow past the fill response timeout. Schedule the retry wave at most once per page load. */
+      if (fillWin && !fillWin.__synclystDepopCategoryRetryScheduled) {
+        fillWin.__synclystDepopCategoryRetryScheduled = true;
+        [120, 280, 520, 900, 1600, 2600, 4000].forEach((ms) => setTimeout(trySuggestedPill, ms));
+        /** Only fall back to typing/combobox-confirm if the pill click hasn't already landed —
+         * running this unconditionally was overwriting a just-successful pill pick. */
+        setTimeout(() => {
+          if (fillWin && fillWin.__synclystDepopCategoryDone) return;
+          if (pickedSuggested) return;
+          const ok =
+            (!broad &&
+              (depopPickComboboxConfirmed(rootEl, ["category"], neg, fillStr) ||
+                vintedFillByHints(rootEl, ["category"], neg, fillStr))) ||
+            (broad &&
+              pathGuess &&
+              (depopPickComboboxConfirmed(rootEl, ["category"], neg, pathGuess) ||
+                vintedFillByHints(rootEl, ["category"], neg, pathGuess)));
+          if (ok) setTimeout(verifyCategoryStuck, 250);
+        }, 4200);
       }
+    } else if (catAlreadyPicked) {
+      console.log("[SyncLyst] Depop Category: already confirmed picked earlier, leaving untouched");
     }
   }
   {
@@ -12612,12 +12972,40 @@ function fillDepopListingExtraFields(scan, root) {
   {
     const condVal = resolveDepopConditionForFill(scan, v);
     const condNeg = [...neg, "insert at least", "please insert", "size chart"];
-    if (
-      condVal &&
-      (depopPickComboboxConfirmed(rootEl, ["condition"], condNeg, condVal) ||
-        vintedFillByHints(rootEl, ["condition"], condNeg, condVal))
-    ) {
-      n++;
+    const condAlreadyPicked = !!(fillWin && fillWin.__synclystDepopConditionDone);
+    if (condAlreadyPicked) {
+      console.log("[SyncLyst] Depop Condition: already confirmed picked earlier, leaving untouched");
+    } else if (!condVal) {
+      console.warn("[SyncLyst] Depop Condition: resolveDepopConditionForFill() returned empty", {
+        "v.condition": v && v.condition,
+      });
+    } else {
+      const triggers = depopFindComboboxTriggersForHints(rootEl, ["condition"], condNeg);
+      console.log(
+        "[SyncLyst] Depop Condition: want='" + condVal + "', " + triggers.length + " trigger(s) found",
+        triggers
+      );
+      const confirmedPick = depopPickComboboxConfirmed(rootEl, ["condition"], condNeg, condVal);
+      const ok = confirmedPick || vintedFillByHints(rootEl, ["condition"], condNeg, condVal);
+      console.log("[SyncLyst] Depop Condition: pick result =", ok, "(confirmed combobox pick =", confirmedPick + ")");
+      if (ok) {
+        n++;
+        /** vintedFillByHints just types text — it doesn't confirm Depop committed a real selected
+         * option, so a "success" from that path alone must not permanently lock out future retries
+         * (the field can still show empty/red even though typing "succeeded"). Only the confirmed
+         * combobox pick, or a verified displayed value, earns the permanent done flag. */
+        if (confirmedPick && fillWin) {
+          fillWin.__synclystDepopConditionDone = true;
+        } else if (fillWin) {
+          setTimeout(() => {
+            const trig = (depopFindComboboxTriggersForHints(rootEl, ["condition"], condNeg) || [])[0];
+            const cur = String((trig && trig.value) || (trig && trig.textContent) || "").trim();
+            const stuck = cur.length > 1 && !/required|select|choose/i.test(cur);
+            console.log("[SyncLyst] Depop Condition: verify text-fill — trigger shows '" + cur + "', stuck =", stuck);
+            fillWin.__synclystDepopConditionDone = stuck;
+          }, 300);
+        }
+      }
     }
   }
   {
@@ -12845,20 +13233,22 @@ function fillShopifyListingExtraFields(scan, root) {
     return false;
   }
 
-  if (
-    tryOne(
-      [
-        'input[aria-label*="Vendor" i]',
-        'input[name="vendor"]',
-        'input[id*="vendor" i]',
-        'input[id*="Vendor" i]',
-        '[role="combobox"] input[aria-label*="Vendor" i]',
-        'input[placeholder*="vendor" i]',
-      ],
-      s.vendor
-    )
-  ) {
+  const vendorFilled = tryOne(
+    [
+      'input[aria-label*="Vendor" i]',
+      'input[name="vendor"]',
+      'input[id*="vendor" i]',
+      'input[id*="Vendor" i]',
+      '[role="combobox"] input[aria-label*="Vendor" i]',
+      'input[placeholder*="vendor" i]',
+    ],
+    s.vendor
+  );
+  if (vendorFilled) {
     n++;
+  } else if (s.vendor) {
+    console.warn("[SyncLyst] Shopify Vendor field: no input selector matched, trying <select> (value was '" + s.vendor + "')");
+    if (shopifyFillSelectByLabel(rootEl, /vendor/i, s.vendor, "Vendor field")) n++;
   }
   if (s.product_type) {
     const pt =
@@ -12875,6 +13265,7 @@ function fillShopifyListingExtraFields(scan, root) {
         s.product_type
       );
     if (pt) n++;
+    else console.warn("[SyncLyst] Shopify Type field: all strategies failed (value was '" + s.product_type + "')");
   }
   if (
     tryOne(
@@ -12958,6 +13349,7 @@ function fillShopifyListingExtraFields(scan, root) {
         s.category
       );
     if (cat) n++;
+    else console.warn("[SyncLyst] Shopify Category field: all strategies failed (value was '" + s.category + "')");
   }
   if (
     tryOne(
@@ -13088,6 +13480,8 @@ function fillFromMapper(platform, scan, root) {
       titleEl = null;
     } else if (platform === "etsy") {
       titleEl = queryBestEtsyTitleInput(r);
+    } else if (platform === "vinted") {
+      titleEl = queryBestVintedTitleInput(r);
     } else {
       titleEl = queryBestShopifyTitleInput(r);
     }
@@ -13105,7 +13499,8 @@ function fillFromMapper(platform, scan, root) {
       : platform === "etsy"
         ? etsyTitleForFill(scan)
         : scan.title;
-  const titleFillNorm = normalizeTitleCaps(titleFill);
+  const titleFillTrimmed = trimListingTitleRunOn(titleFill, 80);
+  const titleFillNorm = normalizeTitleCaps(titleFillTrimmed);
   if (titleEl && fillField(titleEl, titleFillNorm)) n++;
 
   /** Price before description on heavy SPAs so Lexical / RTE focus does not block price/title-like fields. */
@@ -13120,8 +13515,9 @@ function fillFromMapper(platform, scan, root) {
   if (deep) {
     if (platform === "vinted") {
       if (priceStr) {
-        n += vintedForceFillPriceFromScan(scan, r);
-        vintedFireMainWorldPriceThrottled(priceStr);
+        const priceFilled = vintedForceFillPriceFromScan(scan, r);
+        n += priceFilled;
+        if (!priceFilled) vintedFireMainWorldPriceThrottled(priceStr);
       }
     } else {
       let priceEl = null;

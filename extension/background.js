@@ -426,7 +426,7 @@ function vintedMainWorldPickFunc(segments, categoryStr) {
 }
 
 /** MAIN world: Vinted’s price field is React-controlled; isolated-world `fillField` may not update fiber state (£NaN). */
-function vintedMainWorldSetPriceFunc(priceStr) {
+async function vintedMainWorldSetPriceFunc(priceStr) {
   try {
     const want = parseFloat(String(priceStr || "").trim().replace(/,/g, "."));
     if (!Number.isFinite(want) || want < 1) return { ok: false, step: "bad_num" };
@@ -506,13 +506,24 @@ function vintedMainWorldSetPriceFunc(priceStr) {
     best.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
     try {
       best.dispatchEvent(new Event("blur", { bubbles: true, composed: true }));
-      best.focus();
     } catch {
       /* ignore */
     }
+    const immediate = String(best.value || "").trim().toLowerCase();
+    /** Some Vinted builds re-render the field a tick later (debounced price-suggestion fetch); verify it sticks. */
+    await new Promise((resolve) => setTimeout(resolve, 400));
     const after = String(best.value || "").trim().toLowerCase();
     const ok = after.length > 0 && !/nan|infinity|undefined/.test(after);
-    return { ok, step: "set", bestSc, after };
+    if (!ok) {
+      /** Value reverted after our edit — site re-rendered over us. Re-apply once more without the blur/refocus dance. */
+      setV(strOut);
+      best.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      best.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    const final = String(best.value || "").trim().toLowerCase();
+    const finalOk = final.length > 0 && !/nan|infinity|undefined/.test(final);
+    return { ok: finalOk, step: "set", bestSc, immediate, after, final };
   } catch (e) {
     return { ok: false, step: "throw", err: String(e && e.message ? e.message : e) };
   }

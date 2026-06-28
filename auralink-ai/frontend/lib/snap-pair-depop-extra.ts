@@ -221,6 +221,11 @@ export function buildDepopListingExtraFromVision(visionJson: VisionPayload): Rec
   return Object.fromEntries(Object.entries(out).filter(([, v]) => !isEmptyVal(v)));
 }
 
+/** Without this, a later re-extraction in the same session (e.g. a different photo reusing
+ * the same session_id) could never overwrite a stale category/brand from an earlier, unrelated
+ * scan — matches the EBAY_ALWAYS_OVERWRITE / SHOPIFY_ALWAYS_OVERWRITE safeguard. */
+const DEPOP_ALWAYS_OVERWRITE = new Set(["category", "brand"]);
+
 export function mergeDepopIntoListingExtra(
   prevListingExtra: unknown,
   incomingDepop: Record<string, unknown>
@@ -232,7 +237,7 @@ export function mergeDepopIntoListingExtra(
   for (const [k, v] of Object.entries(incomingDepop)) {
     if (isEmptyVal(v)) continue;
     const cur = prevD[k];
-    if (!isEmptyVal(cur)) continue;
+    if (!DEPOP_ALWAYS_OVERWRITE.has(k) && !isEmptyVal(cur)) continue;
     prevD[k] = v;
   }
 

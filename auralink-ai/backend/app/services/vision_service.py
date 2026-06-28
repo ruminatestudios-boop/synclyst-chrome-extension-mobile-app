@@ -209,7 +209,10 @@ def _apply_weak_title_composite_fallback(result: VisionExtractionResponse) -> Vi
     if len(parts) < 2:
         for k in tags.search_keywords or []:
             ks = str(k).strip()
-            if not ks or len(ks) < 2:
+            # A real keyword is a short tag ("streetwear", "graphic tee"), not a sentence. The
+            # model occasionally puts a description-like phrase in search_keywords; joining two
+            # of those here produced a run-on, mid-sentence-truncated title.
+            if not ks or len(ks) < 2 or len(ks) > 30 or ks.count(" ") > 4:
                 continue
             kl = ks.lower()
             if brand_key and (kl == brand_key or kl in brand_key or brand_key in kl):
@@ -276,7 +279,10 @@ def apply_normalizer(result: VisionExtractionResponse) -> VisionExtractionRespon
         if len(att.brand) > 1 and att.brand.isupper():
             att.brand = att.brand.title()
     if copy.seo_title and isinstance(copy.seo_title, str):
-        copy.seo_title = copy.seo_title.strip()[:200]
+        # 200 was loose enough to let description-like text bleed into the title and get cut
+        # off mid-sentence (e.g. "...this Supreme t-shirt features a prominent graphic print of
+        # rap"). A real product title fits comfortably in ~100 chars.
+        copy.seo_title = copy.seo_title.strip()[:100]
     return result
 
 
@@ -540,18 +546,30 @@ def _json_string_candidates(text: str) -> list:
     return out
 
 
+def _strip_trailing_commas(s: str) -> str:
+    """Remove a comma that immediately precedes a closing `}` or `]` (ignoring whitespace).
+    Vision models frequently emit `{"a": 1,}` / `[1, 2,]` — stdlib `json` rejects these outright."""
+    return re.sub(r",(\s*[}\]])", r"\1", s)
+
+
 def _json_loads_salvage(text: str) -> dict:
     last_err = None
     for candidate in _json_string_candidates(text):
-        try:
-            data = json.loads(candidate)
-            if isinstance(data, dict):
-                return data
-        except json.JSONDecodeError as e:
-            last_err = e
-            continue
-    if last_err:
-        logger.debug("JSON salvage failed: %s", last_err)
+        # Try the candidate as-is first, then with trailing commas stripped — most model
+        # output parses fine outright, so only pay the extra regex pass when needed.
+        for attempt in (candidate, _strip_trailing_commas(candidate)):
+            try:
+                data = json.loads(attempt)
+                if isinstance(data, dict):
+                    return data
+            except json.JSONDecodeError as e:
+                last_err = e
+                continue
+    # `logger.debug` is filtered out by Cloud Run's default log level, so every failure here
+    # was invisible in production — bump to `warning` and include a snippet of the raw model
+    # output so the next failure is actually diagnosable instead of a guess.
+    snippet = (text or "")[:800]
+    logger.warning("JSON salvage failed (%s). Raw model output (first 800 chars): %r", last_err, snippet)
     raise VisionServiceError("Vision model returned invalid JSON")
 
 
@@ -718,9 +736,7 @@ def _parse_extraction_response(text: str) -> VisionExtractionResponse:
     if price_src == "not_found":
         price_val = None
         price_disp = None
-    elif price_src == "ai_suggested" and (price_conf is None or price_conf < 0.7):
-        price_val = None
-        price_disp = None
+    # Keep ai_suggested prices regardless of confidence — user can always adjust
     try:
         return VisionExtractionResponse(
             attributes=ExtractionAttributes(
@@ -794,13 +810,10 @@ def _parse_ucp_extraction_response(data: dict) -> VisionExtractionResponse:
     price_conf = _float_or_none(att.get("price_confidence"))
     price_val = _float_or_none(att.get("price_value"))
     price_disp = att.get("price_display")
-    # Force null price unless explicitly found in image (no guessed prices)
-    if price_src != "found_in_image":
+    if price_src == "not_found":
         price_val = None
         price_disp = None
-    elif price_src == "ai_suggested" and (price_conf is None or price_conf < 0.7):
-        price_val = None
-        price_disp = None
+    # Keep ai_suggested prices regardless of confidence — user can always adjust
 
     condition_val = att.get("condition")
     if condition_val and str(condition_val).lower() not in ("new", "like_new", "good", "fair", "for_parts"):
@@ -878,8 +891,8 @@ Output ONLY valid JSON (no markdown):
     "make": "manufacturer or null",
     "model_year": "2024 or SS24 or null",
     "price_display": "as shown or null",
-    "price_value": number or null,
-    "price_source": "found_in_image if price visible, else not_found",
+    "price_value": number or null — if price not visible, estimate a realistic UK resale/retail price based on brand, product type, condition and typical market value,
+    "price_source": "found_in_image if price visible on product/tag, ai_suggested if you estimated it, not_found only if you truly cannot identify the product",
     "detected_colors": ["color names from image or description"],
     "detected_sizes": ["size if visible"] or [],
     "detected_materials": ["materials from label"],
@@ -923,6 +936,7 @@ def _gemini_extract_sync(
     image_base64: str,
     mime_type: str,
     ocr_snippets: list[str],
+    fast_mode: bool = False,
 ) -> VisionExtractionResponse:
     """Synchronous Gemini call (MultimodalProcessor)."""
     types = _genai_types()
@@ -935,21 +949,40 @@ def _gemini_extract_sync(
     raw, _ = _decode_base64(image_base64)
     image_part = types.Part.from_bytes(data=raw, mime_type=mime_type or "image/jpeg")
     contents = [_get_system_prompt(), _get_user_prompt(ocr_snippets), image_part]
+    # Fast mode: use gemini-2.5-flash-lite with thinking disabled — ~3-5s vs 15-20s for 2.5-flash
+    fast_models = ["gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.5-flash"]
+    model_list = fast_models if fast_mode else _candidate_gemini_models(client)
+
+    # Thinking config: disable thinking for fast mode (saves 10-15s on 2.5-flash)
+    thinking_cfg = None
+    if fast_mode:
+        try:
+            thinking_cfg = types.ThinkingConfig(thinking_budget=0)
+        except Exception:
+            pass  # older SDK version — no ThinkingConfig, just use faster model
+
     last_err = None
-    for model_name in _candidate_gemini_models(client):
+    for model_name in model_list:
         for use_structured in (True, False):
             try:
+                # 4096 (was 2048): with `thinking_budget=0` + structured/schema output, Gemini
+                # 2.5 models sometimes still spend part of this same token pool on internal
+                # "thinking" before emitting visible text — the visible JSON was getting cut off
+                # well before 2048 tokens' worth of actual content, intermittently, depending on
+                # how much the model "thought" first. More headroom fixes the truncation.
                 if use_structured:
                     config = types.GenerateContentConfig(
                         temperature=0.1,
-                        max_output_tokens=8192,
+                        max_output_tokens=4096,
                         response_mime_type="application/json",
                         response_schema=ucp_schema,
+                        **({"thinking_config": thinking_cfg} if thinking_cfg else {}),
                     )
                 else:
                     config = types.GenerateContentConfig(
                         temperature=0.1,
-                        max_output_tokens=8192,
+                        max_output_tokens=4096,
+                        **({"thinking_config": thinking_cfg} if thinking_cfg else {}),
                     )
                 response = client.models.generate_content(
                     model=model_name,
@@ -959,6 +992,16 @@ def _gemini_extract_sync(
                 text = _extract_response_text(response)
                 if not (text or "").strip():
                     raise VisionServiceError("Vision model returned empty output")
+                try:
+                    finish_reason = getattr(response.candidates[0], "finish_reason", None)
+                    if finish_reason and str(finish_reason).upper() not in ("STOP", "1", "FINISHREASON.STOP"):
+                        logger.warning(
+                            "Gemini finish_reason=%s for model=%s (truncated/blocked output likely)",
+                            finish_reason,
+                            model_name,
+                        )
+                except Exception:
+                    pass
                 return _parse_extraction_response(text)
             except VisionServiceError as e:
                 if use_structured:
@@ -999,12 +1042,13 @@ async def extract_with_gemini(
     image_base64: str,
     mime_type: str,
     ocr_snippets: list[str],
+    fast_mode: bool = False,
 ) -> VisionExtractionResponse:
-    """Use Gemini 2.0 Flash for multimodal extraction."""
-    # Avoid hanging forever on slow / stuck model calls.
+    """Use Gemini for multimodal extraction. fast_mode uses gemini-2.0-flash with no thinking."""
+    timeout = 15.0 if fast_mode else 120.0
     return await asyncio.wait_for(
-        asyncio.to_thread(_gemini_extract_sync, image_base64, mime_type, ocr_snippets),
-        timeout=120,
+        asyncio.to_thread(_gemini_extract_sync, image_base64, mime_type, ocr_snippets, fast_mode),
+        timeout=timeout,
     )
 
 
@@ -1046,13 +1090,14 @@ async def run_vision_extraction(
     image_base64: str,
     mime_type: str = "image/jpeg",
     ocr_snippets: Optional[list[str]] = None,
+    fast_mode: bool = False,
 ) -> VisionExtractionResponse:
     """Run extraction with configured provider (Gemini or OpenAI). Uses UCP prompt when available."""
     settings = get_settings()
     snippets = ocr_snippets or []
     if settings.vision_provider == "openai":
         return await extract_with_openai(image_base64, mime_type, snippets)
-    return await extract_with_gemini(image_base64, mime_type, snippets)
+    return await extract_with_gemini(image_base64, mime_type, snippets, fast_mode=fast_mode)
 
 
 # ---- Invoice / receipt extraction (all-in-one) ---------------------------------
@@ -1251,11 +1296,13 @@ class MultimodalProcessor:
         image_base64: str,
         mime_type: str = "image/jpeg",
         ocr_snippets: Optional[list[str]] = None,
+        fast_mode: bool = False,
     ) -> VisionExtractionResponse:
         return await run_vision_extraction(
             image_base64=image_base64,
             mime_type=mime_type,
             ocr_snippets=ocr_snippets or None,
+            fast_mode=fast_mode,
         )
 
 

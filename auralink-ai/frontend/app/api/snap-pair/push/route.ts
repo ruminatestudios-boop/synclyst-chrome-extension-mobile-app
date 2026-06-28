@@ -140,10 +140,16 @@ function ensureListingTitleMinLength(
   push(attrs.product_type);
   push(attrs.color);
   push(attrs.material);
-  const desc = visionJson.extraction_copy?.description;
-  if (typeof desc === "string" && desc.trim()) {
-    const first = desc.split(/[.!\n–—;]/)[0]?.trim() || "";
-    if (first.length > 4) push(first, 95);
+  // Unlike the bullet_points/search_keywords loops below, this had no length check before
+  // pushing — so even after brand/type/color already padded the title past the minimum, the
+  // description's first sentence still got glued on unconditionally, producing a run-on
+  // "title + start of description" string that then got hard-truncated mid-sentence.
+  if (parts.join(" ").length < MARKETPLACE_LISTING_TITLE_MIN_LEN) {
+    const desc = visionJson.extraction_copy?.description;
+    if (typeof desc === "string" && desc.trim()) {
+      const first = desc.split(/[.!\n–—;]/)[0]?.trim() || "";
+      if (first.length > 4) push(first, 95);
+    }
   }
   const bp = visionJson.extraction_copy?.bullet_points;
   if (Array.isArray(bp)) {
@@ -438,6 +444,11 @@ async function handleSnapPairPush(request: NextRequest) {
     mime_type: mimeType,
     skip_web_enrichment: false,
     extraction_type: "product",
+    // gemini-2.5-flash-lite + thinking disabled — ~3-5s vs ~15-20s for the default model on
+    // just the core extraction call. Web enrichment (kept on above) still runs at normal
+    // speed; this only speeds up the part it controls. Revert by removing this line if real
+    // photos show a meaningful accuracy drop.
+    fast_mode: true,
   });
 
   let visionRes: Response;

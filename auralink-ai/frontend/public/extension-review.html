@@ -30,6 +30,12 @@
       * {
         box-sizing: border-box;
       }
+      /* Default every checkbox/radio to the brand purple instead of the browser's blue —
+         previously only the eBay "suggested specifics" chips had this set explicitly. */
+      input[type="checkbox"],
+      input[type="radio"] {
+        accent-color: var(--accent);
+      }
       body {
         margin: 0;
         min-height: 100vh;
@@ -1234,7 +1240,7 @@
           <div class="smart-text">
             <strong>Smart Suggest</strong>
             <p class="smart-copy smart-copy--compact" aria-live="polite">
-              <strong>Extracted:</strong> <span id="smart-shopify-filled">—</span><br />
+              <strong>Extracted:</strong> <span id="smart-shopify-filled">—</span> ·
               <strong>Add manually:</strong> <span id="smart-shopify-missing">—</span><span class="smart-shopify-cta">
                 — then <strong>Fill &amp; save</strong> in the extension.</span>
             </p>
@@ -1393,7 +1399,7 @@
           <div class="smart-text">
             <strong>Smart Suggest</strong>
             <p class="smart-copy smart-copy--compact" aria-live="polite">
-              <strong>Extracted:</strong> <span id="smart-ebay-filled">—</span><br />
+              <strong>Extracted:</strong> <span id="smart-ebay-filled">—</span> ·
               <strong>Add manually:</strong> <span id="smart-ebay-missing">—</span
               ><span class="smart-ebay-cta"> — then <strong>Fill &amp; save</strong> in the extension.</span>
             </p>
@@ -1662,7 +1668,7 @@
           <div class="smart-text">
             <strong>Smart Suggest</strong>
             <p class="smart-copy smart-copy--compact" aria-live="polite">
-              <strong>Extracted:</strong> <span id="et-smart-filled">—</span><br />
+              <strong>Extracted:</strong> <span id="et-smart-filled">—</span> ·
               <strong>Add manually:</strong> <span id="et-smart-missing">—</span><span class="smart-etsy-cta">
                 — then <strong>Fill &amp; save</strong> in the extension.</span>
             </p>
@@ -1892,7 +1898,7 @@
           <div class="smart-text">
             <strong>Smart Suggest</strong>
             <p class="smart-copy smart-copy--compact" aria-live="polite">
-              <strong>Extracted:</strong> <span id="smart-shopee-filled">—</span><br />
+              <strong>Extracted:</strong> <span id="smart-shopee-filled">—</span> ·
               <strong>Add manually:</strong> <span id="smart-shopee-missing">—</span><span class="smart-shopee-cta">
                 — then <strong>Fill &amp; save</strong> in the extension.</span>
             </p>
@@ -2085,7 +2091,7 @@
           <div class="smart-text">
             <strong>Smart Suggest</strong>
             <p class="smart-copy smart-copy--compact" aria-live="polite">
-              <strong>Extracted:</strong> <span id="dp-smart-filled">—</span><br />
+              <strong>Extracted:</strong> <span id="dp-smart-filled">—</span> ·
               <strong>Add manually:</strong> <span id="dp-smart-missing">—</span><span class="smart-depop-cta">
                 — then <strong>Fill &amp; save</strong> in the extension.</span>
             </p>
@@ -2400,6 +2406,21 @@
     </div>
     <script>
       (function () {
+        // Vision/AI title extraction occasionally returns a refusal sentence or a misread
+        // date/clock screenshot instead of a product name (e.g. "There is no readable word,
+        // number, or phrase in this product image."). Same fix as the SyncLyst extension
+        // popup — used by every platform panel below so the raw model output never lands
+        // in an editable title field.
+        var SYNCLYST_AI_REFUSAL_TITLE_RE =
+          /^(i\s+(cannot|can't|am unable to|couldn't|could not)\b|sorry,|there is no readable|no readable (word|text)|unable to (identify|read|determine))/i;
+        var SYNCLYST_DATE_LIKE_TITLE_RE =
+          /^(\d{1,2}[/.-]\d{1,2}([/.-]\d{2,4})?\s*[,]|\d{1,2}:\d{2}\s|(mon|tue|wed|thu|fri|sat|sun)(day)?\s*[, ]\s*\d{1,2}\b)/i;
+        function synclystCleanTitle(t) {
+          var s = typeof t === "string" ? t.trim() : "";
+          if (!s) return "";
+          if (SYNCLYST_AI_REFUSAL_TITLE_RE.test(s) || SYNCLYST_DATE_LIKE_TITLE_RE.test(s)) return "";
+          return s;
+        }
         var SYNCLYST_ETSY_SMART_MARK_SRC =
           "https://cdn.shopify.com/s/files/1/0564/3957/0639/files/etsy_1.png?v=1776226782";
         var SYNCLYST_DEPOP_SMART_MARK_SRC =
@@ -2710,7 +2731,7 @@
             if (smartSub) {
               smartSub.classList.add("smart-copy--compact");
               smartSub.innerHTML =
-                "<strong>Extracted:</strong> Title, Description, Price<br />" +
+                "<strong>Extracted:</strong> Title, Description, Price · " +
                 "<strong>Add manually:</strong> Category, Brand, Size, Measurements, Condition, Colours, Material, Parcel size — then <strong>Fill &amp; save</strong> in the extension.";
             }
           } catch {
@@ -2718,7 +2739,11 @@
           }
         }
 
-        if (!/^[a-f0-9]{12,32}$/i.test(sessionId)) {
+        // DEV-ONLY: ?mock=1 skips the session check + network fetch entirely and renders the
+        // chosen platform panel with sample data, so the layout can be reviewed locally without
+        // a real backend session. Safe to remove once local Supabase is wired up for real testing.
+        var SYNCLYST_MOCK_REVIEW = params.get("mock") === "1";
+        if (!SYNCLYST_MOCK_REVIEW && !/^[a-f0-9]{12,32}$/i.test(sessionId)) {
           document.getElementById("panel-empty").hidden = false;
           document.getElementById("panel-empty").querySelector("p").textContent =
             "Missing or invalid session. Open this page from the Synclyst extension (Open full review in browser).";
@@ -5869,7 +5894,7 @@
             document.getElementById("panel-etsy").hidden = true;
             document.getElementById("panel-shopee").hidden = true;
             document.getElementById("panel-depop").hidden = true;
-            document.getElementById("sf-title").value = row.title || "";
+            document.getElementById("sf-title").value = synclystCleanTitle(row.title);
             document.getElementById("sf-description").value = row.description || "";
             var p =
               row.price !== undefined && row.price !== null && row.price !== ""
@@ -5892,7 +5917,7 @@
             document.getElementById("panel-shopee").hidden = true;
             document.getElementById("panel-depop").hidden = true;
             document.getElementById("panel-simple").hidden = true;
-            document.getElementById("eb-title").value = row.title || "";
+            document.getElementById("eb-title").value = synclystCleanTitle(row.title);
             var mergedEb = mergeEbayExtra(row.listing_extra);
             var ebDesc =
               (row.description && String(row.description).trim()) ||
@@ -5926,7 +5951,7 @@
             document.getElementById("panel-shopee").hidden = true;
             document.getElementById("panel-depop").hidden = true;
             document.getElementById("panel-simple").hidden = true;
-            document.getElementById("et-title").value = row.title || "";
+            document.getElementById("et-title").value = synclystCleanTitle(row.title);
             document.getElementById("et-description").value = row.description || "";
             var etp =
               row.price !== undefined && row.price !== null && row.price !== ""
@@ -5948,7 +5973,7 @@
             document.getElementById("panel-shopee").hidden = false;
             document.getElementById("panel-depop").hidden = true;
             document.getElementById("panel-simple").hidden = true;
-            document.getElementById("sp-title").value = row.title || "";
+            document.getElementById("sp-title").value = synclystCleanTitle(row.title);
             document.getElementById("sp-description").value = row.description || "";
             var spp =
               row.price !== undefined && row.price !== null && row.price !== ""
@@ -5973,7 +5998,7 @@
             document.getElementById("panel-shopee").hidden = true;
             document.getElementById("panel-depop").hidden = false;
             document.getElementById("panel-simple").hidden = true;
-            document.getElementById("dp-title").value = row.title || "";
+            document.getElementById("dp-title").value = synclystCleanTitle(row.title);
             document.getElementById("dp-description").value = row.description || "";
             var dpp =
               row.price !== undefined && row.price !== null && row.price !== ""
@@ -5998,7 +6023,7 @@
             document.getElementById("panel-depop").hidden = true;
             document.getElementById("panel-simple").hidden = false;
             document.getElementById("vinted-extra").hidden = false;
-            titleEl.value = row.title || "";
+            titleEl.value = synclystCleanTitle(row.title);
             descEl.value = row.description || "";
             priceEl.value =
               row.price !== undefined && row.price !== null && row.price !== ""
@@ -6026,7 +6051,7 @@
             fitTextareaById("description");
             return;
           }
-          titleEl.value = row.title || "";
+          titleEl.value = synclystCleanTitle(row.title);
           descEl.value = row.description || "";
           priceEl.value =
             row.price !== undefined && row.price !== null && row.price !== ""
@@ -6114,41 +6139,52 @@
         initShopeeExtraMediaUpload();
         initDepopExtraMediaUpload();
 
-        fetch("/api/snap-pair/session/" + encodeURIComponent(sessionId), {
-          credentials: "same-origin",
-          headers: { Accept: "application/json" },
-        })
-          .then(function (r) {
-            return r.json().then(function (j) {
-              return { ok: r.ok, j: j };
-            });
-          })
-          .then(function (_ref) {
-            var j = _ref.j;
-            if (!j || j.empty || !j.listing) {
-              showEmpty(null);
-              return;
-            }
-            applyListing(j.listing);
-            if (isShopify) {
-              /* listeners attached once inside applyListing for shopify */
-            }
-            if (isEbay) {
-              /* bindEbayFormOnce inside applyListing */
-            }
-            if (isEtsy) {
-              /* bindEtsyFormOnce inside applyListing */
-            }
-            if (isShopee) {
-              /* bindShopeeFormOnce inside applyListing */
-            }
-            if (isDepop) {
-              /* bindDepopFormOnce inside applyListing */
-            }
-          })
-          .catch(function () {
-            showEmpty("Could not load session. Check your connection and try again.");
+        if (SYNCLYST_MOCK_REVIEW) {
+          applyListing({
+            title: "Marshall Major IV Bluetooth Headphones — Black",
+            description:
+              "Wireless over-ear headphones with up to 80 hours of battery life, foldable design, and the classic Marshall amp-inspired look. Lightly used, fully functional, comes with original cable.",
+            price: "59.99",
+            image_url: "",
+            listing_extra: {},
           });
+        } else {
+          fetch("/api/snap-pair/session/" + encodeURIComponent(sessionId), {
+            credentials: "same-origin",
+            headers: { Accept: "application/json" },
+          })
+            .then(function (r) {
+              return r.json().then(function (j) {
+                return { ok: r.ok, j: j };
+              });
+            })
+            .then(function (_ref) {
+              var j = _ref.j;
+              if (!j || j.empty || !j.listing) {
+                showEmpty(null);
+                return;
+              }
+              applyListing(j.listing);
+              if (isShopify) {
+                /* listeners attached once inside applyListing for shopify */
+              }
+              if (isEbay) {
+                /* bindEbayFormOnce inside applyListing */
+              }
+              if (isEtsy) {
+                /* bindEtsyFormOnce inside applyListing */
+              }
+              if (isShopee) {
+                /* bindShopeeFormOnce inside applyListing */
+              }
+              if (isDepop) {
+                /* bindDepopFormOnce inside applyListing */
+              }
+            })
+            .catch(function () {
+              showEmpty("Could not load session. Check your connection and try again.");
+            });
+        }
 
         btnSave.addEventListener("click", function () {
           saveStatus.textContent = "";

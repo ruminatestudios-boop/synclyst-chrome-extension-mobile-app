@@ -118,6 +118,22 @@
           transform: rotate(360deg);
         }
       }
+      /* Scroll still works on these surfaces — just hide the visible track/thumb so the
+         popup doesn't show a scrollbar running down every page. */
+      html,
+      body,
+      .settings-overlay,
+      .legal-scroll,
+      .settings-library-list {
+        scrollbar-width: none;
+      }
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar,
+      .settings-overlay::-webkit-scrollbar,
+      .legal-scroll::-webkit-scrollbar,
+      .settings-library-list::-webkit-scrollbar {
+        display: none;
+      }
       body {
         margin: 0;
         /* Padding (not margin on .panel) so Chrome keeps equal lavender inset top + bottom; outer margins are often clipped at the popup bottom. */
@@ -268,6 +284,7 @@
         display: flex;
         flex-direction: column;
         gap: 0.1rem;
+        text-align: left;
       }
       .library-bar-title strong {
         font-size: 0.75rem;
@@ -404,14 +421,35 @@
       }
       .settings-section-title {
         font-size: 0.625rem;
-        font-weight: 600;
+        font-weight: 800;
         letter-spacing: 0.07em;
         text-transform: uppercase;
-        color: var(--text-subtle);
+        color: var(--text);
         margin: 0 0 0.5rem;
       }
       .settings-section-title--spaced {
         margin-top: 1rem;
+      }
+      .settings-section-toggle {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        background: none;
+        border: none;
+        padding: 0;
+        font: inherit;
+        cursor: pointer;
+        text-align: left;
+      }
+      .settings-section-toggle-hint {
+        font-weight: 500;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--text-muted);
+        font-size: 0.6875rem;
+        white-space: nowrap;
       }
       .settings-trust-copy {
         margin: 0 0 0.55rem;
@@ -464,6 +502,14 @@
       }
       .settings-plan-grid.is-locked .settings-plan-open {
         pointer-events: none;
+      }
+      /* "Selected"/highlighted border doesn't matter until the user can actually act on it —
+         showing it next to Starter's "Current" badge while signed out reads as two competing
+         signals at once. */
+      .settings-plan-grid.is-locked .settings-plan-row.is-selected {
+        border-color: var(--border);
+        box-shadow: none;
+        background: #fafafa;
       }
       .settings-plan-row {
         display: flex;
@@ -603,12 +649,16 @@
         color: var(--text-muted);
         line-height: 1.4;
       }
+      .settings-auth-sub:empty {
+        display: none;
+      }
       .settings-auth-actions {
         display: flex;
         align-items: stretch;
         justify-content: stretch;
         gap: 0.6rem;
         flex-wrap: wrap;
+        margin-top: 0.65rem;
       }
       .settings-auth-pill {
         font-size: 0.75rem;
@@ -701,9 +751,6 @@
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
-        max-height: 260px;
-        overflow-y: auto;
-        padding-right: 2px;
       }
       .settings-library-item {
         display: flex;
@@ -783,6 +830,10 @@
       .settings-library-open:hover {
         border-color: #111827;
       }
+      .settings-library-open:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
       .settings-diagnostics-row {
         display: flex;
         justify-content: space-between;
@@ -820,12 +871,7 @@
         margin: 1rem 0 0.9rem;
         height: 1px;
         width: 100%;
-        background: linear-gradient(
-          90deg,
-          rgba(139, 92, 246, 0),
-          rgba(139, 92, 246, 0.55),
-          rgba(139, 92, 246, 0)
-        );
+        background: var(--border);
       }
       .settings-help {
         margin-top: 0.85rem;
@@ -998,6 +1044,13 @@
       #state-empty.section--stack {
         gap: var(--space-3);
       }
+      /* Buttons here are no longer direct children of .section--stack (wrapped for the
+         single/batch mode split), so they need their own gap instead of inheriting it. */
+      #single-item-flow {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
       .section--stack .btn-ghost {
         margin-top: 0;
       }
@@ -1070,8 +1123,15 @@
       }
       .label-step .label-step-num {
         font-weight: 800;
-        color: var(--text);
+        color: var(--accent);
         letter-spacing: 0.07em;
+      }
+      .label-step-total {
+        font-weight: 600;
+        color: var(--text-muted, #6b7280);
+        letter-spacing: 0.04em;
+        text-transform: none;
+        margin-left: 0.3em;
       }
       .label-step-row {
         display: flex;
@@ -1089,19 +1149,55 @@
         padding: 0 0 0.35rem;
         margin: 0;
       }
+      @property --qr-border-angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+      }
       .qr-card {
         position: relative;
         border-radius: var(--radius-card);
-        background: #fafafa;
-        border: 1px dashed var(--border-strong);
+        background: #faf5ff;
+        border: 1px dashed var(--accent);
         padding: 1.1rem 1rem 1rem;
         text-align: center;
         transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
       }
       .qr-card:hover {
-        border-color: var(--accent);
-        background: #faf5ff;
         box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      /* Purple "comet" loop traced around the card edge — draws attention to the primary
+         pairing action without being a constant, distracting glow. */
+      .qr-card::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        padding: 1.5px;
+        background: conic-gradient(
+          from var(--qr-border-angle),
+          transparent 0deg,
+          transparent 270deg,
+          var(--accent) 320deg,
+          rgba(139, 92, 246, 0.9) 340deg,
+          transparent 360deg
+        );
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        animation: qr-border-loop 3.2s linear infinite;
+      }
+      @keyframes qr-border-loop {
+        to {
+          --qr-border-angle: 360deg;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .qr-card::after {
+          animation: none;
+          display: none;
+        }
       }
       .qr-card img {
         border-radius: var(--radius-control);
@@ -1177,6 +1273,104 @@
         white-space: nowrap;
         letter-spacing: -0.01em;
       }
+      .mode-tabs {
+        display: flex;
+        gap: 0.3rem;
+        background: #f1f0f7;
+        border-radius: 10px;
+        padding: 0.2rem;
+        margin-bottom: var(--space-4);
+      }
+      .mode-tab {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        padding: 0.45rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        font-family: inherit;
+        color: var(--text-muted);
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      .mode-tab.is-active {
+        background: #ffffff;
+        color: var(--text);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      }
+      .batch-intro {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.4rem;
+        border-radius: var(--radius-card);
+        background: #faf5ff;
+        border: 1px dashed var(--accent);
+        padding: 1.75rem 1.25rem;
+      }
+      .batch-intro-icon {
+        font-size: 2rem;
+        margin-bottom: 0.2rem;
+      }
+      .batch-intro-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--text);
+        margin: 0;
+      }
+      .batch-intro-sub {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        line-height: 1.45;
+        margin: 0 0 0.5rem;
+        max-width: 26rem;
+      }
+      .qr-snap-cta-solid {
+        width: 100%;
+        padding: 0.65rem 1.15rem;
+        min-height: 2.5rem;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        font-family: inherit;
+        color: #fff;
+        background: var(--accent);
+        border: 1px solid var(--accent-hover);
+        border-radius: var(--radius-control);
+        cursor: pointer;
+      }
+      .qr-snap-cta-solid:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+      .qr-snap-cta-solid:disabled {
+        background: var(--border-strong);
+        border-color: var(--border-strong);
+        color: var(--text-muted);
+        cursor: not-allowed;
+      }
+      .batch-intro-locked-note {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin: 0.3rem 0 0;
+      }
+      .qr-batch-cta-lock {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--accent-hover);
+        background: var(--accent-soft);
+        border-radius: 999px;
+        padding: 0.15rem 0.55rem;
+      }
       .qr-or-divider {
         display: flex;
         align-items: center;
@@ -1249,8 +1443,20 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .pair-copy-bucket .pair-copy-hint:empty {
-        display: none;
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      .pair-copy-bucket.is-copied {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
       }
       .pair-copy-chip {
         flex: 0 0 auto;
@@ -1397,7 +1603,7 @@
         display: flex;
         flex-direction: column;
         gap: var(--space-2);
-        margin-top: var(--space-5);
+        margin-top: var(--space-4);
       }
       .review-field .field-label {
         margin: 0;
@@ -1413,13 +1619,13 @@
         margin-top: var(--space-1);
       }
       #platform-review-section .preview-row + .review-field {
-        margin-top: var(--space-6);
+        margin-top: var(--space-4);
       }
       .review-actions {
         display: flex;
         flex-direction: column;
         gap: var(--space-3);
-        margin-top: var(--space-5);
+        margin-top: var(--space-4);
       }
       .review-actions .btn-ghost {
         margin-top: 0;
@@ -1428,51 +1634,55 @@
         margin-top: 0;
         text-align: left;
       }
-      /* Travelling border: continuous rotating gradient around the whole border. */
-      #btn-open-full-review:not(:disabled) {
-        --btn-surface: #ffffff;
-        --full-review-border-angle: 0deg;
+      #btn-open-full-review {
+        position: relative;
+        width: 100%;
+        margin-top: 0;
+        padding: 0.65rem 1.15rem;
+        min-height: 2.5rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--text);
+        background: #ffffff;
+        border: 1px dashed var(--accent);
         border-radius: var(--radius-control);
-        border: 2px solid transparent;
-        background:
-          linear-gradient(var(--btn-surface), var(--btn-surface)) padding-box,
-          conic-gradient(
-            from var(--full-review-border-angle),
-            rgba(139, 92, 246, 0.35),
-            var(--accent),
-            var(--accent-hover),
-            var(--accent),
-            rgba(139, 92, 246, 0.35)
-          ) border-box;
-        background-origin: border-box;
-        background-clip: padding-box, border-box;
-        animation: full-review-border-sweep 2.4s linear infinite;
+        cursor: pointer;
+        font-family: inherit;
       }
-      #btn-open-full-review:not(:disabled):hover {
-        --btn-surface: #f9fafb;
-      }
-      @keyframes full-review-border-sweep {
-        to {
-          --full-review-border-angle: 360deg;
-        }
+      #btn-open-full-review::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        padding: 1.5px;
+        background: conic-gradient(
+          from var(--qr-border-angle),
+          transparent 0deg,
+          transparent 270deg,
+          var(--accent) 320deg,
+          rgba(139, 92, 246, 0.9) 340deg,
+          transparent 360deg
+        );
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        animation: qr-border-loop 3.2s linear infinite;
       }
       #btn-open-full-review:disabled {
-        animation: none;
-        border-radius: var(--radius-control);
-        border: 1px solid var(--border-strong);
+        color: var(--text-muted);
         background: #ffffff;
-        background-clip: border-box;
+        border-style: solid;
+        border-color: var(--border-strong);
+        cursor: not-allowed;
+      }
+      #btn-open-full-review:disabled::after {
+        display: none;
       }
       @media (prefers-reduced-motion: reduce) {
-        #btn-open-full-review:not(:disabled) {
+        #btn-open-full-review::after {
           animation: none;
-          border-radius: var(--radius-control);
-          border: 1px solid var(--border-strong);
-          background: #ffffff;
-          background-clip: border-box;
-        }
-        #btn-open-full-review:not(:disabled):hover {
-          background: #f9fafb;
+          display: none;
         }
       }
       select {
@@ -1526,6 +1736,8 @@
       .btn-magic.is-loading:disabled {
         opacity: 1;
         cursor: wait;
+        background: var(--accent);
+        border-color: var(--accent-hover);
       }
       /* Spinner occupies the same 18×18 slot as the external-link icon — no width jump. */
       .btn-magic-content {
@@ -1665,6 +1877,9 @@
         resize: vertical;
         min-height: 72px;
         line-height: 1.45;
+        /* Long extracted descriptions overflow the default 4 rows — scroll instead of a
+           hard visual cutoff, and keep the drag handle visible so it reads as resizable. */
+        overflow-y: auto;
       }
       .review-input:focus,
       .review-textarea:focus,
@@ -1676,7 +1891,7 @@
       .step-block {
         margin-top: 0;
         padding-top: var(--section-gap);
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--border-strong);
       }
       .step-block:first-of-type {
         margin-top: 0;
@@ -1692,7 +1907,7 @@
       #post-platform-panel > .step-block:first-of-type {
         padding-top: var(--section-gap);
         margin-top: 0;
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--border-strong);
       }
       #platform-ready-section {
         margin-top: var(--space-6);
@@ -1722,6 +1937,7 @@
         gap: var(--space-3);
         row-gap: var(--space-3);
         margin-top: 0;
+        margin-bottom: var(--space-4);
         justify-items: stretch;
       }
       .platform-tile {
@@ -1761,13 +1977,14 @@
         box-shadow: 0 0 0 3px var(--accent-soft);
       }
       .platform-tile--coming-soon:disabled {
-        opacity: 0.52;
+        opacity: 0.4;
         cursor: not-allowed;
         border-style: dashed;
         border-color: var(--border);
         background: #fafafa;
         color: var(--text-muted);
         box-shadow: none;
+        grid-column: 1 / -1;
       }
       .platform-tile--coming-soon:disabled:hover {
         border-color: var(--border);
@@ -1844,8 +2061,8 @@
         font-size: 0.75rem;
         font-weight: 600;
         color: var(--text-muted);
-        background: transparent;
-        border: 1px dashed var(--border);
+        background: #ffffff;
+        border: 1px solid var(--border-strong);
         border-radius: 10px;
         cursor: pointer;
         line-height: 1.35;
@@ -2011,7 +2228,6 @@
               Your plan is linked to your SyncLyst account. Sign in once, then upgrade in one click.
             </p>
             <div class="settings-auth-actions">
-              <span class="settings-auth-pill" id="settings-auth-pill">Signed out</span>
               <button type="button" class="settings-auth-btn" id="btn-settings-signin">Sign in</button>
             </div>
           </div>
@@ -2106,7 +2322,7 @@
             </div>
           </div>
           <p class="settings-footnote">
-            After checkout, Stripe bills your Clerk account. Open any <strong>synclyst.app</strong> tab (or this popup
+            After checkout, your plan updates automatically. Open any <strong>synclyst.app</strong> tab (or this popup
             again) to refresh your plan label.
           </p>
           <div class="settings-divider" aria-hidden="true"></div>
@@ -2130,8 +2346,18 @@
           </div>
           <div class="settings-divider" aria-hidden="true"></div>
 
-          <p class="settings-section-title settings-section-title--spaced">Diagnostics</p>
-          <div class="settings-diagnostics" aria-label="Diagnostics">
+          <button
+            type="button"
+            class="settings-section-title settings-section-title--spaced settings-section-toggle"
+            id="btn-toggle-diagnostics"
+            aria-expanded="false"
+            aria-controls="settings-diagnostics"
+            title="Technical info for troubleshooting — tap to expand"
+          >
+            <span class="settings-section-toggle-label">Diagnostics</span>
+            <span class="settings-section-toggle-hint" id="diagnostics-toggle-hint">Tap to view technical details ▾</span>
+          </button>
+          <div class="settings-diagnostics hidden" id="settings-diagnostics" aria-label="Diagnostics">
             <div class="settings-diagnostics-row">
               <span class="settings-diagnostics-key">Origin</span>
               <span class="settings-diagnostics-val" id="diag-origin">—</span>
@@ -2298,82 +2524,159 @@
             <span class="label-step-num">1.</span> Scan to pair phone
           </p>
         </div>
-        <div class="qr-card">
-          <div class="qr-loader" id="qr-loader" aria-hidden="true">
-            <div class="qr-loader-spinner"></div>
-          </div>
-          <img id="qr-img" alt="Pairing QR" width="180" height="180" />
-          <p class="qr-hint">Scan QR, upload from PC or Phone.</p>
-          <div class="qr-or-divider" role="separator" aria-label="Option 2">
-            <span class="qr-or-divider__line" aria-hidden="true"></span>
-            <span class="qr-or-divider__text">or</span>
-            <span class="qr-or-divider__line" aria-hidden="true"></span>
-          </div>
-          <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
-          <button
-            type="button"
-            class="btn-magic qr-snap-cta"
-            id="btn-open-snap-on-this-computer"
-            style="
-              display: block;
-              width: 100%;
-              box-sizing: border-box;
-              margin-top: 12px;
-              padding: 10px 14px;
-              min-height: 44px;
-              font-size: 13px;
-              font-weight: 600;
-              line-height: 1.2;
-              color: #fff;
-              background: #111827;
-              border: 1px solid #0f172a;
-              border-radius: 12px;
-              cursor: pointer;
-              font-family: inherit;
-            "
-          >
-            Upload from Computer
+
+        <!-- Single item vs Batch are two genuinely separate screens — this just switches
+             which one is visible, rather than stacking both on one long page. -->
+        <!-- Batch upload: built but not ready to ship yet — hidden for this release, all
+             markup/JS left in place so it's a one-line re-enable (remove this `hidden`). -->
+        <div class="mode-tabs hidden" role="tablist" aria-label="Upload mode">
+          <button type="button" class="mode-tab is-active" id="tab-single-item" role="tab" aria-selected="true">
+            Single item
+          </button>
+          <button type="button" class="mode-tab" id="tab-batch-upload" role="tab" aria-selected="false">
+            Batch <span class="qr-batch-cta-lock hidden" id="btn-batch-upload-lock" aria-hidden="true">🔒 Pro</span>
           </button>
         </div>
-        <button
-          type="button"
-          class="pair-copy-bucket"
-          id="btn-copy-snap-link"
-          title="Copy session code only (not the full URL)"
-          aria-label="Copy session code for pairing"
-        >
-          <span class="pair-copy-left">
-            <span id="pair-session-code" class="pair-copy-code"></span>
-            <span class="pair-copy-hint" id="pair-copy-hint" aria-live="polite"></span>
-          </span>
-          <span class="pair-copy-chip" aria-hidden="true">Copy session code</span>
-        </button>
-        <button
-          type="button"
-          class="btn-new-session"
-          id="btn-new-pairing-session"
-          title="Creates a new session ID for your next upload. Use after finishing a scan or to avoid mixing photos."
-        >
-          Generate code for new upload session
-        </button>
-        <button type="button" class="btn-ghost hidden" id="btn-continue-listing">
-          Continue to listing
-        </button>
 
-        <!-- Phone sync status banner — shown when a scan is in progress -->
-        <div id="qr-sync-status" class="qr-sync-status hidden" role="status" aria-live="polite">
-          <span class="qr-sync-spinner"></span>
-          <span id="qr-sync-text">📱 Photo received — AI is extracting your listing…</span>
+        <div id="single-item-flow">
+          <div class="qr-card">
+            <div class="qr-loader" id="qr-loader" aria-hidden="true">
+              <div class="qr-loader-spinner"></div>
+            </div>
+            <img id="qr-img" alt="Pairing QR" width="180" height="180" />
+            <p class="qr-hint">Scan QR, upload from PC or Phone.</p>
+            <div class="qr-or-divider" role="separator" aria-label="Option 2">
+              <span class="qr-or-divider__line" aria-hidden="true"></span>
+              <span class="qr-or-divider__text">or</span>
+              <span class="qr-or-divider__line" aria-hidden="true"></span>
+            </div>
+            <!-- In-card CTA: inline styles so it still shows if extension CSS is stale / wrong folder. -->
+            <button
+              type="button"
+              class="qr-snap-cta"
+              id="btn-open-snap-on-this-computer"
+              style="
+                display: block;
+                width: 100%;
+                box-sizing: border-box;
+                margin-top: 10px;
+                padding: 6px 10px;
+                min-height: 32px;
+                font-size: 13px;
+                font-weight: 600;
+                line-height: 1.2;
+                color: var(--accent);
+                background: transparent;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-family: inherit;
+                text-decoration: underline;
+                text-decoration-color: var(--accent-soft);
+              "
+            >
+              Upload from Computer
+            </button>
+          </div>
+          <button
+            type="button"
+            class="pair-copy-bucket"
+            id="btn-copy-snap-link"
+            title="Copy session code only (not the full URL)"
+            aria-label="Copy session code for pairing"
+          >
+            <span class="pair-copy-left">
+              <span id="pair-session-code" class="pair-copy-code"></span>
+              <span class="pair-copy-hint sr-only" id="pair-copy-hint" aria-live="polite"></span>
+            </span>
+            <span class="pair-copy-chip" id="pair-copy-chip" aria-hidden="true">Copy session code</span>
+          </button>
+          <button
+            type="button"
+            class="btn-new-session"
+            id="btn-new-pairing-session"
+            title="Creates a new session ID for your next upload. Use after finishing a scan or to avoid mixing photos."
+          >
+            Generate code for new upload session
+          </button>
+          <button type="button" class="qr-snap-cta-solid hidden" id="btn-continue-listing">
+            Continue to listing
+          </button>
+
+          <!-- Phone sync status banner — shown when a scan is in progress -->
+          <div id="qr-sync-status" class="qr-sync-status hidden" role="status" aria-live="polite">
+            <span class="qr-sync-spinner"></span>
+            <span id="qr-sync-text">📱 Photo received — AI is extracting your listing…</span>
+          </div>
+        </div>
+
+        <!-- Batch's own clean intro screen — same visual weight as the QR card, not a small
+             card squeezed below it. -->
+        <div id="batch-intro-screen" class="batch-intro hidden">
+          <span class="batch-intro-icon" aria-hidden="true">🗂️</span>
+          <p class="batch-intro-title">Batch upload</p>
+          <p class="batch-intro-sub">List several products in one go. Pick a platform once — it's used for every photo in this batch.</p>
+          <button type="button" class="qr-snap-cta-solid" id="btn-open-batch-upload">
+            Select photos
+          </button>
+          <p class="batch-intro-locked-note hidden" id="batch-intro-locked-note">
+            🔒 Batch upload is available on Pro and above.
+          </p>
+        </div>
+        <input type="file" id="batch-file-input" accept="image/jpeg,image/png,image/webp,image/heic,.heic" multiple hidden />
+      </div>
+
+      <!-- Batch upload: choose platform once for the whole batch, before picking photos. -->
+      <div id="state-batch-platform" class="section hidden">
+        <div class="step-block" style="border-top: none; padding-top: 0">
+          <p class="label-step">Batch upload — choose platform</p>
+          <span class="field-label">All photos in this batch go to the same platform</span>
+          <div class="platform-grid" id="batch-platform-grid" role="radiogroup" aria-label="Marketplace">
+            <button type="button" class="platform-tile" data-platform="shopify" title="Shopify">
+              <img class="platform-icon platform-icon--shopify" src="icons/shopify-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Shopify</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="ebay" title="eBay">
+              <img class="platform-icon platform-icon--ebay" src="icons/ebay-wordmark.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">eBay</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="etsy" title="Etsy">
+              <img class="platform-icon platform-icon--etsy" src="icons/etsy-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Etsy</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="shopee" title="Shopee">
+              <img class="platform-icon platform-icon--shopee" src="icons/shopee-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Shopee</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="depop" title="Depop">
+              <img class="platform-icon platform-icon--depop" src="icons/depop-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Depop</span>
+            </button>
+            <button type="button" class="platform-tile" data-platform="vinted" title="Vinted">
+              <img class="platform-icon platform-icon--vinted" src="icons/vinted-logo.png" width="40" height="40" alt="" aria-hidden="true" decoding="async" />
+              <span class="platform-name">Vinted</span>
+            </button>
+          </div>
+          <button type="button" class="btn-ghost" id="btn-batch-platform-back">
+            Back
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch upload: queue of items extracting/ready, all for the platform chosen above. -->
+      <div id="state-batch-queue" class="section hidden">
+        <div class="step-block" style="border-top: none; padding-top: 0">
+          <p class="label-step">
+            Batch upload <span class="label-step-total" id="batch-queue-progress">0 of 0 ready</span>
+          </p>
+          <div class="settings-library-list" id="batch-queue-list"></div>
+          <button type="button" class="btn-ghost" id="btn-batch-queue-done">
+            Done — back to pairing
+          </button>
         </div>
       </div>
 
       <div id="state-loaded" class="section hidden">
-        <div class="loaded-hero">
-          <p class="ready-sub" id="loaded-intro">
-            Choose a marketplace to start Magic Fill instantly<br />in your open tab and publish faster
-          </p>
-        </div>
-
         <div id="loaded-waiting" class="loaded-waiting hidden" role="status" aria-live="polite">
           <p class="loaded-waiting-title">Waiting for your scan</p>
           <p class="loaded-waiting-sub">Scan QR, upload from PC or Phone.</p>
@@ -2388,8 +2691,7 @@
 
         <div id="loaded-main">
           <div class="step-block">
-            <p class="label-step"><span class="label-step-num">2.</span> Choose platform</p>
-            <span class="field-label">Where do you want to list?</span>
+            <p class="label-step"><span class="label-step-num">2.</span> Choose platform <span class="label-step-total">(step 2 of 5)</span></p>
             <div class="platform-grid" id="platform-grid" role="radiogroup" aria-label="Marketplace">
   <button type="button" class="platform-tile" data-platform="shopify" title="Shopify" aria-pressed="false">
     <img
@@ -2465,7 +2767,7 @@
   </button>
   <button
     type="button"
-    class="platform-tile platform-tile--coming-soon"
+    class="platform-tile platform-tile--coming-soon hidden"
     disabled
     aria-disabled="true"
     tabindex="-1"
@@ -2486,7 +2788,7 @@
   </button>
   <button
     type="button"
-    class="platform-tile platform-tile--coming-soon"
+    class="platform-tile platform-tile--coming-soon hidden"
     disabled
     aria-disabled="true"
     tabindex="-1"
@@ -2526,15 +2828,7 @@
                 <div class="review-loading-body">
                   <div class="review-loading-head">
                     <span class="review-loading-stage" id="review-loading-text">Syncing from phone…</span>
-                    <span class="review-loading-meta" id="review-loading-meta">0s</span>
                   </div>
-                  <div class="review-loading-eta" id="review-loading-eta">AI is reading your photo and drafting the listing — usually takes 5–15 seconds.</div>
-                  <ul class="review-loading-steps" aria-label="Extraction steps">
-                    <li class="review-loading-step" id="extract-step-upload">📱 Photo received from phone</li>
-                    <li class="review-loading-step" id="extract-step-process">🔍 AI analysing product</li>
-                    <li class="review-loading-step" id="extract-step-draft">✏️ Drafting title &amp; description</li>
-                    <li class="review-loading-step" id="extract-step-finalize">💰 Estimating price &amp; finalising</li>
-                  </ul>
                 </div>
               </div>
               <div class="preview-row">
@@ -2561,11 +2855,6 @@
                 </span>
                 <input type="text" class="review-input" id="review-price" autocomplete="off" placeholder="0.00" />
               </label>
-              <label class="review-field review-field--readonly hidden" id="review-category-row">
-                <span class="field-label">Category</span>
-                <input type="text" class="review-input" id="review-category" readonly tabindex="-1" />
-              </label>
-              <div class="sub-divider" aria-hidden="true"></div>
               <div class="review-actions">
                 <button type="button" class="btn-ghost" id="btn-open-full-review" disabled>
                   Open full review in browser
@@ -2576,13 +2865,14 @@
             <div class="step-block" id="platform-ready-section">
               <p class="label-step" id="platform-ready-step-label">
                 <span class="label-step-num">4.</span> Open marketplace &amp; product page
+                <span class="label-step-total">(step 4 of 5)</span>
               </p>
               <p class="ready-sub" id="platform-ready-hint"></p>
               <p class="platform-ready-must">Must do this step or extraction will fail.</p>
             </div>
 
           <div class="step-block" id="magic-send-section">
-            <p class="label-step"><span class="label-step-num">5.</span> Post to the marketplace</p>
+            <p class="label-step"><span class="label-step-num">5.</span> Post to the marketplace <span class="label-step-total">(step 5 of 5)</span></p>
             <p class="ready-sub">
               <span id="magic-post-hint">
                 Keep your <strong id="magic-tab-hint">listing</strong> open. Start from <strong>Products</strong> list;

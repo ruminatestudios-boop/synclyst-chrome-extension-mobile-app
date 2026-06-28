@@ -242,7 +242,17 @@ async function resolveSynclystOrigin() {
   }
 
   if (manual && /^https?:\/\//i.test(manual)) {
-    return manual.replace(/\/$/, "");
+    const manualClean = manual.replace(/\/$/, "");
+    if (await validateSnapPairOrigin(manualClean)) {
+      return manualClean;
+    }
+    try {
+      chrome.storage.local.remove([STORAGE_ORIGIN_MANUAL], () => {
+        /* ignore */
+      });
+    } catch {
+      /* ignore */
+    }
   }
 
   // In prod manifest (no localhost in CSP), skip cached localhost origins and local discovery
@@ -328,6 +338,13 @@ let lastAppliedListingStamp = null;
 /** One-shot: skip auto-advance when re-applying an existing listing while restoring QR home from storage. */
 /** When true, we just received a "new scan/upload" signal and are waiting for listing content. */
 let extractionPending = false;
+/**
+ * True while the user is viewing a specific *historical* draft opened from the library.
+ * Multiple drafts can share one session id (re-scanned within the same pairing session),
+ * so the live session-poll loop would otherwise overwrite the opened draft with whatever
+ * is currently latest for that session within ~1s. Cleared when the user starts a new scan.
+ */
+let viewingPinnedDraft = false;
 let suppressMergeNextPoll = false;
 let extractionStartedAtMs = 0;
 let extractionTickerId = null;
@@ -450,6 +467,29 @@ const DRAFT_LIBRARY_THUMB_SIZE = 44;
 /** Narrow popup: keep draft titles short so the library row doesn’t clip awkwardly. */
 const LIBRARY_UI_TITLE_MAX_CHARS = 32;
 
+// Vision/AI title extraction occasionally returns a refusal/error sentence
+// instead of a product title (e.g. "I cannot find any readable word or
+// number on this item."). Treat those as "no title" rather than showing
+// the raw model output to the user.
+const AI_REFUSAL_TITLE_RE =
+  /^(i\s+(cannot|can't|am unable to|couldn't|could not)\b|sorry,|there is no readable|no readable (word|text)|unable to (identify|read|determine))/i;
+// Vision extraction sometimes reads a calendar/clock screenshot instead of the product
+// (e.g. "08/06, 10:00 Mon 1 Jun smartphone…") — a date/time stamp leading the title is a
+// strong signal that's not a real product name either.
+const DATE_LIKE_TITLE_RE =
+  /^(\d{1,2}[/.-]\d{1,2}([/.-]\d{2,4})?\s*[,]|\d{1,2}:\d{2}\s|(mon|tue|wed|thu|fri|sat|sun)(day)?\s*[, ]\s*\d{1,2}\b)/i;
+function looksLikeAiRefusalText(s) {
+  const t = safeTrimStr(s);
+  return !!t && (AI_REFUSAL_TITLE_RE.test(t) || DATE_LIKE_TITLE_RE.test(t));
+}
+
+/** Session codes are opaque hex IDs — show a short head…tail form, full value stays in `title`/copy. */
+function truncateSessionCodeForDisplay(code) {
+  const c = safeTrimStr(code);
+  if (c.length <= 12) return c;
+  return `${c.slice(0, 6)}…${c.slice(-4)}`;
+}
+
 function safeTrimStr(v) {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -566,13 +606,19 @@ function writeDraftLibrary(list) {
 function updateLibraryBarUI(list) {
   const items = Array.isArray(list) ? list : [];
   const bar = document.getElementById("library-bar");
-  if (bar) bar.classList.toggle("hidden", !items.length);
+  // The bar only belongs on the pairing (QR) screen — callers fire on background events
+  // (e.g. a scan finishing saves a draft) regardless of which screen is active, so re-check
+  // visibility here instead of trusting the caller not to un-hide it on the listing steps.
+  const stateEmptyEl = document.getElementById("state-empty");
+  const onPairingScreen = !!stateEmptyEl && !stateEmptyEl.classList.contains("hidden");
+  if (bar) bar.classList.toggle("hidden", !items.length || !onPairingScreen);
   if (!items.length) return;
   const countEl = document.getElementById("library-bar-count");
   if (countEl) countEl.textContent = String(items.length || 0);
   const subEl = document.getElementById("library-bar-sub");
   if (subEl) {
-    const t0 = safeTrimStr(items[0] && items[0].title);
+    const t0raw = safeTrimStr(items[0] && items[0].title);
+    const t0 = looksLikeAiRefusalText(t0raw) ? "" : t0raw;
     const shown = t0 ? truncateLibraryTitle(t0) : "";
     subEl.textContent = shown || "Open a draft to post again";
     subEl.title = t0.length > LIBRARY_UI_TITLE_MAX_CHARS ? t0 : "";
@@ -630,12 +676,17 @@ function renderDraftLibraryOverlayUI(list) {
     lines.className = "settings-library-lines";
     const name = document.createElement("p");
     name.className = "settings-library-name";
-    const rawName = safeTrimStr(it.title) || "Untitled draft";
+    const cleanTitle = safeTrimStr(it.title);
+    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
+    const rawName = (cleanTitle && !looksLikeAiRefusalText(cleanTitle))
+      ? cleanTitle
+      // Multiple untitled drafts look identical otherwise — tag with the scan time so
+      // the user can tell them apart without opening each one.
+      : (t ? `Untitled draft · ${t}` : "Untitled draft");
     name.textContent = truncateLibraryTitle(rawName);
     if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
     const sub = document.createElement("p");
     sub.className = "settings-library-sub";
-    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
     sub.textContent = `${t || "—"} · ${sid}`;
     lines.appendChild(name);
     lines.appendChild(sub);
@@ -676,7 +727,10 @@ async function upsertDraftLibraryItem(item) {
   if (clearedAt && itemMs && itemMs <= clearedAt) return;
   const next = {
     sessionId: sid,
-    title: safeTrimStr(item && item.title) || "Untitled draft",
+    title: (() => {
+      const t = safeTrimStr(item && item.title);
+      return t && !looksLikeAiRefusalText(t) ? t : "Untitled draft";
+    })(),
     updatedAtMs: typeof item.updatedAtMs === "number" && Number.isFinite(item.updatedAtMs) ? item.updatedAtMs : Date.now(),
     stamp: safeTrimStr(item && item.stamp),
     imageUrl: safeTrimStr(item && item.imageUrl),
@@ -741,6 +795,7 @@ function openLibrarySession(sessionId, cachedRow) {
   // If we have cached listing data, restore instantly without a reload or server fetch.
   if (cachedRow && typeof cachedRow === "object") {
     try {
+      viewingPinnedDraft = true;
       chrome.storage.local.set({ snap_pair_session_id: sid, [STORAGE_PREFERS_QR_HOME]: false });
       snapPairSessionId = sid;
       // Pre-load the cached listing BEFORE continueToListing() so refreshLoadedSubstate()
@@ -756,24 +811,23 @@ function openLibrarySession(sessionId, cachedRow) {
       } catch { /* ignore */ }
       continueToListing();
       applyListing(cachedRow);
-      // On the next server response, skip the stale-field merge so the real server data
-      // (correct product description) replaces whatever is in the cache.
-      suppressMergeNextPoll = true;
-      void burstPollUntilListing(sid, { stepMs: 400, maxAttempts: 8 });
+      // Don't re-poll the session afterward — multiple drafts in the library can share one
+      // session id (re-scanned within the same pairing session), and the session endpoint
+      // only ever returns the *current* listing for that id. Polling here would silently
+      // overwrite whichever historical draft the user just opened with the latest scan.
       return;
     } catch {
       /* fall through to reload if anything fails */
     }
   }
 
-  // Fallback: reload and fetch from server.
-  try {
-    chrome.storage.local.set({ snap_pair_session_id: sid, [STORAGE_PREFERS_QR_HOME]: false }, () => {
-      window.location.reload();
-    });
-  } catch {
-    window.location.reload();
-  }
+  // No cached snapshot for this draft. We can NOT safely fall back to "reload + fetch
+  // from server" here: the session endpoint only ever returns the *current* listing for a
+  // session id, and multiple drafts in the library can share one session id (re-scanned
+  // within the same pairing session). A reload would silently show the wrong (latest) item
+  // with total confidence — worse than telling the user plainly that this one can't be
+  // reopened.
+  showToast("Couldn't reopen this draft — its saved data is missing. Try scanning it again.", "error", 3200);
 }
 
 function renderDraftLibraryUI(list) {
@@ -816,12 +870,17 @@ function renderDraftLibraryUI(list) {
     lines.className = "settings-library-lines";
     const name = document.createElement("p");
     name.className = "settings-library-name";
-    const rawName = safeTrimStr(it.title) || "Untitled draft";
+    const cleanTitle = safeTrimStr(it.title);
+    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
+    const rawName = (cleanTitle && !looksLikeAiRefusalText(cleanTitle))
+      ? cleanTitle
+      // Multiple untitled drafts look identical otherwise — tag with the scan time so
+      // the user can tell them apart without opening each one.
+      : (t ? `Untitled draft · ${t}` : "Untitled draft");
     name.textContent = truncateLibraryTitle(rawName);
     if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
     const sub = document.createElement("p");
     sub.className = "settings-library-sub";
-    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
     sub.textContent = `${t || "—"} · ${sid}`;
     lines.appendChild(name);
     lines.appendChild(sub);
@@ -887,16 +946,41 @@ function wireLibraryOverlay() {
     }
     close();
   });
-  clearBtn?.addEventListener("click", (e) => {
+  // `window.confirm()` is unreliable inside extension popups (can silently return false or
+  // close the popup without ever showing a dialog) — use a tap-twice pattern instead: first
+  // click arms it and relabels the button, a second click within a few seconds actually clears.
+  let clearArmedUntil = 0;
+  let clearArmedResetTimer = null;
+  clearBtn?.addEventListener("click", async (e) => {
     try {
       e.preventDefault();
       e.stopPropagation();
     } catch {
       /* ignore */
     }
-    clearDraftLibrary();
-    close();
-    showToast("Drafts cleared.", "success", 1400);
+    if (!clearBtn) return;
+    const now = Date.now();
+    if (now < clearArmedUntil) {
+      if (clearArmedResetTimer) {
+        clearTimeout(clearArmedResetTimer);
+        clearArmedResetTimer = null;
+      }
+      clearArmedUntil = 0;
+      clearBtn.textContent = "Clear drafts";
+      clearDraftLibrary();
+      close();
+      showToast("Drafts cleared.", "success", 1400);
+      return;
+    }
+    const list = await readDraftLibrary();
+    const count = Array.isArray(list) ? list.length : 0;
+    if (!count) return;
+    clearArmedUntil = now + 4000;
+    clearBtn.textContent = "Tap again to confirm";
+    clearArmedResetTimer = setTimeout(() => {
+      clearArmedUntil = 0;
+      clearBtn.textContent = "Clear drafts";
+    }, 4000);
   });
 }
 
@@ -1194,27 +1278,16 @@ function refreshSettingsBillingAuthUI() {
   const authCard = document.getElementById("settings-auth");
   const title = document.getElementById("settings-auth-title");
   const sub = document.getElementById("settings-auth-sub");
-  const pill = document.getElementById("settings-auth-pill");
   const btn = document.getElementById("btn-settings-signin");
   const signed = !!billingSignedIn;
   if (authCard) authCard.classList.remove("hidden");
-  if (pill) {
-    pill.textContent =
-      billingSignedIn === null
-        ? "Checking sign-in…"
-        : signed
-          ? `Signed in${billingEmail ? ` · ${billingEmail}` : ""}`
-          : "Signed out";
-  }
+  // Title + sub used to repeat the same "sign in to upgrade" message as two stacked lines;
+  // one line covers it, and the per-plan buttons no longer repeat the phrase either.
   if (title) {
     title.textContent =
-      billingSignedIn === null ? "Checking sign-in…" : signed ? "Signed in" : "Sign in to upgrade";
+      billingSignedIn === null ? "Checking sign-in…" : signed ? "Signed in" : "Sign in to manage your plan";
   }
-  if (sub) {
-    sub.textContent = signed
-      ? "You can upgrade in one click."
-      : "Your plan is linked to your SyncLyst account. Sign in once, then upgrade in one click.";
-  }
+  if (sub) sub.textContent = "";
   if (btn) {
     btn.textContent = signed ? "Log out" : "Sign in";
   }
@@ -1238,7 +1311,9 @@ function refreshSettingsBillingAuthUI() {
     } else {
       b.disabled = true;
       b.classList.add("is-disabled");
-      b.textContent = "Sign in to upgrade";
+      // The auth card above already explains sign-in is required — repeating
+      // "Sign in to upgrade" on every plan button was redundant.
+      b.textContent = "Upgrade";
     }
   });
 }
@@ -1573,6 +1648,19 @@ function wireBillingSettings() {
     overlay?.classList.add("hidden");
   });
 
+  // Diagnostics is dev/support-facing (raw session IDs, fetch errors) — collapsed by
+  // default so it doesn't read as "the extension is broken" to a regular user.
+  document.getElementById("btn-toggle-diagnostics")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const panel = document.getElementById("settings-diagnostics");
+    const hintEl = document.getElementById("diagnostics-toggle-hint");
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    const willExpand = !expanded;
+    btn.setAttribute("aria-expanded", willExpand ? "true" : "false");
+    panel?.classList.toggle("hidden", !willExpand);
+    if (hintEl) hintEl.textContent = willExpand ? "Tap to hide ▴" : "Tap to view technical details ▾";
+  });
+
   document.getElementById("btn-open-terms")?.addEventListener("click", () => loadLegalDocIntoModal("terms"));
   document.getElementById("btn-open-privacy")?.addEventListener("click", () => loadLegalDocIntoModal("privacy"));
 
@@ -1670,12 +1758,13 @@ function wireBillingSettings() {
 }
 
 /** Bold primary step index (`2.`, `3.`, …) inside `.label-step`; remainder keeps muted styling. */
+const TOTAL_PAIRING_STEPS = 5;
 function setLabelStepHtml(el, text) {
   if (!el) return;
   const s = String(text || "").trim();
-  const m = s.match(/^(\d+\.)\s*(.*)$/);
+  const m = s.match(/^(\d+)\.\s*(.*)$/);
   if (m) {
-    el.innerHTML = `<span class="label-step-num">${m[1]}</span> ${m[2]}`;
+    el.innerHTML = `<span class="label-step-num">${m[1]}.</span> ${m[2]} <span class="label-step-total">(step ${m[1]} of ${TOTAL_PAIRING_STEPS})</span>`;
   } else {
     el.textContent = s;
   }
@@ -1946,17 +2035,28 @@ const PAIR_COPY_HINT_DEFAULT = "";
 async function copySnapPairUrl() {
   const code = snapPairSessionId;
   if (!code) return;
+  // Announce to screen readers via the (visually hidden) hint span; show sighted users a
+  // same-size chip-text swap + border flash instead of growing the box with a second line.
   const hintEl = document.getElementById("pair-copy-hint");
+  const chipEl = document.getElementById("pair-copy-chip");
+  const bucketEl = document.getElementById("btn-copy-snap-link");
+  const chipDefault = "Copy session code";
   try {
     await navigator.clipboard.writeText(code);
     if (hintEl) hintEl.textContent = "Code copied!";
+    if (chipEl) chipEl.textContent = "Copied!";
+    if (bucketEl) bucketEl.classList.add("is-copied");
     setTimeout(() => {
       if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
+      if (chipEl) chipEl.textContent = chipDefault;
+      if (bucketEl) bucketEl.classList.remove("is-copied");
     }, 1600);
   } catch {
     if (hintEl) hintEl.textContent = "Couldn’t copy — select the code";
+    if (chipEl) chipEl.textContent = "Copy failed";
     setTimeout(() => {
       if (hintEl) hintEl.textContent = PAIR_COPY_HINT_DEFAULT;
+      if (chipEl) chipEl.textContent = chipDefault;
     }, 2400);
   }
 }
@@ -1988,14 +2088,19 @@ function wireSnapPairCtaButtons() {
   snapPairCtaWired = true;
   const beginNewUploadFlow = () => {
     try {
+      // A genuinely new scan is starting — resume live polling even if the user had a
+      // historical draft pinned open.
+      viewingPinnedDraft = false;
       // Reset local UI so the user understands we're waiting for a *new* scan.
       listingHydrated = false;
       lastPayload = null;
       lastAppliedListingStamp = null;
       lastAppliedImageUrl = null;
-      setReviewLoadingState(true, "Waiting for upload");
-      continueToListing();
-      // If the user takes a while to upload, this still keeps polling for a bit.
+      // Don't flip the popup to the loading/review screen the instant this button is
+      // clicked — the user is about to switch tabs to actually upload a photo, so an
+      // empty loading box appearing here for a few seconds is just noise. Poll quietly
+      // in the background; `applyListing` (via burstPollUntilListing) switches the view
+      // once real listing data actually arrives.
       burstPollUntilListing(snapPairSessionId, {
         stepMs: 350,
         maxAttempts: 240,
@@ -2005,10 +2110,11 @@ function wireSnapPairCtaButtons() {
       /* ignore */
     }
   };
-  const onOpen = (e) => {
+  const onOpen = async (e) => {
     e.preventDefault();
     beginNewUploadFlow();
-    openSnapPairLink(getCurrentPairUrl());
+    const url = await resolvePairUrlForDesktopUpload();
+    openSnapPairLink(url);
   };
   const onCopy = (e) => {
     e.preventDefault();
@@ -2025,6 +2131,35 @@ function getCurrentPairUrl() {
   if (!sid) return "";
   const base = String(SYNCLYST_ORIGIN || SYNCLYST_ORIGIN_DEFAULT).replace(/\/$/, "");
   return `${base}/snap?s=${encodeURIComponent(sid)}`;
+}
+
+/**
+ * Desktop “Upload from Computer” must not open dead loopback tabs when Next is not running.
+ * Re-check origin at click time and fall back to synclyst.app.
+ */
+async function resolvePairUrlForDesktopUpload() {
+  const sid = snapPairSessionId;
+  if (!sid) return "";
+  let origin = String(SYNCLYST_ORIGIN || SYNCLYST_ORIGIN_DEFAULT).replace(/\/$/, "");
+  if (!(await validateSnapPairOrigin(origin))) {
+    try {
+      chrome.storage.local.remove([STORAGE_ORIGIN_AUTO, STORAGE_ORIGIN_MANUAL], () => {
+        /* ignore */
+      });
+    } catch {
+      /* ignore */
+    }
+    if (await validateSnapPairOrigin(SYNCLYST_ORIGIN_LIVE)) {
+      origin = SYNCLYST_ORIGIN_LIVE.replace(/\/$/, "");
+      SYNCLYST_ORIGIN = origin;
+      try {
+        chrome.storage.local.set({ [STORAGE_ORIGIN_AUTO]: origin });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return `${origin}/snap?s=${encodeURIComponent(sid)}`;
 }
 
 /**
@@ -2422,6 +2557,384 @@ async function pollSession(sessionId) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Batch upload — Pro+ only. Upload several photos at once, all going to one
+// platform chosen up front. Each photo gets its own session id and is pushed
+// through the exact same single-item session/extraction endpoints used by
+// the regular QR/upload flow — no backend changes needed.
+// ---------------------------------------------------------------------------
+const STORAGE_BATCH_QUEUE = "synclyst_batch_queue_v1";
+let batchPendingFiles = [];
+let batchPlatform = "";
+let batchProcessingActive = false;
+
+function isPaidTier(tier) {
+  return !!tier && tier !== "starter";
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function pushImageForExtraction(sessionId, dataUrl, mimeType) {
+  try {
+    const r = await fetchWithTimeout(
+      `${SYNCLYST_ORIGIN}/api/snap-pair/push`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, image_base64: dataUrl, mime_type: mimeType || "image/jpeg" }),
+      },
+      60000
+    );
+    if (r && r.ok) return { ok: true };
+    let errMsg = `HTTP ${r ? r.status : "?"}`;
+    try {
+      const j = await r.json();
+      if (j && j.error) errMsg = String(j.error).slice(0, 120);
+    } catch {
+      /* response wasn't JSON */
+    }
+    console.warn("[batch] push failed:", errMsg);
+    return { ok: false, error: errMsg };
+  } catch (e) {
+    const errMsg = (e && e.name === "AbortError") ? "Timed out" : "Network error";
+    console.warn("[batch] push failed:", errMsg, e);
+    return { ok: false, error: errMsg };
+  }
+}
+
+function readBatchQueue() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get([STORAGE_BATCH_QUEUE], (o) => {
+        const raw = o && o[STORAGE_BATCH_QUEUE];
+        resolve(Array.isArray(raw) ? raw : []);
+      });
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+function writeBatchQueue(list) {
+  try {
+    chrome.storage.local.set({ [STORAGE_BATCH_QUEUE]: Array.isArray(list) ? list : [] });
+  } catch {
+    /* ignore */
+  }
+}
+
+function showBatchPlatformScreen() {
+  // The background poll for the *original* single-item session keeps running regardless of
+  // which screen is showing — without this guard, `applyListing()` calls `showQrHomeView()`
+  // every time that poll ticks (since `qrHomeActive` is true), yanking the view back to the
+  // QR screen out from under the batch flow. Same fix as the pinned-draft bug.
+  viewingPinnedDraft = true;
+  document.getElementById("state-empty")?.classList.add("hidden");
+  document.getElementById("batch-intro-screen")?.classList.add("hidden");
+  document.getElementById("state-loaded")?.classList.add("hidden");
+  document.getElementById("state-batch-queue")?.classList.add("hidden");
+  document.getElementById("state-batch-platform")?.classList.remove("hidden");
+}
+
+function showBatchQueueScreen() {
+  document.getElementById("state-empty")?.classList.add("hidden");
+  document.getElementById("state-loaded")?.classList.add("hidden");
+  document.getElementById("state-batch-platform")?.classList.add("hidden");
+  document.getElementById("state-batch-queue")?.classList.remove("hidden");
+}
+
+function exitBatchToQrScreen() {
+  viewingPinnedDraft = false;
+  document.getElementById("state-batch-platform")?.classList.add("hidden");
+  document.getElementById("state-batch-queue")?.classList.add("hidden");
+  showQrHomeView();
+}
+
+function renderBatchQueueUI(items) {
+  const wrap = document.getElementById("batch-queue-list");
+  const progressEl = document.getElementById("batch-queue-progress");
+  if (!wrap) return;
+  const list = Array.isArray(items) ? items : [];
+  const readyCount = list.filter((it) => it && it.status === "ready").length;
+  if (progressEl) progressEl.textContent = `${readyCount} of ${list.length} ready`;
+  wrap.innerHTML = "";
+  for (const it of list) {
+    if (!it || typeof it !== "object") continue;
+    const row = document.createElement("div");
+    row.className = "settings-library-item";
+
+    const meta = document.createElement("div");
+    meta.className = "settings-library-item-meta";
+    const thumbUrl = safeTrimStr(it.imageUrl);
+    if (thumbUrl) {
+      const img = document.createElement("img");
+      img.className = "settings-library-thumb";
+      img.alt = "";
+      img.decoding = "async";
+      img.src = thumbUrl;
+      meta.appendChild(img);
+    } else {
+      const ph = document.createElement("div");
+      ph.className = "settings-library-thumb settings-library-thumb--placeholder";
+      ph.setAttribute("aria-hidden", "true");
+      ph.textContent = "—";
+      meta.appendChild(ph);
+    }
+
+    const lines = document.createElement("div");
+    lines.className = "settings-library-lines";
+    const name = document.createElement("p");
+    name.className = "settings-library-name";
+    const statusLabel =
+      it.status === "ready"
+        ? ""
+        : it.status === "failed"
+          ? ` — ${safeTrimStr(it.error) || "failed"}`
+          : it.status === "extracting"
+            ? " — extracting…"
+            : " — queued";
+    const rawTitle = safeTrimStr(it.title) || (it.fileName ? it.fileName : "Untitled");
+    name.textContent = truncateLibraryTitle(rawTitle) + statusLabel;
+    const sub = document.createElement("p");
+    sub.className = "settings-library-sub";
+    sub.textContent = it.sessionId ? String(it.sessionId).slice(0, 12) + "…" : "—";
+    lines.appendChild(name);
+    lines.appendChild(sub);
+    meta.appendChild(lines);
+
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "settings-library-open";
+    if (it.status === "ready" && it.cachedRow) {
+      openBtn.textContent = "Open";
+      openBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openBatchItem(it);
+      });
+    } else if (it.status === "failed") {
+      openBtn.textContent = "Retry";
+      openBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void retryBatchItem(it);
+      });
+    } else {
+      openBtn.textContent = "…";
+      openBtn.disabled = true;
+    }
+
+    row.appendChild(meta);
+    row.appendChild(openBtn);
+    wrap.appendChild(row);
+  }
+}
+
+function openBatchItem(item) {
+  if (!item || !item.sessionId || !item.cachedRow) return;
+  const sid = String(item.sessionId);
+  try {
+    viewingPinnedDraft = true;
+    chrome.storage.local.set({ snap_pair_session_id: sid, [STORAGE_PREFERS_QR_HOME]: false });
+    snapPairSessionId = sid;
+    lastPayload = item.cachedRow;
+    listingHydrated = true;
+    lastAppliedListingStamp = null;
+    lastAppliedImageUrl = null;
+    document.getElementById("state-batch-platform")?.classList.add("hidden");
+    document.getElementById("state-batch-queue")?.classList.add("hidden");
+    continueToListing();
+    applyListing(item.cachedRow);
+    if (batchPlatform && PLATFORM_REVIEW_TEMPLATES[batchPlatform]) setSelectedPlatform(batchPlatform);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function processBatchItem(item, platform) {
+  item.status = "extracting";
+  writeBatchQueue(batchQueueSnapshot());
+  renderBatchQueueUI(batchQueueItemsCache);
+  try {
+    await registerSession(item.sessionId);
+    const dataUrl = await fileToBase64(item.file);
+    const pushResult = await pushImageForExtraction(item.sessionId, dataUrl, item.file.type);
+    if (!pushResult.ok) {
+      item.status = "failed";
+      item.error = pushResult.error || "Upload failed";
+      writeBatchQueue(batchQueueSnapshot());
+      renderBatchQueueUI(batchQueueItemsCache);
+      return;
+    }
+    item.imageUrl = dataUrl;
+    // Poll until the listing has real content, or give up after ~40s for this one item.
+    const maxAttempts = 80;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const j = await pollSession(item.sessionId);
+      if (j && !j.empty && j.listing && sessionListingHasContent(j.listing)) {
+        item.status = "ready";
+        item.title = j.listing.title || item.fileName || "Untitled";
+        item.cachedRow = j.listing;
+        writeBatchQueue(batchQueueSnapshot());
+        renderBatchQueueUI(batchQueueItemsCache);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    item.status = "failed";
+    item.error = "Extraction timed out";
+    writeBatchQueue(batchQueueSnapshot());
+    renderBatchQueueUI(batchQueueItemsCache);
+  } catch (e) {
+    item.status = "failed";
+    item.error = (e && e.message) ? String(e.message).slice(0, 120) : "Unexpected error";
+    writeBatchQueue(batchQueueSnapshot());
+    renderBatchQueueUI(batchQueueItemsCache);
+  }
+}
+
+let batchQueueItemsCache = [];
+function batchQueueSnapshot() {
+  // Don't persist the raw File object or full-size data URL to chrome.storage — too large /
+  // not serializable in a useful way. Keep storage limited to what the queue UI needs to redraw.
+  return batchQueueItemsCache.map((it) => ({
+    sessionId: it.sessionId,
+    fileName: it.fileName,
+    status: it.status,
+    title: it.title || "",
+    platform: it.platform,
+    error: it.error || "",
+  }));
+}
+
+async function startBatchProcessing(files, platform) {
+  if (batchProcessingActive) return;
+  batchProcessingActive = true;
+  batchPlatform = platform;
+  batchQueueItemsCache = Array.from(files).map((file) => ({
+    sessionId: genSessionIdLocal(),
+    file,
+    fileName: file.name,
+    status: "queued",
+    title: "",
+    cachedRow: null,
+    imageUrl: "",
+    platform,
+  }));
+  writeBatchQueue(batchQueueSnapshot());
+  showBatchQueueScreen();
+  renderBatchQueueUI(batchQueueItemsCache);
+  // Sequential, not parallel — avoids hammering the vision API with N simultaneous calls.
+  for (const item of batchQueueItemsCache) {
+    await processBatchItem(item, platform);
+  }
+  batchProcessingActive = false;
+}
+
+async function retryBatchItem(item) {
+  if (!item) return;
+  const fresh = batchQueueItemsCache.find((it) => it.sessionId === item.sessionId);
+  if (!fresh || !fresh.file) return;
+  await processBatchItem(fresh, batchPlatform);
+}
+
+let batchTierAllowed = false;
+
+async function refreshBatchGateUI() {
+  const openBtn = document.getElementById("btn-open-batch-upload");
+  const lockEl = document.getElementById("btn-batch-upload-lock");
+  const lockedNote = document.getElementById("batch-intro-locked-note");
+  chrome.storage.local.get([STORAGE_SYNC_TIER], (o) => {
+    const tier = normalizeBillingTier(o && o[STORAGE_SYNC_TIER]);
+    const allowed = isPaidTier(tier);
+    batchTierAllowed = allowed;
+    if (openBtn) {
+      openBtn.disabled = !allowed;
+      openBtn.title = allowed
+        ? "Upload several photos at once — one per product"
+        : "Upgrade to Pro to upload several photos at once";
+    }
+    if (lockEl) lockEl.classList.toggle("hidden", allowed);
+    if (lockedNote) lockedNote.classList.toggle("hidden", allowed);
+  });
+}
+
+function switchToSingleItemMode() {
+  document.getElementById("tab-single-item")?.classList.add("is-active");
+  document.getElementById("tab-batch-upload")?.classList.remove("is-active");
+  document.getElementById("tab-single-item")?.setAttribute("aria-selected", "true");
+  document.getElementById("tab-batch-upload")?.setAttribute("aria-selected", "false");
+  document.getElementById("single-item-flow")?.classList.remove("hidden");
+  document.getElementById("batch-intro-screen")?.classList.add("hidden");
+}
+
+function switchToBatchIntroMode() {
+  document.getElementById("tab-batch-upload")?.classList.add("is-active");
+  document.getElementById("tab-single-item")?.classList.remove("is-active");
+  document.getElementById("tab-batch-upload")?.setAttribute("aria-selected", "true");
+  document.getElementById("tab-single-item")?.setAttribute("aria-selected", "false");
+  document.getElementById("single-item-flow")?.classList.add("hidden");
+  document.getElementById("batch-intro-screen")?.classList.remove("hidden");
+}
+
+function wireBatchUpload() {
+  const openBtn = document.getElementById("btn-open-batch-upload");
+  const fileInput = document.getElementById("batch-file-input");
+  if (openBtn && fileInput) {
+    openBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (!batchTierAllowed) return;
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", () => {
+      const files = Array.from(fileInput.files || []);
+      fileInput.value = "";
+      if (!files.length) return;
+      batchPendingFiles = files;
+      showBatchPlatformScreen();
+    });
+  }
+  document.getElementById("tab-single-item")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchToSingleItemMode();
+  });
+  document.getElementById("tab-batch-upload")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchToBatchIntroMode();
+  });
+  document.getElementById("batch-platform-grid")?.addEventListener("click", (e) => {
+    const btn = e.target && e.target.closest && e.target.closest(".platform-tile");
+    if (!btn || !btn.dataset.platform) return;
+    const platform = btn.dataset.platform;
+    if (!batchPendingFiles.length) return;
+    void startBatchProcessing(batchPendingFiles, platform);
+    batchPendingFiles = [];
+  });
+  document.getElementById("btn-batch-platform-back")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    batchPendingFiles = [];
+    exitBatchToQrScreen();
+    switchToBatchIntroMode();
+  });
+  document.getElementById("btn-batch-queue-done")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    exitBatchToQrScreen();
+    switchToSingleItemMode();
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    if (!changes[STORAGE_SYNC_TIER]) return;
+    refreshBatchGateUI();
+  });
+}
+
 /**
  * Phone upload sets storage before vision + push finish; a single poll often returns { empty: true }.
  * Poll in quick succession until the session row has listing content (or we give up).
@@ -2435,10 +2948,19 @@ function burstPollUntilListing(sessionId, opts) {
   let attempt = 0;
   async function step() {
     if (my !== snapBurstGen) return;
+    if (viewingPinnedDraft) return;
     if (attempt++ >= maxAttempts) {
       if (onTimeoutMessage) {
         try {
-          setReviewLoadingState(false, onTimeoutMessage);
+          // Only force the review/loading screen open if we're already on it
+          // (extractionPending true). If polling started quietly in the background
+          // (e.g. "Upload from Computer" no longer flips the view on click), just
+          // surface the message as a status line on whichever screen is visible.
+          if (extractionPending) {
+            setReviewLoadingState(false, onTimeoutMessage);
+          } else {
+            setStatus(onTimeoutMessage);
+          }
         } catch {
           /* ignore */
         }
@@ -2488,6 +3010,9 @@ function showQrHomeView() {
   if (st) st.textContent = "";
   updatePairingHeaderLabel("qr");
   updateContinueListingButton();
+  // Re-show the drafts bar (re-applies its own "hide if empty" rule) now that we're back
+  // on the pairing screen where it's relevant.
+  void readDraftLibrary().then((list) => updateLibraryBarUI(list));
 }
 
 let brandHomeWired = false;
@@ -2602,6 +3127,9 @@ function continueToListing() {
   if (loaded) loaded.classList.remove("hidden");
   const cont = document.getElementById("btn-continue-listing");
   if (cont) cont.classList.add("hidden");
+  // Drafts bar is only useful on the pairing screen — hide it once the user moves into the
+  // listing steps so it stops competing with the step content for attention.
+  document.getElementById("library-bar")?.classList.add("hidden");
   updatePairingHeaderLabel("listing");
   updateMagicLabel();
   updateFullReviewButton();
@@ -2727,23 +3255,6 @@ function resolveListingDescription(row) {
   return parts.reduce(function (a, b) {
     return b.length > a.length ? b : a;
   }, "");
-}
-
-function pickCategoryFromListing(row) {
-  const ex = row && row.listing_extra;
-  if (!ex || typeof ex !== "object") return "";
-  const shop = ex.shopify && typeof ex.shopify === "object" && !Array.isArray(ex.shopify) ? ex.shopify : null;
-  const fromShop =
-    pickStr(shop && shop.category) ||
-    pickStr(shop && shop.category_suggested) ||
-    pickStr(shop && shop.product_type);
-  if (fromShop) return fromShop;
-  return (
-    pickStr(ex.category) ||
-    pickStr(ex.category_suggested) ||
-    pickStr(ex.product_type) ||
-    ""
-  );
 }
 
 function renderExtraImagesStrip(row) {
@@ -2876,6 +3387,12 @@ function applyListing(row) {
       } catch {
         /* ignore */
       }
+      // Snapshot now, synchronously — `lastPayload` is a mutable global, and the thumbnail
+      // generation below is async. If another scan applies in the meantime (e.g. several
+      // photos uploaded in quick succession), reading `lastPayload` *after* the await would
+      // save the wrong listing as this draft's cachedRow, so a later "Open" shows someone
+      // else's scan.
+      const cachedRowSnapshot = lastPayload;
       void (async () => {
         const thumb = await tryMakeThumbnailDataUrl(coercedImg);
         void upsertDraftLibraryItem({
@@ -2885,7 +3402,7 @@ function applyListing(row) {
           stamp: rawStamp,
           imageUrl: thumb,
           // Cache the full listing row so Open is instant (no server fetch needed).
-          cachedRow: lastPayload,
+          cachedRow: cachedRowSnapshot,
         });
       })();
     }
@@ -2903,36 +3420,23 @@ function applyListing(row) {
   const titleEl = document.getElementById("review-title");
   const descEl = document.getElementById("review-description");
   const priceEl = document.getElementById("review-price");
-  if (titleEl) titleEl.value = row.title == null ? "" : String(row.title).trim();
+  if (titleEl) {
+    const rawTitle = row.title == null ? "" : String(row.title).trim();
+    // Vision extraction occasionally returns a refusal sentence or a misread date/clock
+    // screenshot instead of a product name — don't drop it into the editable title field.
+    titleEl.value = looksLikeAiRefusalText(rawTitle) ? "" : rawTitle;
+  }
   if (descEl) descEl.value = resolvedDesc;
   if (priceEl) priceEl.value = priceStr;
-  const catRow = document.getElementById("review-category-row");
-  const catInput = document.getElementById("review-category");
-  const cat = pickCategoryFromListing(row);
-  if (catRow && catInput) {
-    catInput.value = cat;
-    catRow.classList.toggle("hidden", !cat);
-  }
   renderExtraImagesStrip(row);
   /**
-   * Leave the QR (step 1) shell whenever we have listing data. Previously we only called
-   * `continueToListing()` when `qrHomeActive && isNewer && !suppress` — a stale stamp or
-   * "suppress first apply" could leave the user on the QR view forever even with a filled row.
-   * DOM is the source of truth: if the empty state is still visible, or the QR-home flag is on, advance.
+   * Never auto-switch screens just because new listing data arrived in the background —
+   * that was jumping the popup between the QR and listing screens with no user action,
+   * which reads as broken. Just refresh the data; the existing "Continue to listing" button
+   * (see `updateContinueListingButton`) is the only thing that should move the user forward.
    */
-  const stateEmptyEl = document.getElementById("state-empty");
-  const qrPanelVisible = stateEmptyEl && !stateEmptyEl.classList.contains("hidden");
-  // If the user explicitly chose the QR home (logo tap), do NOT auto-switch them back to listing.
-  // Keep QR visible and just update the "Continue" button state.
-  if (qrHomeActive) {
-    showQrHomeView();
-  } else if (qrPanelVisible) {
-    continueToListing();
-  } else {
-    stateEmptyEl?.classList.add("hidden");
-    document.getElementById("state-loaded")?.classList.remove("hidden");
-    chrome.storage.local.set({ [STORAGE_PREFERS_QR_HOME]: false });
-    updatePairingHeaderLabel("listing");
+  if (!viewingPinnedDraft) {
+    updateContinueListingButton();
   }
 
   const newImg = coercedImg || "";
@@ -3271,8 +3775,9 @@ function setMagicFillLoading(loading) {
 async function runMagicFill() {
   const fillStartedAt = Date.now();
   setMagicFillLoading(true);
-  // Immediate feedback: button spinner + status line.
-  setStatus("Filling…");
+  // Button spinner + purple "is-loading" state are the in-progress signal now —
+  // no separate "Filling…" status banner needed.
+  setStatus("");
   try {
     syncPayloadFromReviewFields();
     const platform = getSelectedPlatform();
@@ -3284,9 +3789,6 @@ async function runMagicFill() {
       setStatus("Add a title to continue — or scan with your phone to import a listing.");
       return;
     }
-    const platformName =
-      (document.getElementById("magic-platform-label")?.textContent || "").trim() || platform;
-    setStatus(`Filling in ${platformName}…`);
     /** Same canonical session as “Open full review in browser” — merge so empty popup fields still get API data. */
     let merged = {
       title: lastPayload.title,
@@ -3371,9 +3873,12 @@ async function runMagicFill() {
           ? "Running Magic Fill in your Shopify tab… (watch for the SyncLyst banner)."
           : "Filling your listing tab… spinner stops when Magic Fill finishes."
       );
-      /** eBay (and similar) run deferred description / extras after the main tick loop — poll long enough. */
-      const pollMs = platform === "ebay" ? 1000 : 900;
-      const pollIters = platform === "ebay" ? 28 : 12;
+      /** eBay / Vinted / Depop run deferred description / photo / combobox-retry work after the main
+       * tick loop (Depop's photo-attach loop alone awaits up to ~10s) — poll long enough or the popup
+       * reports "still running" even though the fill finishes correctly a few seconds later. */
+      const longPollPlatforms = platform === "ebay" || platform === "vinted" || platform === "depop";
+      const pollMs = longPollPlatforms ? 1000 : 900;
+      const pollIters = longPollPlatforms ? 28 : 12;
       for (let i = 0; i < pollIters; i++) {
         await new Promise((r) => setTimeout(r, pollMs));
         const o = await storageGet([
@@ -3515,9 +4020,14 @@ window.addEventListener("beforeunload", () => {
 
     ensurePairingStepControls();
     wireSnapPairCtaButtons();
+    wireBatchUpload();
+    refreshBatchGateUI();
     void readDraftLibrary().then((list) => updateLibraryBarUI(list));
     const codeEl0 = document.getElementById("pair-session-code");
-    if (codeEl0) codeEl0.textContent = sessionId;
+    if (codeEl0) {
+      codeEl0.textContent = truncateSessionCodeForDisplay(sessionId);
+      codeEl0.title = sessionId;
+    }
     const pairUrlForQr = getPhoneQrUrl();
     const qrEl = document.getElementById("qr-img");
     if (qrEl && pairUrlForQr) {
@@ -3639,6 +4149,7 @@ window.addEventListener("beforeunload", () => {
 
     /** HTTP poll always: Realtime can miss (RLS, publication, flaky channel) — same path as dev-memory. */
     pollTimer = setInterval(async () => {
+      if (viewingPinnedDraft) return;
       const j = await pollSession(sessionId);
       if (j && !j.empty && j.listing && sessionListingHasContent(j.listing)) applyListing(j.listing);
     }, 800);

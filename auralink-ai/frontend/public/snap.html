@@ -316,6 +316,12 @@
         outline: 2px solid #8b5cf6;
         outline-offset: 2px;
       }
+      /* Matches the SyncLyst extension popup's copy feedback: a brief purple border
+         flash instead of relying solely on the hint-text swap. */
+      .pair-copy.is-copied {
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+      }
       .pair-copy-code {
         font-size: 0.8125rem;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -459,7 +465,7 @@
       .photo-btn--camera {
         border: 1px solid #d1d5db;
         background: #ffffff;
-        color: #374151;
+        color: #1f2937;
         box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
       }
       .photo-btn--camera:hover {
@@ -1110,8 +1116,8 @@
         height: 100%;
         width: 0%;
         border-radius: 999px;
-        background: linear-gradient(90deg, #7c3aed, #c026d3);
-        box-shadow: 0 0 8px rgba(192, 38, 211, 0.3);
+        background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+        box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
         transition: width 0.2s ease-out;
       }
       .msg {
@@ -1289,8 +1295,6 @@
         var sessionId = (params.get("s") || "").trim();
         var root = document.getElementById("root");
 
-        /** Typical vision + push duration; bar moves toward ~90% by then, then “Almost there…” */
-        var ESTIMATE_SEC = 50;
         var progressTimer = null;
         var uploadAbortController = null;
         var progressStart = 0;
@@ -1370,7 +1374,7 @@
           '<p class="brand-meta">Your listing workflow on autopilot</p>' +
           "</div></div>" +
           '<h1>Pair with desktop</h1>' +
-          '<p class="sub">Pick photos from your computer or take them on your phone.<br />After extraction completes, your draft appears in the SyncLyst extension popup.</p>' +
+          '<p class="sub" id="snap-intro-sub">Pick photos from your computer or take them on your phone.<br />After extraction completes, your draft appears in the SyncLyst extension popup.</p>' +
           '<div class="photo-actions">' +
           '<input type="file" id="file-upload" accept="image/jpeg,image/png,image/webp,image/heic,.heic" multiple />' +
           '<input type="file" id="file-camera" accept="image/*" capture="environment" />' +
@@ -1379,7 +1383,7 @@
           "Upload photos" +
           "</button>" +
           '<button type="button" class="photo-btn photo-btn--camera" id="btn-camera" aria-label="Take photo on your phone — opens a QR code to use this session on your phone">' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M3 9a2 2 0 0 1 2-2h2.5l1-1.5h7l1 1.5H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" stroke-linejoin="round"/></svg>' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M3 9a2 2 0 0 1 2-2h2.5l1-1.5h7l1 1.5H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" stroke-linejoin="round"/></svg>' +
           "Take photo on phone" +
           "</button>" +
           '<button type="button" class="photo-btn photo-btn--secondary" id="btn-open-desktop" aria-label="Open this session on your desktop">' +
@@ -1549,8 +1553,10 @@
             copyTextToClipboard(sessionId).then(
               function () {
                 if (pairHint) pairHint.textContent = "Copied!";
+                copySessionBtn.classList.add("is-copied");
                 setTimeout(function () {
                   if (pairHint) pairHint.textContent = "Tap to copy";
+                  copySessionBtn.classList.remove("is-copied");
                 }, 1600);
               },
               function () {
@@ -1681,34 +1687,26 @@
             if (progressSteps[i]) progressSteps[i].classList.remove("is-done");
           }
           progressStart = Date.now();
+          // No real per-stage signal exists until the request actually resolves — a countdown
+          // tied to a fixed-duration guess is structurally dishonest (it either finishes before
+          // the real result and stalls, or runs out and has to "catch up"). Asymptotically
+          // approach but never reach 100% on its own; only `finishProgressSuccess()` (called
+          // when the real response arrives) snaps it to 100%. Stage labels are an honest rough
+          // sequence, not a claim about exact timing.
           progressTimer = setInterval(function () {
             var elapsed = (Date.now() - progressStart) / 1000;
-            var pct;
-            var etaText;
-            if (elapsed <= ESTIMATE_SEC) {
-              pct = Math.min(88, (elapsed / ESTIMATE_SEC) * 88);
-              var left = Math.ceil(ESTIMATE_SEC - elapsed);
-              etaText = left > 1 ? "~" + left + "s" : "…";
-            } else {
-              pct = Math.min(96, 88 + Math.min(8, (elapsed - ESTIMATE_SEC) * 0.35));
-              etaText = "…";
-            }
+            // Approaches 92% but never reaches it — purely visual "still working" motion.
+            var pct = 92 * (1 - Math.exp(-elapsed / 12));
             progressFill.style.width = pct + "%";
             progressTrack.setAttribute("aria-valuenow", String(Math.round(pct)));
-            var stepIdx = Math.max(1, Math.min(4, Math.floor((elapsed / Math.max(1, ESTIMATE_SEC)) * 4) + 1));
+            var stepIdx =
+              elapsed < 3 ? 1 : elapsed < 10 ? 2 : elapsed < 20 ? 3 : 4;
             for (var i = 0; i < progressSteps.length; i++) {
               if (progressSteps[i]) progressSteps[i].classList.toggle("is-done", i + 1 < stepIdx);
             }
             var phase =
-              stepIdx >= 4
-                ? "Finalizing"
-                : stepIdx === 3
-                ? "Drafting"
-                : stepIdx === 2
-                ? "Processing"
-                : "Uploading";
-            var etaClean = String(etaText || "").replace(/^~\s*/, "");
-            if (progressEta) progressEta.textContent = "Step " + stepIdx + "/4 - " + etaClean + " left · " + phase;
+              stepIdx >= 4 ? "Finalizing" : stepIdx === 3 ? "Drafting" : stepIdx === 2 ? "Processing" : "Uploading";
+            if (progressEta) progressEta.textContent = "Step " + stepIdx + "/4 · " + phase + "…";
           }, 200);
         }
 
@@ -1799,6 +1797,22 @@
           if (snapMUploadBtn) snapMUploadBtn.disabled = !on;
           if (snapMCaptureBtn) snapMCaptureBtn.disabled = !on;
           if (snapMRotateBtn) snapMRotateBtn.disabled = !on;
+          // Hide the (now-disabled) upload buttons and session code box while extraction is
+          // running — they were just sitting there greyed out next to the progress card,
+          // cluttering the view. Restored if upload is cancelled / errors out.
+          var photoActions = document.querySelector(".photo-actions");
+          var sessionPanel = document.querySelector(".session-panel");
+          if (photoActions) photoActions.style.display = on ? "" : "none";
+          if (sessionPanel) sessionPanel.style.display = on ? "" : "none";
+          // The "Pick photos..." instructions only make sense before upload — once extraction
+          // is running, swap to a status line instead of leaving stale upload instructions
+          // showing above the progress card.
+          var introSub = document.getElementById("snap-intro-sub");
+          if (introSub) {
+            introSub.innerHTML = on
+              ? "Pick photos from your computer or take them on your phone.<br />After extraction completes, your draft appears in the SyncLyst extension popup."
+              : "Your photo is being extracted — this usually takes a few seconds.";
+          }
         }
 
         function setSnapMCameraError(msg) {

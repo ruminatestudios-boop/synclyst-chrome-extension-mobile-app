@@ -1,0 +1,2061 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <!-- Metas -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="keywords" content="reseller listing tool, AI listing generator, scan to list, Shopify reseller app, eBay listing automation, Poshmark listing tool, thrift flip app, SyncIQ resale scanner, Chrome extension for resellers, photo to listing AI, SyncLyst">
+    <meta name="description" content="Synclyst is the AI-powered toolkit for resellers. Scan any item with your phone to get instant resale pricing, then publish a full listing to Shopify, eBay, or Poshmark in seconds — no typing required.">
+    <meta name="author" content="Synclyst">
+    <meta property="og:title" content="Synclyst – AI Listing Tool for Resellers">
+    <meta property="og:description" content="Scan items with your phone, check resale value with SyncIQ, and publish listings to Shopify or eBay in seconds. Built for resellers who move fast.">
+    <meta property="og:url" content="https://synclyst.app">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Synclyst – AI Listing Tool for Resellers">
+    <meta name="twitter:description" content="Scan items with your phone, check resale value with SyncIQ, and publish listings to Shopify or eBay in seconds.">
+
+    <!-- Title  -->
+    <title>Synclyst – AI Listing Tool for Resellers | Scan, Price & List Faster</title>
+
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="assets/imgs/favicon.ico">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
+        rel="stylesheet">
+
+    <!-- Plugins -->
+    <link rel="stylesheet" href="common/css/plugins.css?v=2">
+
+    <!-- Core Style Css -->
+    <link rel="stylesheet" href="common/css/common_style.css?v=2">
+    <link rel="stylesheet" href="assets/css/home2-style.css?v=3">
+    <style>
+        .navbar .logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 46px;
+            padding: 10px 0;
+            text-align: center;
+            border: none;
+            border-radius: 0;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .navbar .logo .synclyst-logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            text-decoration: none;
+            line-height: 1;
+        }
+        .navbar .logo .synclyst-logo sup {
+            font-size: 10px;
+            font-weight: 500;
+            margin-left: 2px;
+            line-height: 1;
+            position: relative;
+            top: -0.2em;
+        }
+        .navbar.nav-scroll .synclyst-logo {
+            color: #111;
+        }
+        .navbar.nav-scroll {
+            background: #fff !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.08) !important;
+        }
+        .navbar.nav-scroll .navbar-nav {
+            border-color: rgba(0,0,0,0.12) !important;
+        }
+        .navbar.nav-scroll .navbar-nav .nav-link {
+            color: #111 !important;
+        }
+        .navbar.nav-scroll .topnav .butn {
+            background: #111 !important;
+            color: #fff !important;
+        }
+        .navbar .topnav .butn .icon img { filter: brightness(0) invert(1); }
+        .loader-wrap {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+        /* Preloader is disabled — prevent GSAP from hiding the hero on load */
+        header .container {
+            opacity: 1 !important;
+            transform: none !important;
+        }
+        body.modal-open .navbar,
+        body.modal-open #smooth-wrapper { z-index: 1 !important; }
+        #integrations, #pricing, #stack { scroll-margin-top: 90px; }
+        .modal-backdrop { z-index: 1040 !important; }
+        .modal { z-index: 1055 !important; }
+        .cursor,
+        .cursor-active {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            transform: none !important;
+        }
+        .header-ds {
+            background-image:
+                radial-gradient(circle at 12% 48%, rgba(87, 14, 197, 0.78), rgba(87, 14, 197, 0.22) 34%, rgba(87, 14, 197, 0) 62%),
+                linear-gradient(120deg, #05050a 0%, #090713 52%, #030305 100%) !important;
+            background-color: #07050d;
+        }
+        .color-blue5 {
+            color: #570EC5 !important;
+        }
+        .hamenu .synclyst-logo,
+        .footer-ds .synclyst-logo {
+            color: #fff;
+        }
+        .header-ds .container {
+            min-height: auto;
+            padding: 145px 0 80px;
+        }
+        .synclyst-hero-grid {
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: calc(100vh - 225px);
+        }
+        .hero-butn-tall {
+            padding-top: 14px !important;
+            padding-bottom: 14px !important;
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+        }
+        .hero-butn-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1.2;
+            text-align: center;
+        }
+        .hero-butn-sub {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 3px;
+            font-weight: 400;
+            line-height: 1;
+            text-align: center;
+        }
+        .header-ds .caption h1 {
+            letter-spacing: -0.06em;
+            max-width: 980px;
+            font-size: clamp(2rem, 3.8vw, 3.8rem);
+            line-height: 1.1;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .header-ds .text {
+            max-width: 760px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .header-ds .text .butn {
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .synclyst-hero-button-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+        .synclyst-hero-button-row .butn,
+        .header-ds .text .synclyst-hero-button-row .butn {
+            margin-left: 0;
+            margin-right: 0;
+        }
+        .synclyst-video {
+            max-width: 1180px;
+            margin: 78px auto 0;
+            border-radius: 28px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.18);
+            box-shadow: 0 30px 90px rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.05);
+        }
+        .synclyst-video video {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+        }
+        .synclyst-hero-copy {
+            padding-top: 0;
+        }
+        .works-ds .work-swiper .swiper-slide {
+            width: 285px !important;
+        }
+        .works-ds .work-swiper .swiper-wrapper {
+            align-items: flex-start;
+        }
+        .synclyst-video-card {
+            width: 285px;
+            max-width: 100%;
+        }
+        .synclyst-video-card .img {
+            position: relative;
+            aspect-ratio: 9 / 16;
+            width: 100%;
+            overflow: hidden;
+            border-radius: 18px;
+            background: #111;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+        .synclyst-video-card .img video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+        .synclyst-video-card .img > a.synclyst-video-card__media {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 1;
+            color: inherit;
+        }
+        .synclyst-video-card .img > a.synclyst-video-card__media video {
+            pointer-events: none;
+        }
+        .blog-ds .item {
+            display: flex;
+            flex-direction: column;
+            min-height: 260px;
+        }
+        .blog-ds .item .text {
+            flex: 1;
+        }
+        .synclyst-stack-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 13px 24px;
+            border-radius: 999px;
+            background: #6c2bd9;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            text-decoration: none;
+            transition: background 0.2s, transform 0.2s;
+            white-space: nowrap;
+            align-self: flex-start;
+        }
+        .synclyst-stack-btn:hover {
+            background: #7c3aed;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        .synclyst-stack-btn svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+        .synclyst-video-card .tag {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            padding: 7px 18px;
+            border-radius: 999px;
+            background: #050505;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .synclyst-video-card .cont {
+            margin-top: 22px;
+        }
+        .synclyst-video-card .cont h4 {
+            font-size: 26px;
+        }
+        .brand-ds .synclyst-marketplace .img {
+            width: auto !important;
+            opacity: .32;
+            transition: opacity .4s;
+        }
+        .brand-ds .synclyst-marketplace .img i {
+            display: block;
+            font-size: 40px;
+            line-height: 1;
+            color: #111;
+            transition: color .4s;
+        }
+        .brand-ds .synclyst-marketplace .img svg {
+            display: block;
+            width: 40px !important;
+            height: 40px !important;
+            fill: #111;
+            color: #111;
+            transition: fill .4s, color .4s;
+        }
+        .brand-ds .synclyst-marketplace .img img {
+            display: block;
+            height: 40px;
+            width: auto;
+            max-width: 100%;
+            margin: 0 auto;
+            transition: opacity .4s;
+        }
+        .brand-ds .synclyst-marketplace:hover .img {
+            opacity: 1;
+        }
+        .brand-ds .synclyst-marketplace:hover .img i {
+            color: #570EC5;
+        }
+        .brand-ds .synclyst-marketplace:hover .img svg {
+            fill: #570EC5;
+            color: #570EC5;
+        }
+        .brand-ds .synclyst-marketplace p strong {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        /* Mobile marquee */
+        .synclyst-mobile-marquee { display: none; }
+        @keyframes synclyst-marquee {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        @media screen and (max-width: 768px) {
+            .brand-ds .row { display: none !important; }
+            .synclyst-mobile-marquee {
+                display: block !important;
+                overflow: hidden;
+                width: 100%;
+                padding: 20px 0;
+                min-height: 80px;
+            }
+            .synclyst-mobile-marquee-track {
+                display: flex;
+                width: max-content;
+                animation: synclyst-marquee 10s linear infinite;
+            }
+            .synclyst-mobile-marquee-item {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0 36px;
+                flex-shrink: 0;
+                opacity: .55;
+            }
+            .synclyst-mobile-marquee-item i {
+                font-size: 38px;
+                color: #111;
+                display: block;
+            }
+            .synclyst-mobile-marquee-item svg {
+                width: 38px;
+                height: 38px;
+                fill: #111;
+                display: block;
+            }
+        }
+
+        .synclyst-intro-copy .cont h4 {
+            text-align: center;
+        }
+        .synclyst-intro-copy .butn {
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .clients-ds .synclyst-client-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 72px;
+            height: 72px;
+            background: #fff;
+            border-radius: 18px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .clients-ds .synclyst-client-badge i {
+            font-size: 34px;
+            line-height: 1;
+            color: #111 !important;
+        }
+        .clients-ds .synclyst-client-badge img {
+            display: block;
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            filter: brightness(0);
+        }
+        .clients-ds .synclyst-client-badge img.badge-img-no-filter {
+            filter: none;
+        }
+        .clients-ds .synclyst-client-badge img.badge-img-padded {
+            width: 48px;
+            height: 48px;
+        }
+
+        .services-ds .item {
+            overflow: visible;
+            padding-top: 46px;
+            padding-bottom: 46px;
+        }
+        .services-ds .item .title {
+            margin-bottom: 0;
+            overflow: visible;
+        }
+        .services-ds .item .title h2 {
+            line-height: 1.05;
+            padding: .08em 0;
+        }
+        .services-ds .item:hover .title {
+            margin-bottom: 0;
+        }
+        .pricing-ds .monthly_price {
+            display: block;
+        }
+        .pricing-ds .pricing-tabsHead .price-radios {
+            background-color: transparent;
+            padding: 0;
+        }
+        .pricing-ds .pricing-tabsHead .price-radios .form-check .form-check-label {
+            background: none !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: rgba(255,255,255,0.5);
+            cursor: default;
+            padding: 0;
+            font-size: 14px;
+            font-weight: 400;
+            border-radius: 0;
+        }
+
+        .pricing-ds .content .price-head {
+            gap: 14px;
+            border-bottom-color: rgba(255,255,255,0.16);
+            padding-bottom: 16px;
+        }
+        .pricing-ds .content .price-head .price-headItem {
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.035);
+            border-radius: 20px;
+            padding: 30px 20px;
+        }
+        .pricing-ds .content .price-head .price-headItem.bg-gray {
+            border-color: rgba(87,14,197,0.55);
+            background: linear-gradient(180deg, rgba(87,14,197,0.18), rgba(255,255,255,0.055));
+            box-shadow: 0 22px 60px rgba(87,14,197,0.15);
+        }
+        .pricing-ds .content .price-head .price-headItem h6 {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 30px;
+            padding: 0 14px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            margin-bottom: 18px;
+            letter-spacing: .08em;
+        }
+        .pricing-ds .content .price-head .price-headItem h2 {
+            font-size: 54px;
+            line-height: 1;
+            letter-spacing: -0.05em;
+            margin-bottom: 18px;
+        }
+        .pricing-ds .content .price-head .price-headItem h2 span {
+            font-size: 18px;
+            letter-spacing: 0;
+            margin-left: 5px;
+        }
+        .pricing-ds .content .price-head .price-headItem p {
+            max-width: 190px;
+            margin: 0 auto;
+            color: rgba(255,255,255,0.68);
+        }
+        .pricing-ds .content .price-head .price-headItem .synclyst-popular-label {
+            top: -14px;
+            right: 50%;
+            transform: translateX(50%);
+            width: auto;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: #570EC5;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+        .pricing-ds .content .price-body .price-bodyItems .price-item i {
+            background: transparent;
+            color: inherit;
+            width: auto;
+            height: auto;
+            line-height: inherit;
+            border-radius: 0;
+        }
+        .pricing-ds .content .price-body .price-bodyItems .price-item .feature-included {
+            font-size: 13px;
+            color: rgba(255,255,255,0.72);
+            letter-spacing: .01em;
+        }
+        /* Starter column: muted / greyed appearance */
+        .pricing-ds .content .price-head > .price-headItem:nth-child(2),
+        .pricing-ds .content .price-body .price-bodyItems > .price-item:nth-child(2),
+        .pricing-ds .content .price-foot > .price-foot-item:nth-child(2) {
+            opacity: 0.52;
+            filter: grayscale(0.9);
+            -webkit-filter: grayscale(0.9);
+        }
+        .pricing-ds .content .price-head > .price-headItem:nth-child(2) {
+            border-color: rgba(255,255,255,0.08) !important;
+            background: rgba(255,255,255,0.02) !important;
+            box-shadow: none !important;
+        }
+        .pricing-ds .content .price-head > .price-headItem:nth-child(2) h6 {
+            background: rgba(255,255,255,0.05) !important;
+            color: rgba(255,255,255,0.55) !important;
+        }
+        .pricing-ds .content .price-foot > .price-foot-item:nth-child(2) .synclyst-current-plan {
+            display: inline-block;
+            pointer-events: none;
+            cursor: default;
+            opacity: 1;
+            filter: none;
+            -webkit-filter: none;
+            border-color: rgba(255,255,255,0.12) !important;
+            color: rgba(255,255,255,0.5) !important;
+            background: rgba(255,255,255,0.04) !important;
+        }
+        .pricing-ds .content .price-foot > .price-foot-item:nth-child(2) .synclyst-current-plan:hover {
+            background: rgba(255,255,255,0.04) !important;
+            color: rgba(255,255,255,0.5) !important;
+            border-color: rgba(255,255,255,0.12) !important;
+        }
+        /* Pricing mobile accordion */
+        .pricing-mobile-accordion { display: none; }
+        @media screen and (max-width: 768px) {
+            .pricing-ds .table-responsive { display: none !important; }
+            .pricing-mobile-accordion { display: block; }
+            .pricing-mobile-card {
+                position: relative;
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: 16px;
+                margin-bottom: 12px;
+                overflow: hidden;
+                background: rgba(255,255,255,0.03);
+            }
+            .pricing-mobile-card--popular {
+                border-color: rgba(87,14,197,0.55);
+                background: linear-gradient(180deg, rgba(87,14,197,0.14), rgba(255,255,255,0.03));
+            }
+            .pricing-mobile-popular-label {
+                display: inline-block;
+                margin: 10px 0 0 20px;
+                background: #570EC5;
+                color: #fff;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: .08em;
+                text-transform: uppercase;
+                padding: 3px 10px;
+                border-radius: 20px;
+            }
+            .pricing-mobile-btn {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 20px 20px;
+                background: transparent;
+                border: none;
+                cursor: pointer;
+                text-align: left;
+            }
+            .pricing-mobile-btn-left { display: flex; flex-direction: column; gap: 3px; }
+            .pricing-mobile-tier { color: #fff; font-size: 17px; font-weight: 700; }
+            .pricing-mobile-desc { color: rgba(255,255,255,0.5); font-size: 12px; }
+            .pricing-mobile-btn-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+            .pricing-mobile-price { color: #fff; font-size: 22px; font-weight: 700; letter-spacing: -0.04em; }
+            .pricing-mobile-price small { font-size: 12px; font-weight: 400; opacity: .6; letter-spacing: 0; margin-left: 2px; }
+            .pricing-mobile-chevron { color: rgba(255,255,255,0.4); font-size: 13px; transition: transform .3s; }
+            .pricing-mobile-btn[aria-expanded="true"] .pricing-mobile-chevron { transform: rotate(180deg); }
+            .pricing-mobile-body { padding: 0 20px 22px; }
+            .pricing-mobile-features {
+                list-style: none;
+                padding: 0; margin: 0 0 20px;
+                border-top: 1px solid rgba(255,255,255,0.08);
+                padding-top: 16px;
+            }
+            .pricing-mobile-features li {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                color: rgba(255,255,255,0.8);
+                font-size: 14px;
+                padding: 6px 0;
+            }
+            .pricing-mobile-features li.pmf-missing { opacity: .35; }
+            .pmf-check { color: #570EC5; font-weight: 700; font-size: 15px; }
+            .pmf-x { color: rgba(255,255,255,0.4); font-size: 15px; }
+            .pricing-ds .sec-head {
+                text-align: center;
+            }
+            .pricing-ds .sec-head .d-flex {
+                flex-direction: column;
+                align-items: center !important;
+            }
+            .pricing-ds .sec-head .ml-auto {
+                margin-left: 0 !important;
+                margin-top: 16px;
+            }
+        }
+        @media screen and (max-width: 768px) {
+            .navbar {
+                position: relative !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                backdrop-filter: none !important;
+            }
+            .navbar .topnav,
+            .navbar .navbar-collapse {
+                display: none !important;
+            }
+            .testimonials-ds .qoute-icon {
+                margin-left: auto;
+                margin-right: auto;
+                width: fit-content;
+            }
+            .clients-ds {
+                display: none !important;
+            }
+            .sub-footer .col-lg-6 {
+                text-align: center;
+            }
+            .sub-footer .links {
+                justify-content: center !important;
+            }
+            .footer-ds .subscribe,
+            .footer-ds .contact-info .item {
+                text-align: center;
+            }
+            .footer-ds .form-group {
+                text-align: left;
+            }
+        }
+        @media screen and (max-width: 992px) {
+            .header-ds .container {
+                padding: 130px 15px 70px;
+            }
+            .synclyst-hero-grid {
+                min-height: auto;
+            }
+            .synclyst-hero-copy {
+                padding-top: 0;
+                margin-bottom: 40px;
+            }
+            .header-ds .text {
+                margin-left: auto;
+                margin-right: auto;
+            }
+            .works-ds .work-swiper .swiper-slide,
+            .synclyst-video-card {
+                width: min(285px, 82vw) !important;
+            }
+        }
+    </style>
+
+    <!-- Structured Data: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Synclyst",
+      "url": "https://synclyst.app",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "iOS, Android, Chrome",
+      "description": "Synclyst is an AI-powered listing tool for resellers. Take a photo of any item and instantly get a full product listing — title, description, price, and tags — ready to publish to Shopify, eBay, Poshmark, and more.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "Free plan available with SyncIQ — 10 free scans per day, no account required."
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "Synclyst",
+        "url": "https://synclyst.app"
+      },
+      "featureList": [
+        "AI listing generation from photo",
+        "Resale price intelligence with SyncIQ",
+        "Shopify integration",
+        "Chrome extension for eBay, Poshmark, Depop",
+        "Mobile app for on-the-go scanning",
+        "Instant sold price lookups"
+      ]
+    }
+    </script>
+
+    <!-- Structured Data: FAQPage -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does Synclyst create from a photo?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Synclyst uses AI to analyze your photo and generate a complete product listing — including a keyword-optimized title, full description, suggested price, category, condition, and tags. Everything is editable before you publish."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How fast is the listing workflow?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Most resellers go from photo to published listing in under 60 seconds. You take a photo in the mobile app, AI drafts the listing, you review it, and publish directly to Shopify or your marketplace — no copy-pasting or manual data entry."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which platforms does Synclyst support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Synclyst supports publishing to Shopify with more marketplaces coming soon. The Chrome extension works with eBay, Poshmark, Depop, Facebook Marketplace, and other listing sites to auto-fill forms directly in your browser."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does the Chrome extension do?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The Synclyst Chrome extension auto-fills listing forms on eBay, Poshmark, Depop, and more. Just snap a photo, let AI generate the listing details, and the extension pastes everything into the right fields — title, description, price, category, and condition."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is SyncIQ and how does it help resellers?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "SyncIQ is Synclyst's free resale intelligence tool. Before you buy an item, scan it to instantly see recent sold prices, estimated resale value, demand trends, and profit potential. It's free with 10 scans per day, no account required."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Synclyst free to use?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "SyncIQ is free with 10 scans per day and no account needed. The full listing and publishing tools are available on paid plans. Nothing publishes without your approval."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Who is Synclyst built for?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Synclyst is built for resellers, thrift flippers, vintage sellers, estate sale buyers, and anyone who sells second-hand or sourced products online. Whether you list 5 items a week or 500, Synclyst removes the bottleneck of writing listings manually."
+          }
+        }
+      ]
+    }
+    </script>
+
+</head>
+
+<body>
+
+
+
+
+    <!-- ==================== Start progress-scroll-button ==================== -->
+
+    <div class="progress-wrap cursor-pointer">
+        <svg class="progress-circle svg-content" width="100%" height="100%" viewBox="-1 -1 102 102">
+            <path d="M50,1 a49,49 0 0,1 0,98 a49,49 0 0,1 0,-98" />
+        </svg>
+    </div>
+
+    <!-- ==================== End progress-scroll-button ==================== -->
+
+
+
+    <!-- ==================== Start Navbar ==================== -->
+
+    <nav class="navbar navbar-expand-lg">
+        <div class="container d-flex align-items-center flex-wrap">
+
+            <!-- navbar links -->
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#integrations">Integrations</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#stack">Full Stack</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#pricing">Pricing</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Logo -->
+            <a class="logo ms-auto" href="#">
+                <span class="synclyst-logo">SyncLyst<sup>®</sup></span>
+            </a>
+
+            <div class="topnav d-flex align-items-center">
+                <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="butn butn-rounded">
+                    <div class="d-flex align-items-center">
+                        <span>Install Chrome Extension</span>
+                        <span class="icon ml-10" style="color:inherit;font-size:18px;line-height:1;font-style:normal;">↗</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hamenu">
+        <div class="close-menu cursor-pointer ti-close"></div>
+        <div class="container-fluid rest d-flex">
+            <div class="menu-links">
+                <ul class="main-menu rest">
+                    <li>
+                        <div class="o-hidden">
+                            <a href="#integrations" class="link"><span class="fill-text" data-text="Integrations">Integrations</span></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="o-hidden">
+                            <a href="#stack" class="link"><span class="fill-text" data-text="Full Stack">Full Stack</span></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="o-hidden">
+                            <a href="#pricing" class="link"><span class="fill-text" data-text="Pricing">Pricing</span></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="o-hidden">
+                            <a href="/sign-in" class="link"><span class="fill-text" data-text="Sign In">Sign In</span></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="o-hidden">
+                            <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="link"><span class="fill-text" data-text="Install Extension">Install Extension</span></a>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <div class="cont-info valign">
+                <div class="text-center full-width">
+                    <div class="logo">
+                        <span class="synclyst-logo">SyncLyst<sup>®</sup></span>
+                    </div>
+                    <div class="item mt-30">
+                        <h5>Source, scan, and list <br> products faster with AI.</h5>
+                    </div>
+                    <div class="item mt-10">
+                        <h5><a href="mailto:synclyst@gmail.com">synclyst@gmail.com</a></h5>
+                        <h5 class="underline"><a href="#pricing">Scan. Review. Publish.</a></h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== End Navbar ==================== -->
+
+    <div id="smooth-wrapper">
+
+
+        <div id="smooth-content">
+
+            <main>
+
+
+
+                <!-- ==================== Start Header ==================== -->
+
+                <header class="header-ds">
+                    <div class="container">
+                        <div class="row synclyst-hero-grid">
+                            <div class="col-lg-11">
+                                <div class="synclyst-hero-copy">
+                                    <div class="caption md-mb30">
+                                        <h1>Source, scan, and list products <br> <span class="play-font">faster with AI.</span></h1>
+                                    </div>
+                                    <div class="text">
+                                        <p>Use the mobile app to scan items instantly, the Chrome extension to auto-fill listings, and AI tools to spot profitable flips in seconds.</p>
+                                        <div class="synclyst-hero-button-row mt-40">
+                                            <a href="/sign-up" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded hero-butn-tall">
+                                                <div class="d-flex align-items-center justify-content-center w-100">
+                                                    <div class="d-flex flex-column align-items-center">
+                                                        <span class="hero-butn-label">Open the Mobile App</span>
+                                                        <span class="hero-butn-sub">Scan &amp; list on the go</span>
+                                                    </div>
+                                                    <span class="icon ml-10" style="color:#ffffff;font-size:18px;line-height:1;font-style:normal;">↗</span>
+                                                </div>
+                                            </a>
+                                            <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded hero-butn-tall">
+                                                <div class="d-flex align-items-center justify-content-center w-100">
+                                                    <div class="d-flex flex-column align-items-center">
+                                                        <span class="hero-butn-label">Install Chrome Extension</span>
+                                                        <span class="hero-butn-sub">Auto-fill any listing</span>
+                                                    </div>
+                                                    <span class="icon ml-10" style="color:#ffffff;font-size:18px;line-height:1;font-style:normal;">↗</span>
+                                                </div>
+                                            </a>
+                                            <a href="/sign-up" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded hero-butn-tall">
+                                                <div class="d-flex align-items-center justify-content-center w-100">
+                                                    <div class="d-flex flex-column align-items-center">
+                                                        <span class="hero-butn-label">Try SyncIQ Free</span>
+                                                        <span class="hero-butn-sub">Check resale value instantly</span>
+                                                    </div>
+                                                    <span class="icon ml-10" style="color:#ffffff;font-size:18px;line-height:1;font-style:normal;">↗</span>
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="synclyst-video">
+                                        <video src="https://cdn.shopify.com/videos/c/o/v/a1339d2915174ff39f33e43a26d6925c.mp4" muted loop playsinline autoplay></video>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- ==================== End Header ==================== -->
+
+
+
+                <!-- ==================== Start box light ==================== -->
+
+                <section class="box-light section-padding pt-0">
+
+                    <!-- ==================== Start Intro ==================== -->
+
+                    <div class="intro-ds">
+                        <div class="container">
+                            <div class="layers"></div>
+                            <div class="box">
+                                <div class="founders synclyst-intro-copy text-center">
+                                    <div class="row justify-content-center">
+                                        <div class="col-lg-10">
+                                            <div class="cont">
+                                                <h4>Open SyncLyst on your phone, point your camera at any product, and let AI extract the title, description, price and tags before pushing a draft straight to your store.</h4>
+                                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="integrations" class="brand-ds pt-100 pb-100">
+
+                                    <!-- Mobile scrolling marquee -->
+                                    <div class="synclyst-mobile-marquee">
+                                        <div class="synclyst-mobile-marquee-track">
+                                            <!-- Set 1 -->
+                                            <div class="synclyst-mobile-marquee-item"><i class="fa-brands fa-shopify"></i></div>
+                                            <div class="synclyst-mobile-marquee-item"><i class="fa-brands fa-ebay"></i></div>
+                                            <div class="synclyst-mobile-marquee-item"><i class="fa-brands fa-etsy"></i></div>
+                                            <div class="synclyst-mobile-marquee-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="11 10 25 28"><path d="M27,12v8h-6c-5,0-8,4.18-8,8.38c0,4.21,3.82,7.62,8,7.62h13V12H27z M27,31h-5c-1.86,0-3-1.14-3-3 s1.38-3,3.24-3H27V31z"/></svg></div>
+                                            <div class="synclyst-mobile-marquee-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.9414 17.9633c.229-1.879-.981-3.077-4.1758-4.0969-1.548-.528-2.277-1.22-2.26-2.1719.065-1.056 1.048-1.825 2.352-1.85a5.2898 5.2898 0 0 1 2.8838.89c.116.072.197.06.263-.039.09-.145.315-.494.39-.62.051-.081.061-.187-.068-.281-.185-.1369-.704-.4149-.983-.5319a6.4697 6.4697 0 0 0-2.5118-.514c-1.909.008-3.4129 1.215-3.5389 2.826-.082 1.1629.494 2.1078 1.73 2.8278.262.152 1.6799.716 2.2438.892 1.774.552 2.695 1.5419 2.478 2.6969-.197 1.047-1.299 1.7239-2.818 1.7439-1.2039-.046-2.2878-.537-3.1278-1.19l-.141-.11c-.104-.08-.218-.075-.287.03-.05.077-.376.547-.458.67-.077.108-.035.168.045.234.35.293.817.613 1.134.775a6.7097 6.7097 0 0 0 2.8289.727 4.9048 4.9048 0 0 0 2.0759-.354c1.095-.465 1.8029-1.394 1.9449-2.554zM11.9986 1.4009c-2.068 0-3.7539 1.95-3.8329 4.3899h7.6657c-.08-2.44-1.765-4.3899-3.8328-4.3899zm7.8516 22.5981-.08.001-15.7843-.002c-1.074-.04-1.863-.91-1.971-1.991l-.01-.195L1.298 6.2858a.459.459 0 0 1 .45-.494h4.9748C6.8448 2.568 9.1607 0 11.9996 0c2.8388 0 5.1537 2.5689 5.2757 5.7898h4.9678a.459.459 0 0 1 .458.483l-.773 15.5883-.007.131c-.094 1.094-.979 1.9769-2.0709 2.0059z"/></svg></div>
+                                            <div class="synclyst-mobile-marquee-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.316 0c-.258 0-.571.217-1.415.953-.3.108-.627.027-1.008.613-2.15 3.09-3.825 14.648-5.255 17.984-.286-1.444-.885-10.837-1.116-13.41-.028-.477.027-1.076.027-1.43 0-2.368-.516-3.567-2.886-3.567-1.198 0-2.382.436-3.008 1.226-.299.408-.409.708-.409 1.443 0 4.915 1.171 12.973 2.478 18.228C7.132 23.688 8.603 24 9.99 24c.654 0 1.307-.081 2.233-.544 3.212-1.567 4.07-5.84 4.9-9.993.15-.749.899-4.37 1.253-6.275.476-2.6 1.02-5.54 1.347-6.617C19.833.245 19.63 0 19.317 0z"/></svg></div>
+                                            <!-- Set 2 (duplicate for seamless loop) -->
+                                            <div class="synclyst-mobile-marquee-item"><i class="fa-brands fa-shopify"></i></div>
+                                            <div class="synclyst-mobile-marquee-item"><i class="fa-brands fa-ebay"></i></div>
+                                            <div class="synclyst-mobile-marquee-item"><i class="fa-brands fa-etsy"></i></div>
+                                            <div class="synclyst-mobile-marquee-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="11 10 25 28"><path d="M27,12v8h-6c-5,0-8,4.18-8,8.38c0,4.21,3.82,7.62,8,7.62h13V12H27z M27,31h-5c-1.86,0-3-1.14-3-3 s1.38-3,3.24-3H27V31z"/></svg></div>
+                                            <div class="synclyst-mobile-marquee-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.9414 17.9633c.229-1.879-.981-3.077-4.1758-4.0969-1.548-.528-2.277-1.22-2.26-2.1719.065-1.056 1.048-1.825 2.352-1.85a5.2898 5.2898 0 0 1 2.8838.89c.116.072.197.06.263-.039.09-.145.315-.494.39-.62.051-.081.061-.187-.068-.281-.185-.1369-.704-.4149-.983-.5319a6.4697 6.4697 0 0 0-2.5118-.514c-1.909.008-3.4129 1.215-3.5389 2.826-.082 1.1629.494 2.1078 1.73 2.8278.262.152 1.6799.716 2.2438.892 1.774.552 2.695 1.5419 2.478 2.6969-.197 1.047-1.299 1.7239-2.818 1.7439-1.2039-.046-2.2878-.537-3.1278-1.19l-.141-.11c-.104-.08-.218-.075-.287.03-.05.077-.376.547-.458.67-.077.108-.035.168.045.234.35.293.817.613 1.134.775a6.7097 6.7097 0 0 0 2.8289.727 4.9048 4.9048 0 0 0 2.0759-.354c1.095-.465 1.8029-1.394 1.9449-2.554zM11.9986 1.4009c-2.068 0-3.7539 1.95-3.8329 4.3899h7.6657c-.08-2.44-1.765-4.3899-3.8328-4.3899zm7.8516 22.5981-.08.001-15.7843-.002c-1.074-.04-1.863-.91-1.971-1.991l-.01-.195L1.298 6.2858a.459.459 0 0 1 .45-.494h4.9748C6.8448 2.568 9.1607 0 11.9996 0c2.8388 0 5.1537 2.5689 5.2757 5.7898h4.9678a.459.459 0 0 1 .458.483l-.773 15.5883-.007.131c-.094 1.094-.979 1.9769-2.0709 2.0059z"/></svg></div>
+                                            <div class="synclyst-mobile-marquee-item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.316 0c-.258 0-.571.217-1.415.953-.3.108-.627.027-1.008.613-2.15 3.09-3.825 14.648-5.255 17.984-.286-1.444-.885-10.837-1.116-13.41-.028-.477.027-1.076.027-1.43 0-2.368-.516-3.567-2.886-3.567-1.198 0-2.382.436-3.008 1.226-.299.408-.409.708-.409 1.443 0 4.915 1.171 12.973 2.478 18.228C7.132 23.688 8.603 24 9.99 24c.654 0 1.307-.081 2.233-.544 3.212-1.567 4.07-5.84 4.9-9.993.15-.749.899-4.37 1.253-6.275.476-2.6 1.02-5.54 1.347-6.617C19.833.245 19.63 0 19.317 0z"/></svg></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-lg-2 col-md-4 col-6 item synclyst-marketplace">
+                                            <div class="text-center">
+                                                <div class="img">
+                                                    <i class="fa-brands fa-shopify" aria-hidden="true"></i>
+                                                </div>
+                                                <p><strong>Shopify</strong></p>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-2 col-md-4 col-6 item synclyst-marketplace">
+                                            <div class="text-center">
+                                                <div class="img">
+                                                    <i class="fa-brands fa-ebay" aria-hidden="true"></i>
+                                                </div>
+                                                <p><strong>eBay</strong></p>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-2 col-md-4 col-6 item synclyst-marketplace">
+                                            <div class="text-center">
+                                                <div class="img">
+                                                    <i class="fa-brands fa-etsy" aria-hidden="true"></i>
+                                                </div>
+                                                <p><strong>Etsy</strong></p>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-2 col-md-4 col-6 item synclyst-marketplace">
+                                            <div class="text-center">
+                                                <div class="img">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="11 10 25 28" style="width:62px;height:62px;display:block;margin:0 auto;" aria-hidden="true"><path d="M27,12v8h-6c-5,0-8,4.18-8,8.38c0,4.21,3.82,7.62,8,7.62h13V12H27z M27,31h-5c-1.86,0-3-1.14-3-3 s1.38-3,3.24-3H27V31z"/></svg>
+                                                </div>
+                                                <p><strong>Depop</strong></p>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-2 col-md-4 col-6 item synclyst-marketplace">
+                                            <div class="text-center">
+                                                <div class="img">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:62px;height:62px;display:block;margin:0 auto;" aria-hidden="true"><path d="M15.9414 17.9633c.229-1.879-.981-3.077-4.1758-4.0969-1.548-.528-2.277-1.22-2.26-2.1719.065-1.056 1.048-1.825 2.352-1.85a5.2898 5.2898 0 0 1 2.8838.89c.116.072.197.06.263-.039.09-.145.315-.494.39-.62.051-.081.061-.187-.068-.281-.185-.1369-.704-.4149-.983-.5319a6.4697 6.4697 0 0 0-2.5118-.514c-1.909.008-3.4129 1.215-3.5389 2.826-.082 1.1629.494 2.1078 1.73 2.8278.262.152 1.6799.716 2.2438.892 1.774.552 2.695 1.5419 2.478 2.6969-.197 1.047-1.299 1.7239-2.818 1.7439-1.2039-.046-2.2878-.537-3.1278-1.19l-.141-.11c-.104-.08-.218-.075-.287.03-.05.077-.376.547-.458.67-.077.108-.035.168.045.234.35.293.817.613 1.134.775a6.7097 6.7097 0 0 0 2.8289.727 4.9048 4.9048 0 0 0 2.0759-.354c1.095-.465 1.8029-1.394 1.9449-2.554zM11.9986 1.4009c-2.068 0-3.7539 1.95-3.8329 4.3899h7.6657c-.08-2.44-1.765-4.3899-3.8328-4.3899zm7.8516 22.5981-.08.001-15.7843-.002c-1.074-.04-1.863-.91-1.971-1.991l-.01-.195L1.298 6.2858a.459.459 0 0 1 .45-.494h4.9748C6.8448 2.568 9.1607 0 11.9996 0c2.8388 0 5.1537 2.5689 5.2757 5.7898h4.9678a.459.459 0 0 1 .458.483l-.773 15.5883-.007.131c-.094 1.094-.979 1.9769-2.0709 2.0059z"/></svg>
+                                                </div>
+                                                <p><strong>Shopee</strong></p>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-2 col-md-4 col-6 item synclyst-marketplace">
+                                            <div class="text-center">
+                                                <div class="img">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:62px;height:62px;display:block;margin:0 auto;" aria-hidden="true"><path d="M19.316 0c-.258 0-.571.217-1.415.953-.3.108-.627.027-1.008.613-2.15 3.09-3.825 14.648-5.255 17.984-.286-1.444-.885-10.837-1.116-13.41-.028-.477.027-1.076.027-1.43 0-2.368-.516-3.567-2.886-3.567-1.198 0-2.382.436-3.008 1.226-.299.408-.409.708-.409 1.443 0 4.915 1.171 12.973 2.478 18.228C7.132 23.688 8.603 24 9.99 24c.654 0 1.307-.081 2.233-.544 3.212-1.567 4.07-5.84 4.9-9.993.15-.749.899-4.37 1.253-6.275.476-2.6 1.02-5.54 1.347-6.617C19.833.245 19.63 0 19.317 0z"/></svg>
+                                                </div>
+                                                <p><strong>Vinted</strong></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ==================== End Intro ==================== -->
+
+
+                    <!-- ==================== Start Portfolio ==================== -->
+
+                    <div class="works-ds">
+                        <div class="container pt-100 bord-thin-top">
+                            <div class="sec-head mb-70 d-flex align-items-center">
+                                <div>
+                                    <h2>See It <span>In Action</span></h2>
+                                </div>
+                            </div>
+                            <div class="work-box">
+                                <div class="swiper work-swiper swiper-container">
+                                    <div class="swiper-wrapper">
+                                        <div class="swiper-slide">
+                                            <div class="item synclyst-video-card">
+                                                <div class="img">
+                                                    <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
+                                                        <video src="https://cdn.shopify.com/videos/c/o/v/16c8c969d72a432fbbff99c9ba713eb1.mp4" muted loop playsinline autoplay preload="metadata"></video>
+                                                    </a>
+                                                </div>
+                                                <div class="cont">
+                                                    <h4><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">Sneakers &amp; Footwear</a></h4>
+                                                    <span class="sub-color">Snap a shoe and get a full listing — brand, model, size range, colourway and condition, ready to publish.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="swiper-slide">
+                                            <div class="item synclyst-video-card">
+                                                <div class="img">
+                                                    <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
+                                                        <video src="https://cdn.shopify.com/videos/c/o/v/e83cc0a0285b4c21b458f396d427051f.mp4" muted loop playsinline autoplay preload="metadata"></video>
+                                                    </a>
+                                                </div>
+                                                <div class="cont">
+                                                    <h4><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">Health &amp; Supplements</a></h4>
+                                                    <span class="sub-color">Point at the label — SyncLyst reads the ingredients, serving size and flavour so you don't have to type a word.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="swiper-slide">
+                                            <div class="item synclyst-video-card">
+                                                <div class="img">
+                                                    <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Install SyncLyst Chrome extension">
+                                                        <video src="https://cdn.shopify.com/videos/c/o/v/9c42a5069c744c0288c2387c047360ee.mp4" muted loop playsinline autoplay preload="metadata"></video>
+                                                    </a>
+                                                </div>
+                                                <div class="cont">
+                                                    <h4><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer">Electronics &amp; Tech</a></h4>
+                                                    <span class="sub-color">Upload a product photo in your browser — the extension pulls the model, specs and condition into a listing draft instantly.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="swiper-slide">
+                                            <div class="item synclyst-video-card">
+                                                <div class="img">
+                                                    <a href="https://synclyst.app" target="_blank" rel="noopener noreferrer" class="synclyst-video-card__media" aria-label="Open SyncLyst app">
+                                                        <video src="https://cdn.shopify.com/videos/c/o/v/57a6e2366c094d429af16859614a4133.mp4" muted loop playsinline autoplay preload="metadata"></video>
+                                                    </a>
+                                                </div>
+                                                <div class="cont">
+                                                    <h4><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">Vintage Clothing &amp; Tees</a></h4>
+                                                    <span class="sub-color">Graphic, artist, era, fit and fabric — everything a vintage buyer searches for, written from one photo.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="swiper-pagination"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ==================== End Portfolio ==================== -->
+
+                </section>
+
+                <!-- ==================== End box light ==================== -->
+
+
+
+                <!-- ==================== Start Services ==================== -->
+
+                <!-- ==================== End Services ==================== -->
+
+
+
+                <!-- ==================== Start SyncIQ Section ==================== -->
+
+                <section class="synciq-section section-padding">
+                    <div class="container">
+
+                        <!-- Header -->
+                        <div class="sec-head mb-70 d-flex align-items-end">
+                            <div>
+                                <h6 class="sub-head mb-15">SyncIQ — Free Buy Scanner</h6>
+                                <h2>Know if it's worth <span>buying</span></h2>
+                            </div>
+                            <div class="ml-auto">
+                                <p>Snap any find at a thrift store, boot sale or lot. <br> Live eBay data. Buy-or-pass read in seconds.</p>
+                            </div>
+                        </div>
+
+                        <!-- Steps -->
+                        <div class="row">
+                            <div class="col-lg-3 col-sm-6 synciq-step-item md-mb50">
+                                <span class="synciq-step-num">01</span>
+                                <h6 class="synciq-step-title mt-20">Snap it</h6>
+                                <p class="synciq-step-desc mt-10">Point your camera at any product — racks, bins, boot sales, thrift aisles. No barcode needed.</p>
+                            </div>
+                            <div class="col-lg-3 col-sm-6 synciq-step-item md-mb50">
+                                <span class="synciq-step-num">02</span>
+                                <h6 class="synciq-step-title mt-20">Get live comps</h6>
+                                <p class="synciq-step-desc mt-10">Real sell-side data pulled from eBay — median sold price, low, high, and demand signals.</p>
+                            </div>
+                            <div class="col-lg-3 col-sm-6 synciq-step-item md-mb50">
+                                <span class="synciq-step-num">03</span>
+                                <h6 class="synciq-step-title mt-20">Buy or pass</h6>
+                                <p class="synciq-step-desc mt-10">Decide at the shelf — before you spend money on something that won't flip for profit.</p>
+                            </div>
+                            <div class="col-lg-3 col-sm-6 synciq-step-item">
+                                <span class="synciq-step-num">04</span>
+                                <h6 class="synciq-step-title mt-20">List instantly</h6>
+                                <p class="synciq-step-desc mt-10">Found a winner? Switch to SyncLyst and push a listing draft — same ecosystem, zero app switching.</p>
+                            </div>
+                        </div>
+
+                        <!-- CTA -->
+                        <div class="d-flex flex-column align-items-center mt-60 pt-40 synciq-cta-row text-center">
+                            <a href="/sign-up" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bg butn-rounded">
+                                <div class="d-flex align-items-center">
+                                    <span>Try SyncIQ Free</span>
+                                    <span class="icon ml-10">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </span>
+                                </div>
+                            </a>
+                            <p class="mt-20 synciq-footer-note">10 free scans/day &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; No credit card</p>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- ==================== End SyncIQ Section ==================== -->
+
+
+
+                <!-- ==================== Start dark box ==================== -->
+
+                <section class="box-dark">
+
+                    <div class="container box">
+
+                        <div class="layers"></div>
+
+                        <!-- ==================== Start Testimonials ==================== -->
+
+                        <div class="testimonials-ds">
+                            <div class="row">
+                                <div class="col-lg-5">
+                                    <div class="qoute-icon md-mb50">
+                                        <div class="text">
+                                            <img src="assets/imgs/testim/Vector_Cricle_Text.svg" alt="">
+                                        </div>
+                                        <div class="icon">
+                                            <img src="assets/imgs/testim/vector_quote.svg" alt="">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-7">
+                                    <div class="swiper testim-swiper swiper-container">
+                                        <div class="swiper-wrapper">
+                                            <div class="swiper-slide">
+                                                <div class="item">
+                                                    <div class="text">
+                                                        <h4>"I sell vintage clothes and its painful to identify the prices, create listings. I tried this app as recommended by my friend and it was really helpful!!! I am able to do batch listing on different platforms. This helped me saving soo much time and all the listing hustles."</h4>
+                                                    </div>
+                                                    <div class="info d-flex align-items-center mt-40 pt-30 bord-thin-top-light">
+                                                        <div><div class="img-author"><img src="assets/imgs/testim/bkk-city-pasta.jpg" alt="BKK City Pasta"></div></div>
+                                                        <div class="info-text"><span>BKK City Pasta</span><p>Vintage reseller &nbsp;·&nbsp; ★★★★★ Chrome Web Store</p></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="swiper-slide">
+                                                <div class="item">
+                                                    <div class="text">
+                                                        <h4>"I've been looking for a faster way for listing for my online store. The manual way before was taking me away from my actual business. This is what I've been looking for — it extracts the image and data ready for me to post on any marketplace."</h4>
+                                                    </div>
+                                                    <div class="info d-flex align-items-center mt-40 pt-30 bord-thin-top-light">
+                                                        <div><div class="img-author"><img src="assets/imgs/testim/balon-kson.jpg" alt="Balon KSON"></div></div>
+                                                        <div class="info-text"><span>Balon KSON</span><p>Online store owner &nbsp;·&nbsp; ★★★★★ Chrome Web Store</p></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="swiper-slide">
+                                                <div class="item">
+                                                    <div class="text">
+                                                        <h4>"SyncLyst has made listing products so much easier for me. Pairing my phone was simple, and being able to scan products straight into Shopify, eBay, Etsy, Amazon, and TikTok Shop saves a heap of time. Definitely useful if you list products regularly and want to speed things up."</h4>
+                                                    </div>
+                                                    <div class="info d-flex align-items-center mt-40 pt-30 bord-thin-top-light">
+                                                        <div><div class="img-author"><img src="assets/imgs/testim/matt-rintranulux.jpg" alt="Matt Rintranulux"></div></div>
+                                                        <div class="info-text"><span>Matt Rintranulux</span><p>Multi-platform reseller &nbsp;·&nbsp; ★★★★★ Chrome Web Store</p></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="swiper-pagination"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ==================== Start clients ==================== -->
+
+                        <div class="clients-ds mt-100">
+                            <div class="sec-head mb-70 text-center">
+                                <h6 class="sub-head">more marketplaces in the works &amp; coming soon</h6>
+                            </div>
+                            <div class="row sm-marg">
+                                <div class="col-lg col-md-4 col-6 md-mb30">
+                                    <div class="item d-flex align-items-center justify-content-center">
+                                        <div class="synclyst-client-badge">
+                                            <i class="fa-brands fa-amazon" aria-hidden="true"></i>
+                                            <span class="visually-hidden">Amazon</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg col-md-4 col-6 md-mb30">
+                                    <div class="item d-flex align-items-center justify-content-center">
+                                        <div class="synclyst-client-badge">
+                                            <img src="assets/imgs/clients/tiktok-shop-icon.svg" alt="TikTok Shop" class="badge-img-padded badge-img-no-filter">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg col-md-4 col-6 md-mb30">
+                                    <div class="item d-flex align-items-center justify-content-center">
+                                        <div class="synclyst-client-badge">
+                                            <img src="assets/imgs/clients/whatnot-icon.svg" alt="Whatnot" class="badge-img-no-filter">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg col-md-4 col-6 sm-mb30">
+                                    <div class="item d-flex align-items-center justify-content-center">
+                                        <div class="synclyst-client-badge">
+                                            <i class="fa-brands fa-facebook-f" aria-hidden="true"></i>
+                                            <span class="visually-hidden">Facebook Marketplace</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg col-md-4 col-6">
+                                    <div class="item d-flex align-items-center justify-content-center">
+                                        <div class="synclyst-client-badge">
+                                            <img src="assets/imgs/clients/stockx-icon.svg" alt="StockX">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ==================== End clients ==================== -->
+
+                    </div>
+
+                </section>
+
+                <!-- ==================== End dark box ==================== -->
+
+
+
+                <!-- ==================== Start Pricing ==================== -->
+
+                <section id="pricing" class="pricing-ds section-padding">
+                    <div class="container">
+                        <div class="sec-head mb-70">
+                            <h2>Simple <span>Pricing</span></h2>
+                            <div class="d-flex align-items-center mt-50">
+                                <div class="text">
+                                    <p>Chrome extension pricing. Pick the scan volume that fits <br> your hustle and upgrade when your workflow grows.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <div class="content">
+                                <div class="price-head">
+                                    <div class="price-headTitle"></div>
+                                    <div class="price-headItem">
+                                        <h6>Starter</h6>
+                                        <h2 class="monthly_price">£0 <span>/mo</span></h2>
+                                        <p>3 scans/mo — try the <br> workflow for free</p>
+                                    </div>
+                                    <div class="price-headItem">
+                                        <h6>Pro</h6>
+                                        <h2 class="monthly_price">£9 <span>/mo</span></h2>
+                                        <p>100 scans/mo — great for <br> part-time sellers</p>
+                                    </div>
+                                    <div class="price-headItem bg-gray">
+                                        <h6>Growth</h6>
+                                        <h2 class="monthly_price color-blue5">£29 <span>/mo</span></h2>
+                                        <p>500 scans/mo — for active <br> sellers listing regularly</p>
+                                        <div class="label synclyst-popular-label">Popular</div>
+                                    </div>
+                                    <div class="price-headItem">
+                                        <h6>Scale</h6>
+                                        <h2 class="monthly_price">£79 <span>/mo</span></h2>
+                                        <p>Unlimited scans — for <br> high-volume stores</p>
+                                    </div>
+                                </div>
+
+                                <div class="price-body">
+                                    <div class="price-bodyItems">
+                                        <div class="price-bodyTitle">AI scans per month</div>
+                                        <div class="price-item"><span>3 scans</span></div>
+                                        <div class="price-item"><span>100 scans</span></div>
+                                        <div class="price-item bg-gray"><span>500 scans</span></div>
+                                        <div class="price-item"><span>Unlimited</span></div>
+                                    </div>
+
+                                    <div class="price-bodyItems">
+                                        <div class="price-bodyTitle">Chrome extension</div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                        <div class="price-item bg-gray"><span class="feature-included">Included</span></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                    </div>
+
+                                    <div class="price-bodyItems">
+                                        <div class="price-bodyTitle">Mobile app</div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                        <div class="price-item bg-gray"><span class="feature-included">Included</span></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                    </div>
+
+                                    <div class="price-bodyItems">
+                                        <div class="price-bodyTitle">Shopify integration</div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                        <div class="price-item bg-gray"><span class="feature-included">Included</span></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                    </div>
+
+                                    <div class="price-bodyItems">
+                                        <div class="price-bodyTitle">Batch processing</div>
+                                        <div class="price-item"></div>
+                                        <div class="price-item"></div>
+                                        <div class="price-item bg-gray"><span class="feature-included">Included</span></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                    </div>
+
+                                    <div class="price-bodyItems">
+                                        <div class="price-bodyTitle">Smart suggest</div>
+                                        <div class="price-item"></div>
+                                        <div class="price-item"></div>
+                                        <div class="price-item bg-gray"><span class="feature-included">Included</span></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                    </div>
+
+                                    <div class="price-bodyItems">
+                                        <div class="price-bodyTitle">API access</div>
+                                        <div class="price-item"></div>
+                                        <div class="price-item"></div>
+                                        <div class="price-item bg-gray"></div>
+                                        <div class="price-item"><span class="feature-included">Included</span></div>
+                                    </div>
+                                </div>
+
+                                <div class="price-foot">
+                                    <div class="price-footTitle"></div>
+                                    <div class="price-foot-item">
+                                        <a href="#" target="_blank" rel="noopener noreferrer" class="butn butn-md butn-bord butn-rounded synclyst-current-plan">
+                                            <div class="d-flex align-items-center">
+                                                <span>Current Plan</span>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="price-foot-item">
+                                        <a href="/sign-up?redirect_url=/dashboard%3Fpricing%3D1%26tier%3Dpro" class="butn butn-md butn-bord butn-rounded">
+                                            <div class="d-flex align-items-center">
+                                                <span>Upgrade Now</span>
+                                                <span class="icon ml-10"><i class="fa-solid fa-chevron-right"></i></span>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="price-foot-item bg-gray">
+                                        <a href="/sign-up?redirect_url=/dashboard%3Fpricing%3D1%26tier%3Dgrowth" class="butn butn-md butn-bg butn-rounded">
+                                            <div class="d-flex align-items-center">
+                                                <span>Upgrade Now</span>
+                                                <span class="icon ml-10"><i class="fa-solid fa-chevron-right"></i></span>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="price-foot-item">
+                                        <a href="/sign-up?redirect_url=/dashboard%3Fpricing%3D1%26tier%3Dscale" class="butn butn-md butn-bord butn-rounded">
+                                            <div class="d-flex align-items-center">
+                                                <span>Upgrade Now</span>
+                                                <span class="icon ml-10"><i class="fa-solid fa-chevron-right"></i></span>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Mobile-only pricing accordion -->
+                        <div class="pricing-mobile-accordion" id="pricingMobileAccordion">
+
+                            <!-- Starter -->
+                            <div class="pricing-mobile-card">
+                                <button class="pricing-mobile-btn collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pmcStarter" aria-expanded="false">
+                                    <div class="pricing-mobile-btn-left">
+                                        <span class="pricing-mobile-tier">Starter</span>
+                                        <span class="pricing-mobile-desc">Try the workflow for free</span>
+                                    </div>
+                                    <div class="pricing-mobile-btn-right">
+                                        <span class="pricing-mobile-price">£0<small>/mo</small></span>
+                                        <i class="fa-solid fa-chevron-down pricing-mobile-chevron"></i>
+                                    </div>
+                                </button>
+                                <div id="pmcStarter" class="collapse">
+                                    <div class="pricing-mobile-body">
+                                        <ul class="pricing-mobile-features">
+                                            <li><span class="pmf-check">✓</span> 3 scans / month</li>
+                                            <li><span class="pmf-check">✓</span> Chrome extension</li>
+                                            <li><span class="pmf-check">✓</span> Mobile app</li>
+                                            <li><span class="pmf-check">✓</span> Shopify integration</li>
+                                            <li class="pmf-missing"><span class="pmf-x">–</span> Batch processing</li>
+                                            <li class="pmf-missing"><span class="pmf-x">–</span> Smart suggest</li>
+                                            <li class="pmf-missing"><span class="pmf-x">–</span> API access</li>
+                                        </ul>
+                                        <a href="#" class="butn butn-md butn-bord butn-rounded synclyst-current-plan w-100 text-center d-block">Current Plan</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pro -->
+                            <div class="pricing-mobile-card">
+                                <button class="pricing-mobile-btn collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pmcPro" aria-expanded="false">
+                                    <div class="pricing-mobile-btn-left">
+                                        <span class="pricing-mobile-tier">Pro</span>
+                                        <span class="pricing-mobile-desc">Great for part-time sellers</span>
+                                    </div>
+                                    <div class="pricing-mobile-btn-right">
+                                        <span class="pricing-mobile-price">£9<small>/mo</small></span>
+                                        <i class="fa-solid fa-chevron-down pricing-mobile-chevron"></i>
+                                    </div>
+                                </button>
+                                <div id="pmcPro" class="collapse">
+                                    <div class="pricing-mobile-body">
+                                        <ul class="pricing-mobile-features">
+                                            <li><span class="pmf-check">✓</span> 100 scans / month</li>
+                                            <li><span class="pmf-check">✓</span> Chrome extension</li>
+                                            <li><span class="pmf-check">✓</span> Mobile app</li>
+                                            <li><span class="pmf-check">✓</span> Shopify integration</li>
+                                            <li class="pmf-missing"><span class="pmf-x">–</span> Batch processing</li>
+                                            <li class="pmf-missing"><span class="pmf-x">–</span> Smart suggest</li>
+                                            <li class="pmf-missing"><span class="pmf-x">–</span> API access</li>
+                                        </ul>
+                                        <a href="/sign-up?redirect_url=/dashboard%3Fpricing%3D1%26tier%3Dpro" class="butn butn-md butn-bord butn-rounded w-100 text-center d-block">Upgrade to Pro →</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Growth (popular) -->
+                            <div class="pricing-mobile-card pricing-mobile-card--popular">
+                                <div class="pricing-mobile-popular-label">Popular</div>
+                                <button class="pricing-mobile-btn" type="button" data-bs-toggle="collapse" data-bs-target="#pmcGrowth" aria-expanded="true">
+                                    <div class="pricing-mobile-btn-left">
+                                        <span class="pricing-mobile-tier">Growth</span>
+                                        <span class="pricing-mobile-desc">For active sellers listing regularly</span>
+                                    </div>
+                                    <div class="pricing-mobile-btn-right">
+                                        <span class="pricing-mobile-price color-blue5">£29<small>/mo</small></span>
+                                        <i class="fa-solid fa-chevron-down pricing-mobile-chevron"></i>
+                                    </div>
+                                </button>
+                                <div id="pmcGrowth" class="collapse show">
+                                    <div class="pricing-mobile-body">
+                                        <ul class="pricing-mobile-features">
+                                            <li><span class="pmf-check">✓</span> 500 scans / month</li>
+                                            <li><span class="pmf-check">✓</span> Chrome extension</li>
+                                            <li><span class="pmf-check">✓</span> Mobile app</li>
+                                            <li><span class="pmf-check">✓</span> Shopify integration</li>
+                                            <li><span class="pmf-check">✓</span> Batch processing</li>
+                                            <li><span class="pmf-check">✓</span> Smart suggest</li>
+                                            <li class="pmf-missing"><span class="pmf-x">–</span> API access</li>
+                                        </ul>
+                                        <a href="/sign-up?redirect_url=/dashboard%3Fpricing%3D1%26tier%3Dgrowth" class="butn butn-md butn-bg butn-rounded w-100 text-center d-block">Upgrade to Growth →</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Scale -->
+                            <div class="pricing-mobile-card">
+                                <button class="pricing-mobile-btn collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pmcScale" aria-expanded="false">
+                                    <div class="pricing-mobile-btn-left">
+                                        <span class="pricing-mobile-tier">Scale</span>
+                                        <span class="pricing-mobile-desc">For high-volume stores</span>
+                                    </div>
+                                    <div class="pricing-mobile-btn-right">
+                                        <span class="pricing-mobile-price">£79<small>/mo</small></span>
+                                        <i class="fa-solid fa-chevron-down pricing-mobile-chevron"></i>
+                                    </div>
+                                </button>
+                                <div id="pmcScale" class="collapse">
+                                    <div class="pricing-mobile-body">
+                                        <ul class="pricing-mobile-features">
+                                            <li><span class="pmf-check">✓</span> Unlimited scans</li>
+                                            <li><span class="pmf-check">✓</span> Chrome extension</li>
+                                            <li><span class="pmf-check">✓</span> Mobile app</li>
+                                            <li><span class="pmf-check">✓</span> Shopify integration</li>
+                                            <li><span class="pmf-check">✓</span> Batch processing</li>
+                                            <li><span class="pmf-check">✓</span> Smart suggest</li>
+                                            <li><span class="pmf-check">✓</span> API access</li>
+                                        </ul>
+                                        <a href="/sign-up?redirect_url=/dashboard%3Fpricing%3D1%26tier%3Dscale" class="butn butn-md butn-bord butn-rounded w-100 text-center d-block">Upgrade to Scale →</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                        <!-- End mobile pricing accordion -->
+
+                        <div class="botm mt-70">
+                            <span>Need a custom solution or running into an issue? <a href="mailto:synclyst@gmail.com">Contact Us</a></span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== End Pricing ==================== -->
+
+
+
+                <!-- ==================== Start FAQS ==================== -->
+
+                <section class="faqs-ds section-padding pt-0">
+                    <div class="container">
+                        <div class="sec-head text-center mb-70">
+                            <h2>Questions Sellers <span>Ask</span></h2>
+                        </div>
+                        <div class="row justify-content-center">
+                            <div class="col-lg-8">
+                                <div class="accordion" id="accordionExample">
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading1">
+                                            <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse1" aria-expanded="true"
+                                                aria-controls="collapse1">
+                                                What does Synclyst create from a photo?
+                                            </button>
+                                        </h2>
+                                        <div id="collapse1" class="accordion-collapse collapse"
+                                            aria-labelledby="heading1" data-bs-parent="#accordionExample">
+                                            <div class="accordion-body">
+                                                <p>Synclyst uses AI to analyze your photo and generate a complete product listing — including a keyword-optimized title, full description, suggested price, category, condition, and tags. Everything is editable before you publish, so you stay in control.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="accordion-item active">
+                                        <h2 class="accordion-header" id="heading2">
+                                            <button class="accordion-button collapsed" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#collapse2"
+                                                aria-expanded="false" aria-controls="collapse2">
+                                                How fast is the listing workflow?
+                                            </button>
+                                        </h2>
+                                        <div id="collapse2" class="accordion-collapse collapse show"
+                                            aria-labelledby="heading2" data-bs-parent="#accordionExample">
+                                            <div class="accordion-body">
+                                                <p>Most resellers go from photo to published listing in under 60 seconds. You take a photo in the mobile app, AI drafts the listing, you review it, and publish directly to Shopify or your marketplace of choice — no copy-pasting or manual data entry.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading3">
+                                            <button class="accordion-button collapsed" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#collapse3"
+                                                aria-expanded="false" aria-controls="collapse3">
+                                                Which platforms does Synclyst support?
+                                            </button>
+                                        </h2>
+                                        <div id="collapse3" class="accordion-collapse collapse"
+                                            aria-labelledby="heading3" data-bs-parent="#accordionExample">
+                                            <div class="accordion-body">
+                                                <p>Synclyst currently supports publishing to Shopify with more marketplaces coming soon. The Chrome extension works with eBay, Poshmark, Depop, Facebook Marketplace, and other listing sites to auto-fill forms directly in your browser — no switching between apps.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading4">
+                                            <button class="accordion-button collapsed" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#collapse4"
+                                                aria-expanded="false" aria-controls="collapse4">
+                                                What does the Chrome extension do?
+                                            </button>
+                                        </h2>
+                                        <div id="collapse4" class="accordion-collapse collapse"
+                                            aria-labelledby="heading4" data-bs-parent="#accordionExample">
+                                            <div class="accordion-body">
+                                                <p>The Synclyst Chrome extension sits in your browser and auto-fills listing forms on eBay, Poshmark, Depop, and more. Just snap a photo or upload one, let AI generate the listing details, and the extension pastes everything into the right fields — title, description, price, category, and condition.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading5">
+                                            <button class="accordion-button collapsed" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#collapse5"
+                                                aria-expanded="false" aria-controls="collapse5">
+                                                What is SyncIQ and how does it help resellers?
+                                            </button>
+                                        </h2>
+                                        <div id="collapse5" class="accordion-collapse collapse"
+                                            aria-labelledby="heading5" data-bs-parent="#accordionExample">
+                                            <div class="accordion-body">
+                                                <p>SyncIQ is Synclyst's free resale intelligence tool. Before you buy an item, scan it to instantly see recent sold prices, estimated resale value, demand trends, and profit potential — so you only pick up items worth flipping. It's free to use with 10 scans per day, no account required.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading6">
+                                            <button class="accordion-button collapsed" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#collapse6"
+                                                aria-expanded="false" aria-controls="collapse6">
+                                                Is Synclyst free to use?
+                                            </button>
+                                        </h2>
+                                        <div id="collapse6" class="accordion-collapse collapse"
+                                            aria-labelledby="heading6" data-bs-parent="#accordionExample">
+                                            <div class="accordion-body">
+                                                <p>SyncIQ is free with 10 scans per day and no account needed. The full listing and publishing tools are available on paid plans. You can review a complete AI-generated listing draft before committing — nothing publishes without your approval.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading7">
+                                            <button class="accordion-button collapsed" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#collapse7"
+                                                aria-expanded="false" aria-controls="collapse7">
+                                                Who is Synclyst built for?
+                                            </button>
+                                        </h2>
+                                        <div id="collapse7" class="accordion-collapse collapse"
+                                            aria-labelledby="heading7" data-bs-parent="#accordionExample">
+                                            <div class="accordion-body">
+                                                <p>Synclyst is built for resellers, thrift flippers, vintage sellers, estate sale buyers, and anyone who sells second-hand or sourced products online. Whether you're listing 5 items a week or 500, Synclyst removes the bottleneck of writing listings manually so you can scale your reselling business faster.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== End FAQS ==================== -->
+
+
+
+
+
+
+
+                <!-- ==================== Start Blogs ==================== -->
+
+                <section id="stack" class="blog-ds section-padding">
+                    <div class="container">
+                        <div class="sec-head mb-70 d-flex align-items-center">
+                            <div>
+                                <h2>The Full <span>Reseller Stack</span></h2>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-4">
+                                <div class="item pt-30 bord-thin-top-light md-mb50">
+                                    <div class="info d-flex align-items-center mb-20">
+                                        <a href="#0" class="tag">
+                                            <span>Workflow</span>
+                                        </a>
+                                        <span class="dash">/</span>
+                                        <a href="#0" class="date">
+                                            <span>SyncLyst</span>
+                                        </a>
+                                    </div>
+                                    <div class="text mb-50">
+                                        <h6>Photo scan to Shopify draft <br> in one flow</h6>
+                                    </div>
+                                    <a href="/sign-up" target="_blank" rel="noopener noreferrer" class="synclyst-stack-btn">
+                                        Scan an Item Now
+                                        <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 13L13 1M13 1H4M13 1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="item pt-30 bord-thin-top-light md-mb50">
+                                    <div class="info d-flex align-items-center mb-20">
+                                        <a href="#0" class="tag">
+                                            <span>Extension</span>
+                                        </a>
+                                        <span class="dash">/</span>
+                                        <a href="#0" class="date">
+                                            <span>Chrome</span>
+                                        </a>
+                                    </div>
+                                    <div class="text mb-50">
+                                        <h6>Magic Fill listing pages <br> across marketplaces</h6>
+                                    </div>
+                                    <a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer" class="synclyst-stack-btn">
+                                        Get the Extension
+                                        <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 13L13 1M13 1H4M13 1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="item pt-30 bord-thin-top-light">
+                                    <div class="info d-flex align-items-center mb-20">
+                                        <a href="#0" class="tag">
+                                            <span>Sourcing</span>
+                                        </a>
+                                        <span class="dash">/</span>
+                                        <a href="#0" class="date">
+                                            <span>SyncIQ</span>
+                                        </a>
+                                    </div>
+                                    <div class="text mb-50">
+                                        <h6>Know if a find is worth buying before you list</h6>
+                                    </div>
+                                    <a href="/sign-up" target="_blank" rel="noopener noreferrer" class="synclyst-stack-btn">
+                                        Find Profitable Items
+                                        <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 13L13 1M13 1H4M13 1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== End Blogs ==================== -->
+
+
+
+            </main>
+
+
+            <!-- ==================== Start Footer ==================== -->
+
+            <footer class="footer-ds bord-thin-top-light">
+                <div class="container section-padding">
+                    <div class="row justify-content-between">
+                        <div class="col-lg-4">
+                            <div class="subscribe md-mb50">
+                                <div class="synclyst-logo mb-30" style="font-size:22px;font-weight:800;letter-spacing:-0.04em;">SyncLyst<sup style="font-size:10px;font-weight:500;">™</sup></div>
+                                <p class="sub-color mb-30" style="font-size:14px;line-height:1.7;">AI-powered listing tools built for resellers.<br>One photo. Full listing. Ready to publish.</p>
+                                <h6 class="mb-20">Stay in the loop</h6>
+                                <form id="subscribe-form" class="form-group" onsubmit="handleSubscribe(event)">
+                                    <label for="email_subscribe">Email Address</label>
+                                    <input id="email_subscribe" type="email" placeholder="Enter your email address"
+                                        name="email_subscribe" required>
+                                    <button type="submit" class="icon invert" id="subscribe-btn">
+                                        <img src="common/imgs/icons/paper-plane.svg" alt="">
+                                    </button>
+                                </form>
+                                <span id="subscribe-msg" style="display:none;font-size:13px;margin-top:8px;"></span>
+                                <span>By subscribing, you accept our <a href="#" data-bs-toggle="modal" data-bs-target="#privacyModal">Privacy Policy</a></span>
+                                <script>
+                                async function handleSubscribe(e) {
+                                    e.preventDefault();
+                                    const email = document.getElementById('email_subscribe').value.trim();
+                                    const btn = document.getElementById('subscribe-btn');
+                                    const msg = document.getElementById('subscribe-msg');
+                                    btn.disabled = true;
+                                    try {
+                                        const res = await fetch('/api/subscribe', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ email })
+                                        });
+                                        if (res.ok) {
+                                            msg.textContent = "You're in! We'll be in touch.";
+                                            msg.style.color = '#7c3aed';
+                                            msg.style.display = 'block';
+                                            document.getElementById('email_subscribe').value = '';
+                                            btn.disabled = false;
+                                        } else {
+                                            msg.textContent = 'Something went wrong. Please try again.';
+                                            msg.style.color = '#f87171';
+                                            msg.style.display = 'block';
+                                            btn.disabled = false;
+                                        }
+                                    } catch {
+                                        msg.textContent = 'Something went wrong. Please try again.';
+                                        msg.style.color = '#f87171';
+                                        msg.style.display = 'block';
+                                        btn.disabled = false;
+                                    }
+                                }
+                                </script>
+                            </div>
+                        </div>
+                        <div class="col-lg-7">
+                            <div class="contact-info">
+                                <div class="row lg-marg">
+                                    <div class="col-md-3">
+                                        <div class="item mb-40">
+                                            <h6>Products</h6>
+                                            <p><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">Mobile App</a></p>
+                                            <p><a href="https://chromewebstore.google.com/detail/synclyst-listing-autopilo/copjkijolfpmhjgiggafngmdeibnmfnm" target="_blank" rel="noopener noreferrer">Chrome Extension</a></p>
+                                            <p><a href="https://synclyst.app/?mode=scan" target="_blank" rel="noopener noreferrer">SyncIQ Scanner</a></p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="item mb-40">
+                                            <h6>Integrations</h6>
+                                            <p>Shopify</p>
+                                            <p>eBay</p>
+                                            <p>Etsy</p>
+                                            <p>Depop</p>
+                                            <p>Vinted</p>
+                                            <p>Shopee</p>
+                                            <p class="sub-color" style="font-size:12px;margin-top:8px;opacity:.5;">Amazon <span style="font-size:11px;">(coming soon)</span></p>
+                                            <p class="sub-color" style="font-size:12px;opacity:.5;">TikTok Shop <span style="font-size:11px;">(coming soon)</span></p>
+                                            <p class="sub-color" style="font-size:12px;opacity:.5;">Facebook Marketplace <span style="font-size:11px;">(coming soon)</span></p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="item mb-40">
+                                            <h6>Navigate</h6>
+                                            <p><a href="#integrations">Integrations</a></p>
+                                            <p><a href="#stack">Full Stack</a></p>
+                                            <p><a href="#pricing">Pricing</a></p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="item mb-40">
+                                            <h6>Contact</h6>
+                                            <p><a href="mailto:synclyst@gmail.com">synclyst@gmail.com</a></p>
+                                            <p><a href="https://synclyst.app" target="_blank" rel="noopener noreferrer">synclyst.app</a></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sub-footer bord-thin-top-light pt-30 pb-30">
+                    <div class="container">
+                        <div class="row align-items-center">
+                            <div class="col-lg-6">
+                                <span class="sub-color" style="font-size:13px;">&copy; 2026 SyncLyst. All rights reserved.</span>
+                            </div>
+                            <div class="col-lg-6 text-lg-right">
+                                <div class="links sub-color d-flex justify-content-lg-end" style="gap:24px;">
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#privacyModal">Privacy Policy</a>
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">Terms &amp; Conditions</a>
+                                    <a href="mailto:synclyst@gmail.com">Contact</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+
+            <!-- ==================== End Footer ==================== -->
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+    <!-- ==================== Privacy Policy Modal ==================== -->
+    <div class="modal fade" id="privacyModal" tabindex="-1" aria-labelledby="privacyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content" style="background:#111;color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:16px;">
+                <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1);padding:28px 36px 20px;">
+                    <h5 class="modal-title" id="privacyModalLabel" style="font-size:22px;font-weight:700;letter-spacing:-0.03em;">Privacy Policy</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="padding:28px 36px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.7);">
+                    <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:24px;">Last updated: 16 May 2026</p>
+
+                    <p>SyncLyst ("we", "us", "our") is committed to protecting your privacy. This policy explains what data we collect, how we use it, and your rights.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">1. Information We Collect</h6>
+                    <p><strong style="color:#fff;">Account &amp; contact data</strong> — email address when you subscribe to updates or contact us.</p>
+                    <p><strong style="color:#fff;">Product photos</strong> — images you upload via the mobile app or Chrome extension for AI listing generation. These are processed to generate listing content and are not stored permanently beyond the session unless you save a draft.</p>
+                    <p><strong style="color:#fff;">Usage data</strong> — anonymous analytics such as pages visited, features used, and scan counts to help us improve the product.</p>
+                    <p><strong style="color:#fff;">Payment data</strong> — subscription payments are handled by Stripe. We never store your card details.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">2. How We Use Your Information</h6>
+                    <p>We use the information we collect to: deliver and improve our listing generation services; send product updates and relevant communications (only if you opt in); process subscription payments via Stripe; respond to support requests.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">3. Third-Party Services</h6>
+                    <p>SyncLyst integrates with third-party platforms including Shopify, eBay, Etsy, Depop, Vinted, and Shopee. When you connect these platforms, their own privacy policies apply to data shared through those integrations. We also use Stripe for payments and may use analytics tools such as Google Analytics.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">4. Data Retention</h6>
+                    <p>We retain your email address for as long as you are subscribed to communications. Product photos are processed in-session and not retained beyond listing draft creation. You may request deletion of your data at any time.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">5. Your Rights</h6>
+                    <p>You have the right to access, correct, or delete the personal data we hold about you. To exercise these rights, contact us at <a href="mailto:synclyst@gmail.com" style="color:#570EC5;">synclyst@gmail.com</a>.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">6. Cookies</h6>
+                    <p>Our website may use essential cookies for functionality. We do not use tracking or advertising cookies without your consent.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">7. Changes to This Policy</h6>
+                    <p>We may update this policy from time to time. Material changes will be communicated via email or a notice on the site. Continued use of SyncLyst after changes constitutes acceptance.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">8. Contact</h6>
+                    <p>For any privacy-related questions: <a href="mailto:synclyst@gmail.com" style="color:#570EC5;">synclyst@gmail.com</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Terms & Conditions Modal ==================== -->
+    <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content" style="background:#111;color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:16px;">
+                <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1);padding:28px 36px 20px;">
+                    <h5 class="modal-title" id="termsModalLabel" style="font-size:22px;font-weight:700;letter-spacing:-0.03em;">Terms &amp; Conditions</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="padding:28px 36px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.7);">
+                    <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:24px;">Last updated: 16 May 2026</p>
+
+                    <p>These Terms &amp; Conditions ("Terms") govern your use of SyncLyst products and services, including the mobile application, Chrome extension, and SyncIQ scanner ("Services"). By using our Services you agree to these Terms.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">1. Use of the Service</h6>
+                    <p>SyncLyst grants you a non-exclusive, non-transferable licence to use our Services for your personal or business reselling activity. You must not misuse, reverse-engineer, or attempt to extract the underlying AI models or algorithms.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">2. Accounts &amp; Access</h6>
+                    <p>Some features require an account. You are responsible for keeping your credentials secure and for all activity under your account. SyncIQ scanning is available without an account up to the free tier limit.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">3. Subscriptions &amp; Billing</h6>
+                    <p>Paid plans are billed monthly via Stripe. You may cancel at any time; cancellation takes effect at the end of the current billing period. We reserve the right to change pricing with 30 days' notice. Refunds are issued at our discretion — contact <a href="mailto:synclyst@gmail.com" style="color:#570EC5;">synclyst@gmail.com</a> within 7 days of a charge if you believe there is an error.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">4. AI-Generated Content</h6>
+                    <p>Listing titles, descriptions, and tags generated by SyncLyst are AI outputs. You are responsible for reviewing all generated content before publishing. SyncLyst does not guarantee accuracy, completeness, or compliance with marketplace policies for any generated listing.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">5. Acceptable Use</h6>
+                    <p>You agree not to use SyncLyst to list counterfeit, prohibited, or illegal items. You must comply with the terms of any marketplace you publish to (Shopify, eBay, Etsy, Depop, Vinted, Shopee, etc.). We reserve the right to suspend accounts that violate these rules.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">6. Intellectual Property</h6>
+                    <p>All SyncLyst software, branding, and AI models remain our intellectual property. You retain ownership of any product photos you upload and any listing content you publish.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">7. Limitation of Liability</h6>
+                    <p>To the fullest extent permitted by law, SyncLyst shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Services, including but not limited to lost sales, marketplace suspensions, or inaccurate listing data.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">8. Termination</h6>
+                    <p>We may suspend or terminate your access if you breach these Terms. You may stop using the Services at any time.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">9. Governing Law</h6>
+                    <p>These Terms are governed by the laws of England and Wales. Any disputes shall be subject to the exclusive jurisdiction of the courts of England and Wales.</p>
+
+                    <h6 style="color:#fff;font-weight:700;margin-top:28px;margin-bottom:10px;">10. Contact</h6>
+                    <p>Questions about these Terms: <a href="mailto:synclyst@gmail.com" style="color:#570EC5;">synclyst@gmail.com</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="common/js/lib/jquery-3.6.0.min.js?v=2"></script>
+    <script src="common/js/lib/jquery-migrate-3.4.0.min.js?v=2"></script>
+
+    <!-- plugins -->
+    <script src="common/js/lib/plugins.js?v=2"></script>
+
+    <!-- GSAP -->
+    <script src="common/js/gsap_lib/gsap.min.js?v=2"></script>
+    <script src="common/js/gsap_lib/ScrollSmoother.min.js?v=2"></script>
+    <script src="common/js/gsap_lib/ScrollTrigger.min.js?v=2"></script>
+    <script src="common/js/gsap_lib/SplitText.min.js?v=2"></script>
+
+    <!-- common scripts -->
+    <script src="common/js/common_scripts.js?v=2"></script>
+
+    <!-- custom scripts -->
+    <script src="assets/js/scripts.js?v=2"></script>
+
+    <script>
+        // The preloader GSAP timeline hides header .container for ~1.5s even when
+        // the loader is disabled. Kill it immediately and show the hero content.
+        (function () {
+            var header = document.querySelector('header .container');
+            if (header) {
+                header.style.opacity = '1';
+                header.style.transform = 'none';
+            }
+            setTimeout(function () {
+                if (window.gsap) {
+                    gsap.killTweensOf('header .container');
+                    gsap.set('header .container', { opacity: 1, y: 0, clearProps: 'opacity,y' });
+                }
+            }, 0);
+        })();
+    </script>
+
+</body>
+
+</html>

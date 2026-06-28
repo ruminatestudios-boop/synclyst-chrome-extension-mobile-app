@@ -93,6 +93,11 @@ export function buildVintedListingExtraFromVision(visionJson: VisionPayload): Re
   return Object.fromEntries(Object.entries(out).filter(([, v]) => !isEmptyVal(v)));
 }
 
+/** Without this, a later re-extraction in the same session (e.g. a different photo reusing
+ * the same session_id) could never overwrite a stale category/brand from an earlier, unrelated
+ * scan — matches the EBAY_ALWAYS_OVERWRITE / SHOPIFY_ALWAYS_OVERWRITE safeguard. */
+const VINTED_ALWAYS_OVERWRITE = new Set(["category", "brand"]);
+
 export function mergeVintedIntoListingExtra(
   prevListingExtra: unknown,
   incomingVinted: Record<string, unknown>
@@ -104,7 +109,7 @@ export function mergeVintedIntoListingExtra(
   for (const [k, v] of Object.entries(incomingVinted)) {
     if (isEmptyVal(v)) continue;
     const cur = prevV[k];
-    if (!isEmptyVal(cur)) continue;
+    if (!VINTED_ALWAYS_OVERWRITE.has(k) && !isEmptyVal(cur)) continue;
     prevV[k] = v;
   }
 

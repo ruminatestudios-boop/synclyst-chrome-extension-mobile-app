@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Bag body -->
+  <rect x="8" y="30" width="84" height="62" rx="10" fill="currentColor"/>
+
+  <!-- Handle arch (solid, same colour) -->
+  <path fill="currentColor" d="M29,30 Q50,6 71,30 L64,30 Q50,16 36,30 Z"/>
+
+  <!-- White dots where handle meets bag -->
+  <circle cx="30" cy="31" r="5" fill="white"/>
+  <circle cx="70" cy="31" r="5" fill="white"/>
+
+  <!-- TikTok note mark (white) -->
+  <!-- Note head -->
+  <circle cx="35" cy="72" r="14" fill="white"/>
+  <!-- Stem -->
+  <rect x="47" y="38" width="10" height="38" fill="white" rx="2"/>
+  <!-- Flag: curves right then hooks back -->
+  <path fill="white" d="
+    M47,38
+    Q60,32 67,40
+    Q73,49 66,57
+    Q61,63 55,59
+    L55,50
+    Q60,53 63,49
+    Q66,44 62,40
+    Q58,36 49,39
+    Z
+  "/>
+</svg>
