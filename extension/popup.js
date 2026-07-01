@@ -329,6 +329,23 @@ let snapPairSessionId = null;
 let listingHydrated = false;
 let lastAppliedImageUrl = null;
 let pollTimer = null;
+let pollSessionIdForLoop = null;
+
+function restartSessionPollLoop(sessionId) {
+  pollSessionIdForLoop = sessionId;
+  if (pollTimer) clearInterval(pollTimer);
+  const tick = async () => {
+    if (viewingPinnedDraft || pollSessionIdForLoop !== sessionId) return;
+    const j = await pollSession(sessionId);
+    if (j && !j.empty && j.listing && sessionListingHasContent(j.listing)) applyListing(j.listing);
+  };
+  pollTimer = setInterval(tick, extractionPending ? 350 : 800);
+}
+
+function adjustPollInterval() {
+  if (!pollSessionIdForLoop) return;
+  restartSessionPollLoop(pollSessionIdForLoop);
+}
 let realtimeChannel = null;
 let supabaseClient = null;
 /** When true, user chose “home” (QR screen); listing updates still apply in the background. */
@@ -408,6 +425,13 @@ function updateExtractionProgressUI(stage, secs) {
   }
 }
 
+function extractionStageFromElapsed(secs) {
+  if (secs < 2) return "Photo received";
+  if (secs < 8) return "Processing image";
+  if (secs < 20) return "Drafting details";
+  return "Finalizing";
+}
+
 function setReviewLoadingText(text) {
   const loadText = document.getElementById("review-loading-text");
   if (!loadText) return;
@@ -424,15 +448,20 @@ function stopExtractionTicker() {
 
 function startExtractionTicker(stage) {
   extractionStartedAtMs = Date.now();
-  const st = String(stage || "Extracting your listing").trim() || "Extracting your listing";
   const render = () => {
+    if (!extractionPending) return;
     const secs = elapsedSeconds(extractionStartedAtMs);
+    const st = extractionStageFromElapsed(secs);
     setReviewLoadingText(st);
     updateExtractionProgressUI(st, secs);
   };
+  if (stage) {
+    const st = String(stage || "").trim();
+    if (st) setReviewLoadingText(st);
+  }
   render();
   if (extractionTickerId) clearInterval(extractionTickerId);
-  extractionTickerId = setInterval(render, 300);
+  extractionTickerId = setInterval(render, 400);
 }
 
 function updateExtractionStage(stage) {
@@ -2584,7 +2613,6 @@ async function pollSession(sessionId) {
     }
   }
   try {
-    if (extractionPending) updateExtractionStage("Checking status");
     const r = await fetchWithTimeout(
       `${SYNCLYST_ORIGIN}/api/snap-pair/session/${encodeURIComponent(sessionId)}`,
       {},
@@ -2593,20 +2621,13 @@ async function pollSession(sessionId) {
     diagLastPoll = { atMs: Date.now(), status: r && typeof r.status === "number" ? r.status : null, ok: !!(r && r.ok), error: "" };
     refreshSettingsDiagnosticsUI();
     if (!r || !r.ok) {
-      if (extractionPending) updateExtractionStage("Waiting for extraction");
       return { error: true, status: r && r.status };
     }
     const j = await r.json();
-    if (extractionPending) {
-      if (j && j.empty) updateExtractionStage("Waiting for upload");
-      else if (j && j.listing && !sessionListingHasContent(j.listing)) updateExtractionStage("Processing image");
-      else updateExtractionStage("Finalizing");
-    }
     return j;
   } catch {
     diagLastPoll = { atMs: Date.now(), status: null, ok: false, error: "fetch_failed" };
     refreshSettingsDiagnosticsUI();
-    if (extractionPending) updateExtractionStage("Reconnecting");
     return { error: true };
   }
 }
@@ -3036,7 +3057,9 @@ function burstPollUntilListing(sessionId, opts) {
 function updateContinueListingButton() {
   const cont = document.getElementById("btn-continue-listing");
   if (!cont) return;
-  const show = qrHomeActive && listingHydrated && sessionListingHasContent(lastPayload);
+  const emptyEl = document.getElementById("state-empty");
+  const onQrScreen = !!emptyEl && !emptyEl.classList.contains("hidden");
+  const show = onQrScreen && listingHydrated && sessionListingHasContent(lastPayload);
   cont.classList.toggle("hidden", !show);
 }
 
@@ -3099,6 +3122,7 @@ function wireBrandHome() {
 
 function setReviewLoadingState(on, msg) {
   extractionPending = !!on;
+  if (on) adjustPollInterval();
   // Ensure the right-hand "review" modal stays visible while we wait.
   try {
     document.getElementById("post-platform-panel")?.classList.remove("hidden");
@@ -3132,8 +3156,12 @@ function setReviewLoadingState(on, msg) {
   }
   const thumb = document.getElementById("preview-thumb");
   if (thumb) {
-    thumb.style.display = on ? "none" : thumb.style.display;
-    if (on) thumb.removeAttribute("src");
+    if (on) {
+      // Keep photo preview visible while AI drafts title/description.
+      if (!thumb.getAttribute("src")) {
+        thumb.style.display = "none";
+      }
+    }
   }
   const extra = document.getElementById("review-extra-images");
   if (extra) {
@@ -3433,12 +3461,56 @@ function mergeListingCoreFromLastPayload(row) {
   return out;
 }
 
+function listingHasExtractedText(row, resolvedDesc) {
+  const rawTitle = row && row.title != null ? String(row.title).trim() : "";
+  const titleOk = !!pickStr(rawTitle) && !looksLikeAiRefusalText(rawTitle);
+  return titleOk || !!pickStr(resolvedDesc);
+}
+
 function applyListing(row) {
   if (!sessionListingHasContent(row)) return;
   if (staleListingGuard) {
     if (listingRowMatchesStaleGuard(row)) return;
     staleListingGuard = null;
   }
+  row = mergeListingCoreFromLastPayload(row);
+  const prevStamp = lastAppliedListingStamp != null ? String(lastAppliedListingStamp).trim() : "";
+  const stamp =
+    row.updated_at != null && String(row.updated_at).trim() !== ""
+      ? String(row.updated_at)
+      : `fallback:${snapPairSessionId || ""}:${pickStr(row.title)}\t${(row.description || "").length}`;
+  const rawPriceStr = formatListingPrice(row.price);
+  const priceStr = rawPriceStr && rawPriceStr.trim() ? rawPriceStr : DEFAULT_ESTIMATED_PRICE;
+  const coercedImg = pickFirstListingImageUrl(row);
+  const resolvedDesc = resolveListingDescription(row);
+  const hasText = listingHasExtractedText(row, resolvedDesc);
+  const wasExtracting = extractionPending;
+
+  // Show scanned photo immediately — don't wait for AI text fields.
+  if (coercedImg) {
+    const thumbEl = document.getElementById("preview-thumb");
+    if (thumbEl) {
+      thumbEl.style.display = "";
+      thumbEl.src = coercedImg;
+    }
+    lastAppliedImageUrl = coercedImg;
+  }
+
+  if (wasExtracting && !hasText) {
+    lastPayload = {
+      title: "",
+      description: "",
+      price: priceStr,
+      ...(coercedImg ? { image_url: coercedImg } : {}),
+      ...(row.listing_extra != null ? { listing_extra: row.listing_extra } : {}),
+    };
+    listingHydrated = true;
+    lastAppliedListingStamp = stamp;
+    refreshLoadedSubstate();
+    if (!viewingPinnedDraft) updateContinueListingButton();
+    return;
+  }
+
   // We have real listing content; clear any "waiting for scan" UI.
   if (extractionPending) {
     extractionPending = false;
@@ -3460,16 +3532,8 @@ function applyListing(row) {
     } catch {
       /* ignore */
     }
+    adjustPollInterval();
   }
-  row = mergeListingCoreFromLastPayload(row);
-  const stamp =
-    row.updated_at != null && String(row.updated_at).trim() !== ""
-      ? String(row.updated_at)
-      : `fallback:${snapPairSessionId || ""}:${pickStr(row.title)}\t${(row.description || "").length}`;
-  const rawPriceStr = formatListingPrice(row.price);
-  const priceStr = rawPriceStr && rawPriceStr.trim() ? rawPriceStr : DEFAULT_ESTIMATED_PRICE;
-  const coercedImg = pickFirstListingImageUrl(row);
-  const resolvedDesc = resolveListingDescription(row);
   lastPayload = {
     title: row.title == null ? "" : String(row.title).trim(),
     description: resolvedDesc,
@@ -3567,6 +3631,17 @@ function applyListing(row) {
   lastAppliedListingStamp = stamp;
   updateContinueListingButton();
   refreshLoadedSubstate();
+
+  const isNewListingEvent = !prevStamp || stamp !== prevStamp;
+  if (!viewingPinnedDraft && isNewListingEvent) {
+    const emptyEl = document.getElementById("state-empty");
+    const onQrScreen = !!emptyEl && !emptyEl.classList.contains("hidden");
+    if (onQrScreen) {
+      hideQrSyncBanner();
+      continueToListing();
+      showToast("Scan ready — review your listing below", "success", 2400);
+    }
+  }
 }
 
 function getSelectedPlatform() {
@@ -4171,6 +4246,8 @@ window.addEventListener("beforeunload", () => {
       if (!changes[STORAGE_SNAP_LISTING_READY_AT]) return;
       const nv = changes[STORAGE_SNAP_LISTING_READY_AT].newValue;
       if (nv == null) return;
+      /** Preview + final upserts both bump the signal — don't restart extraction mid-flight. */
+      if (extractionPending) return;
       const ts = typeof nv === "number" ? nv : Number(nv);
       if (!Number.isFinite(ts) || Date.now() - ts > SNAP_LISTING_READY_MAX_AGE_MS) {
         try {
@@ -4190,9 +4267,8 @@ window.addEventListener("beforeunload", () => {
         }
         // A new scan/upload finished on the phone; don't show stale or blank fields—wait until the session has content.
         beginAwaitingFreshListing();
-        clearReviewFieldsForNewScan();
         showQrSyncBanner("📱 Photo received — AI is extracting your listing…");
-        setReviewLoadingState(true, "Syncing from phone…");
+        setReviewLoadingState(true, "Photo received");
         continueToListing();
         burstPollUntilListing(snapPairSessionId);
       })();
@@ -4221,7 +4297,7 @@ window.addEventListener("beforeunload", () => {
           } catch {
             /* ignore */
           }
-          setReviewLoadingState(true, "Syncing from phone…");
+          setReviewLoadingState(true, "Photo received");
           continueToListing();
           burstPollUntilListing(snapPairSessionId);
         })();
@@ -4231,6 +4307,8 @@ window.addEventListener("beforeunload", () => {
     }
 
     const uiPrefs = await storageGet([STORAGE_LAST_PLATFORM, STORAGE_PREFERS_QR_HOME]);
+    /** Default popup shows the QR pairing screen — keep `qrHomeActive` in sync so Continue / library UI work. */
+    qrHomeActive = uiPrefs[STORAGE_PREFERS_QR_HOME] !== false;
 
     const cfg = await fetchConfig();
     const g = typeof window !== "undefined" ? window : {};
@@ -4253,7 +4331,7 @@ window.addEventListener("beforeunload", () => {
           },
           () => {
             /** Realtime can fire before the row is readable; burst mirrors phone-upload path. */
-            burstPollUntilListing(snapPairSessionId, { stepMs: 300, maxAttempts: 20 });
+            burstPollUntilListing(snapPairSessionId, { stepMs: 250, maxAttempts: 80 });
           }
         )
         .subscribe();
@@ -4262,15 +4340,15 @@ window.addEventListener("beforeunload", () => {
     }
 
     /** HTTP poll always: Realtime can miss (RLS, publication, flaky channel) — same path as dev-memory. */
-    pollTimer = setInterval(async () => {
-      if (viewingPinnedDraft) return;
-      const j = await pollSession(sessionId);
-      if (j && !j.empty && j.listing && sessionListingHasContent(j.listing)) applyListing(j.listing);
-    }, 800);
+    restartSessionPollLoop(sessionId);
 
     const initial = await pollSession(sessionId);
-    if (initial && !initial.empty && initial.listing && sessionListingHasContent(initial.listing)) {
+    const hadInitialListing =
+      initial && !initial.empty && initial.listing && sessionListingHasContent(initial.listing);
+    if (hadInitialListing) {
       applyListing(initial.listing);
+    } else if (qrHomeActive) {
+      showQrHomeView();
     }
     refreshLoadedSubstate();
 

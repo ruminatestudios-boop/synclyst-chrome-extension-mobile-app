@@ -321,6 +321,30 @@ async function handleSnapPairPush(request: NextRequest) {
   /** Always persist scan as data URL for review UI / extension thumb (Postgres `text` holds large payloads). */
   const dataUrl = `data:${mimeType};base64,${imageBase64.replace(/^data:[^;]+;base64,/, "")}`;
 
+  /** Write photo to session before vision so Realtime + extension show thumbnail within ~1s. */
+  async function writeSessionImagePreview() {
+    const previewNow = new Date().toISOString();
+    const previewRow = {
+      session_id: sessionId,
+      title: "",
+      description: "",
+      price: "",
+      image_url: dataUrl,
+      listing_extra: { media: { image_urls: [dataUrl] } },
+      updated_at: previewNow,
+    };
+    if (useDevMemory) {
+      devUpsert(previewRow);
+      return;
+    }
+    const { error: previewErr } = await supabase!.from("snap_pair_sessions").upsert(previewRow, {
+      onConflict: "session_id",
+    });
+    if (previewErr) {
+      console.error("[api/snap-pair/push] preview upsert failed", { sessionId, message: previewErr.message });
+    }
+  }
+
   // Append mode: save image(s) to session media without rerunning vision/extraction.
   // This avoids request body limits when multiple base64 images are sent together.
   if (appendOnly) {
@@ -433,6 +457,9 @@ async function handleSnapPairPush(request: NextRequest) {
       { status: 500, headers: h }
     );
   }
+
+  await writeSessionImagePreview();
+
   const visionUrl = `${base}/api/v1/vision/extract`;
   const auth = request.headers.get("authorization");
   const visionAnonId = resolveVisionAnonId(request, sessionId);

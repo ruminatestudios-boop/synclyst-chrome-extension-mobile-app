@@ -83,12 +83,73 @@ function ensureSessionId() {
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  ensureSessionId();
-});
-
 chrome.runtime.onStartup.addListener(() => {
   ensureSessionId();
+  void pollSessionForDesktopNotify();
+});
+
+/** Phone scans don't run snap-bridge on desktop — poll session so badge + popup signal when listing lands. */
+const SYNCLYST_ORIGIN_DEFAULT = "https://app.synclyst.app";
+const STORAGE_LAST_NOTIFIED_STAMP = "synclyst_last_notified_session_stamp";
+
+function sessionRowHasListing(L) {
+  if (!L || typeof L !== "object") return false;
+  const t = L.title != null ? String(L.title).trim() : "";
+  const d = L.description != null ? String(L.description).trim() : "";
+  if (t || d) return true;
+  if (L.price !== undefined && L.price !== null && String(L.price).trim() !== "") return true;
+  const img = L.image_url != null ? String(L.image_url).trim() : "";
+  if (img && (img.startsWith("data:") || img.startsWith("http") || img.startsWith("blob:"))) return true;
+  return false;
+}
+
+async function pollSessionForDesktopNotify() {
+  try {
+    const sid = await ensureSessionId();
+    if (!sid) return;
+    const o = await chrome.storage.local.get(["synclyst_origin_auto", STORAGE_LAST_NOTIFIED_STAMP]);
+    const base = String(o.synclyst_origin_auto || SYNCLYST_ORIGIN_DEFAULT).replace(/\/$/, "");
+    const r = await fetch(`${base}/api/snap-pair/session/${encodeURIComponent(sid)}`);
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j || j.empty || !j.listing || !sessionRowHasListing(j.listing)) return;
+    const stamp =
+      j.listing.updated_at != null && String(j.listing.updated_at).trim() !== ""
+        ? String(j.listing.updated_at).trim()
+        : "";
+    if (!stamp || stamp === o[STORAGE_LAST_NOTIFIED_STAMP]) return;
+    await chrome.storage.local.set({
+      [STORAGE_LAST_NOTIFIED_STAMP]: stamp,
+      synclyst_snap_listing_ready_at: Date.now(),
+      synclyst_prefers_qr_home: false,
+    });
+    try {
+      await chrome.action.setBadgeBackgroundColor({ color: "#7c3aed" });
+      await chrome.action.setBadgeText({ text: "!" });
+      await chrome.action.setTitle({ title: "SyncLyst® — scan ready: open to review" });
+    } catch {
+      /* ignore */
+    }
+  } catch {
+    /* offline */
+  }
+}
+
+try {
+  chrome.alarms.create("synclyst_session_poll", { periodInMinutes: 0.5 });
+} catch {
+  /* ignore */
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm && alarm.name === "synclyst_session_poll") {
+    void pollSessionForDesktopNotify();
+  }
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  ensureSessionId();
+  void pollSessionForDesktopNotify();
 });
 
 function sleep(ms) {
