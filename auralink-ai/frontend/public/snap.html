@@ -2178,6 +2178,16 @@
           return t;
         }
 
+        function snapAnonHeaders() {
+          try {
+            if (window.SyncLystAnon && typeof window.SyncLystAnon.get === "function") {
+              var id = String(window.SyncLystAnon.get() || "").trim();
+              if (id) return { "X-SyncLyst-Anon-Id": id };
+            }
+          } catch (_) {}
+          return {};
+        }
+
         /** Downscale + JPEG re-encode so the JSON body stays small (avoids dev/proxy limits on big camera photos). */
         function prepareImageForPush(dataUrl, sourceMime, done) {
           var maxEdge = 1280;
@@ -2272,7 +2282,7 @@
           if (!b64) return cb("");
           var req = {
             method: "POST",
-            headers: Object.assign({ "Content-Type": "application/json", Accept: "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
+            headers: Object.assign({ "Content-Type": "application/json", Accept: "application/json" }, snapAnonHeaders()),
             credentials: "include",
             body: JSON.stringify({
               session_id: sessionId,
@@ -2302,7 +2312,7 @@
         function appendImageToSession(b64, mime, cb, opSig) {
           var req = {
             method: "POST",
-            headers: Object.assign({ "Content-Type": "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
+            headers: Object.assign({ "Content-Type": "application/json" }, snapAnonHeaders()),
             credentials: "include",
             body: JSON.stringify({
               session_id: sessionId,
@@ -2365,7 +2375,7 @@
               if (extraImages && extraImages.length) body.extra_images = extraImages;
               fetch("/api/snap-pair/push", {
                 method: "POST",
-                headers: Object.assign({ "Content-Type": "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
+                headers: Object.assign({ "Content-Type": "application/json" }, snapAnonHeaders()),
                 credentials: "include",
                 signal: opSig,
                 body: JSON.stringify(body),
@@ -2545,7 +2555,7 @@
                   if (origUrl) body.original_image_urls = [origUrl];
                   fetch("/api/snap-pair/push", {
                     method: "POST",
-                    headers: Object.assign({ "Content-Type": "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
+                    headers: Object.assign({ "Content-Type": "application/json" }, snapAnonHeaders()),
                     credentials: "include",
                     signal: opSig,
                     body: JSON.stringify(body),
@@ -2640,7 +2650,7 @@
                                     if (opSig.aborted) return;
                                 fetch("/api/snap-pair/push", {
                                   method: "POST",
-                                  headers: Object.assign({ "Content-Type": "application/json" }, window.SyncLystAnon ? { "X-SyncLyst-Anon-Id": window.SyncLystAnon.get() } : {}),
+                                  headers: Object.assign({ "Content-Type": "application/json" }, snapAnonHeaders()),
                                   credentials: "include",
                                   signal: opSig,
                                   body: JSON.stringify({
