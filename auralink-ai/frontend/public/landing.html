@@ -374,9 +374,10 @@
                 <h1 class="text-3xl md:text-5xl font-bold tracking-tight leading-tight mb-8 text-[#000]">
                     The complete toolkit for resellers
                 </h1>
-                <p class="text-lg md:text-xl text-[#555] max-w-2xl mx-auto mb-10 text-balance leading-relaxed vercel-body">
-                    List in seconds from the mobile app or Chrome extension.<br />Scan anything <span class="text-orange-600 font-semibold">FREE</span> with SyncIQ to see if it's worth buying.
+                <p class="text-lg md:text-xl text-[#555] max-w-2xl mx-auto mb-4 text-balance leading-relaxed vercel-body">
+                    List in seconds from the mobile app or Chrome extension.<br />Start with <strong class="text-[#111]">3 free scans</strong> (lifetime trial) — no card required.
                 </p>
+                <p id="landing-scan-quota" class="hidden text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full px-4 py-2 inline-block mb-6" aria-live="polite"></p>
                 <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
                     <a href="/list" class="scan-hero-btn text-white px-8 py-3.5 rounded-xl font-semibold border border-black transition-all flex items-center justify-center gap-2.5 group inline-flex bg-black sm:flex-1 sm:min-w-[200px]">
                         <div class="relative flex items-center justify-center w-5 h-5 overflow-hidden">
@@ -395,6 +396,7 @@
                         Install Chrome Extension
                     </a>
                 </div>
+                <p class="text-xs text-zinc-500 mt-4 vercel-body">3 free listing scans per device (lifetime) · Then upgrade or buy credits</p>
             </div>
             <div class="mt-20 max-w-6xl mx-auto">
                 <div class="relative rounded-xl border border-[#eaeaea] bg-white shadow-[0_0_80px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -415,7 +417,7 @@
                             <h3 class="text-xl font-bold text-[#111]">📱 Mobile App</h3>
                             <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">Live Now</span>
                         </div>
-                        <p class="text-sm text-[#555] leading-relaxed vercel-body flex-1 mb-8">Open SyncLyst on your phone. Point your camera at any product — AI extracts the title, description, price and tags, then pushes it straight to your Shopify product page.</p>
+                        <p class="text-sm text-[#555] leading-relaxed vercel-body flex-1 mb-8">Open SyncLyst on your phone. Point your camera at any product — AI extracts the title, description, price and tags. <strong class="text-[#111]">3 free scans</strong> to try it, then upgrade.</p>
                         <a href="/list" class="mt-auto inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all text-center no-underline">
                             Scan Your First Item
                         </a>
@@ -668,7 +670,7 @@
                             <span class="text-[#666] text-sm ml-1">/mo</span>
                         </div>
                         <ul class="space-y-3 mb-8 flex-1 text-sm text-[#666] border-t border-[#eaeaea] pt-6">
-                            <li class="flex items-center gap-3"><i data-lucide="check" class="w-4 h-4 text-emerald-600 shrink-0"></i><strong class="text-[#111]">3 scans per month</strong></li>
+                            <li class="flex items-center gap-3"><i data-lucide="check" class="w-4 h-4 text-emerald-600 shrink-0"></i><strong class="text-[#111]">3 free scans (lifetime)</strong></li>
                             <li class="flex items-center gap-3"><i data-lucide="check" class="w-4 h-4 text-emerald-600 shrink-0"></i>Basic AI extraction</li>
                             <li class="flex items-center gap-3"><i data-lucide="check" class="w-4 h-4 text-emerald-600 shrink-0"></i>Shopify integration</li>
                             <li class="flex items-center gap-3"><i data-lucide="check" class="w-4 h-4 text-emerald-600 shrink-0"></i>Saves to Shopify drafts</li>
@@ -810,7 +812,7 @@
                 <a href="/scan" class="inline-flex items-center justify-center px-8 py-3.5 rounded-xl font-semibold bg-black text-white border border-black hover:bg-zinc-800 transition-all no-underline">
                     Try SyncIQ — 3 free scans (lifetime)
                 </a>
-                <p class="text-xs text-zinc-500 mt-4 vercel-body">No account needed · Same SyncLyst ecosystem · Paid limits coming later</p>
+                <p class="text-xs text-zinc-500 mt-4 vercel-body">3 free scans (lifetime trial) · No account needed · Paid plans for more volume</p>
             </div>
         </section>
 
@@ -1293,7 +1295,7 @@
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">4. Credits &amp; Billing</h4>
-                <p>Starter: 3 scans per month. Pro, Growth, and Scale billed monthly in advance. Fees non-refundable unless required by law. Pricing changes with 30 days notice.</p>
+                <p>Starter: 3 free scans (lifetime trial). Pro, Growth, and Scale billed monthly in advance. Fees non-refundable unless required by law. Pricing changes with 30 days notice.</p>
             </section>
             <section>
                 <h4 class="text-black font-bold mb-2 uppercase tracking-widest text-[10px]">5. AI Content &amp; Liability</h4>
@@ -1884,5 +1886,17 @@
         }
         });
     </script>
+<script src="/js/synclyst-anon-id.js"></script>
+<script src="/js/synclyst-scan-quota.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('landing-scan-quota');
+    if (el && window.SyncLystScanQuota) {
+      SyncLystScanQuota.refresh(el).then(function (u) {
+        if (u) el.classList.remove('hidden');
+      });
+    }
+  });
+</script>
 </body>
 </html>

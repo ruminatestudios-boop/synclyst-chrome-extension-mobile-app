@@ -1273,6 +1273,34 @@
         white-space: nowrap;
         letter-spacing: -0.01em;
       }
+      .scan-quota-pill {
+        display: block;
+        width: fit-content;
+        max-width: 100%;
+        margin: 8px auto 0;
+        padding: 5px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.35;
+        color: #4338ca;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        border-radius: 999px;
+        text-align: center;
+      }
+      .scan-quota-pill.is-low {
+        color: #b45309;
+        background: #fffbeb;
+        border-color: #fcd34d;
+      }
+      .scan-quota-pill.is-none {
+        color: #b91c1c;
+        background: #fef2f2;
+        border-color: #fecaca;
+      }
+      .scan-quota-pill:empty {
+        display: none;
+      }
       .mode-tabs {
         display: flex;
         gap: 0.3rem;
@@ -2545,6 +2573,7 @@
             </div>
             <img id="qr-img" alt="Pairing QR" width="180" height="180" />
             <p class="qr-hint">Scan QR code with phone</p>
+            <p class="scan-quota-pill" id="popup-scan-quota" aria-live="polite"></p>
             <div class="qr-or-divider" role="separator" aria-label="Option 2">
               <span class="qr-or-divider__line" aria-hidden="true"></span>
               <span class="qr-or-divider__text">or</span>

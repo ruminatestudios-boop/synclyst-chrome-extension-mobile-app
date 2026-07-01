@@ -29,6 +29,7 @@
     <script src="/vendor/qrcode-generator.js"></script>
     <script src="/vendor/qrcode-expose.js"></script>
     <script src="/js/synclyst-anon-id.js"></script>
+    <script src="/js/synclyst-scan-quota.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/js/synclyst-quota-modal.js"></script>
     <style>
@@ -629,7 +630,17 @@
       body:not(.snap--mobile-min) .snap-m-scan {
         display: none !important;
       }
+      body.snap--mobile-min .snap-m-quota {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 6;
+        margin: 0;
+        max-width: calc(100% - 24px);
+      }
       body.snap--mobile-min .snap-m-scan {
+        position: relative;
         display: flex !important;
         flex: 1;
         flex-direction: column;
@@ -1287,6 +1298,34 @@
           transition: none;
         }
       }
+      .scan-quota-pill {
+        display: block;
+        width: fit-content;
+        max-width: 100%;
+        margin: 0 auto 12px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.35;
+        color: #4338ca;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        border-radius: 999px;
+        text-align: center;
+      }
+      .scan-quota-pill.is-low {
+        color: #b45309;
+        background: #fffbeb;
+        border-color: #fcd34d;
+      }
+      .scan-quota-pill.is-none {
+        color: #b91c1c;
+        background: #fef2f2;
+        border-color: #fecaca;
+      }
+      .scan-quota-pill[hidden] {
+        display: none !important;
+      }
     </style>
   </head>
   <body>
@@ -1375,6 +1414,7 @@
           '<p class="brand-name">SyncLyst<sup>®</sup></p>' +
           '<p class="brand-meta">Your listing workflow on autopilot</p>' +
           "</div></div>" +
+          '<p class="scan-quota-pill" id="snap-scan-quota" aria-live="polite" hidden></p>' +
           '<h1>Pair with desktop</h1>' +
           '<p class="sub" id="snap-intro-sub">Pick photos from your computer or take them on your phone.<br />After extraction completes, your draft appears in the SyncLyst extension popup.</p>' +
           '<div class="photo-actions">' +
@@ -1405,6 +1445,7 @@
           "</div></div>" +
           "</div>" +
           '<div class="snap-m-scan" id="snap-m-scan" role="main" aria-label="Scan or upload">' +
+          '<p class="scan-quota-pill snap-m-quota" id="snap-scan-quota-mobile" aria-live="polite" hidden></p>' +
           '<div class="snap-m-step-camera" id="snap-m-step-camera">' +
           '<div class="scan-camera-viewport">' +
           '<video id="snap-m-video" playsinline muted autoplay></video>' +
@@ -1526,6 +1567,7 @@
         } else {
           document.body.classList.remove("snap--mobile-min");
         }
+        refreshSnapScanQuota();
 
         function copyTextToClipboard(text) {
           if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1578,6 +1620,24 @@
           }
         }
 
+        function applySnapScanQuota(usage) {
+          if (!usage) return;
+          ["snap-scan-quota", "snap-scan-quota-mobile"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.hidden = false;
+            el.textContent = usage.text;
+            el.classList.remove("is-empty", "is-low", "is-none");
+            if (usage.remaining === 0) el.classList.add("is-none");
+            else if (usage.remaining <= 1) el.classList.add("is-low");
+          });
+        }
+
+        function refreshSnapScanQuota() {
+          if (!window.SyncLystScanQuota) return;
+          SyncLystScanQuota.fetch().then(applySnapScanQuota);
+        }
+
         function tryShowScanQuotaModal(res, data) {
           if (!res || res.status !== 402) return false;
           resetProgress();
@@ -1597,8 +1657,10 @@
               footerBackLabel: "Back",
               bonusCredits: bonus,
             });
+            refreshSnapScanQuota();
             return true;
           }
+          refreshSnapScanQuota();
           return false;
         }
 
@@ -1627,6 +1689,7 @@
           snapFloatAutoHide = setTimeout(function () {
             resetProgress();
           }, 3800);
+          refreshSnapScanQuota();
         }
 
         function setMsg(text, ok) {
