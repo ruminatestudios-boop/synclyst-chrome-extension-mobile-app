@@ -741,7 +741,7 @@
               showWaitlistQuotaModal(lim, qw, { bonusCredits: bonus });
               return null;
             }).catch(function() {
-              showWaitlistQuotaModal(10, 'daily');
+              showWaitlistQuotaModal(3, 'lifetime');
               return null;
             });
           }

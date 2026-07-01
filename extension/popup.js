@@ -2245,7 +2245,7 @@ function ensurePairingStepControls() {
   try {
     const hintEl = qr.querySelector(".qr-hint");
     if (hintEl) {
-      hintEl.textContent = "Scan QR, upload from PC or Phone.";
+      hintEl.textContent = "Scan QR code with phone";
     }
   } catch {
     /* ignore */
@@ -3879,7 +3879,9 @@ async function runMagicFill() {
       const longPollPlatforms =
         platform === "ebay" || platform === "vinted" || platform === "depop" || platform === "shopee";
       const pollMs = longPollPlatforms ? 1000 : 900;
-      const pollIters = longPollPlatforms ? 28 : 12;
+      /** Shopee's own content-script fill timeout is 28s — give the popup's poll a bit more
+       * headroom above that so it doesn't give up in the same instant the fill would've succeeded. */
+      const pollIters = platform === "shopee" ? 34 : longPollPlatforms ? 28 : 12;
       for (let i = 0; i < pollIters; i++) {
         await new Promise((r) => setTimeout(r, pollMs));
         const o = await storageGet([

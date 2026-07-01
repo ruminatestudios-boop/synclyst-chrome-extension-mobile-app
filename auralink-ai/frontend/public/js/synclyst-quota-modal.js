@@ -200,11 +200,19 @@
       back.textContent = opts.footerBackLabel || 'Back to scan';
     }
 
-    var qw = quotaWindow === 'monthly' ? 'monthly' : 'daily';
-    var daily = qw === 'daily';
+    var qw = String(quotaWindow || "lifetime").toLowerCase();
+    var daily = qw === "daily";
+    var monthly = qw === "monthly";
+    var lifetime = qw === "lifetime" || (!daily && !monthly);
     var titleEl = document.getElementById('waitlist-quota-title');
-    if (titleEl) titleEl.textContent = daily ? 'Free scans used for today' : 'Monthly scan limit reached';
-    var n = typeof limit === 'number' && limit > 0 ? limit : 10;
+    if (titleEl) {
+      titleEl.textContent = lifetime
+        ? 'Free scans used up'
+        : daily
+          ? 'Free scans used for today'
+          : 'Monthly scan limit reached';
+    }
+    var n = typeof limit === 'number' && limit > 0 ? limit : 3;
     var msgEl = document.getElementById('waitlist-quota-message');
     var bonus = typeof opts.bonusCredits === 'number' ? opts.bonusCredits : null;
     if (msgEl) {
@@ -212,21 +220,20 @@
         bonus != null && bonus > 0
           ? ' You still have ' + bonus + ' purchased credit' + (bonus === 1 ? '' : 's') + ' — try again, or buy more below.'
           : '';
-      msgEl.textContent = daily
-        ? 'You’ve used all ' +
-          n +
-          ' free scan' +
-          (n === 1 ? '' : 's') +
-          ' for today.' +
-          extra +
-          ' Get SyncLyst for Chrome for full listing autopilot—or buy credits / join the waitlist below.'
-        : 'You’ve used all ' +
-          n +
-          ' free scan' +
-          (n === 1 ? '' : 's') +
-          ' this month.' +
-          extra +
-          ' Install the Chrome extension or buy credits below.';
+      var periodPhrase = lifetime
+        ? ' (free trial — they don\u2019t reset)'
+        : daily
+          ? ' for today'
+          : ' this month';
+      msgEl.textContent =
+        'You\u2019ve used all ' +
+        n +
+        ' free scan' +
+        (n === 1 ? '' : 's') +
+        periodPhrase +
+        '.' +
+        extra +
+        ' Get SyncLyst for Chrome for full listing autopilot\u2014or buy credits below.';
     }
     var chromeBtn = document.getElementById('waitlist-quota-chrome-btn');
     if (chromeBtn) {

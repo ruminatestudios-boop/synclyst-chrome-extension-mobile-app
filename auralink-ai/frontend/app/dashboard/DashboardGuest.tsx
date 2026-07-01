@@ -96,7 +96,7 @@ export default function DashboardGuest() {
         {/* Scan counter */}
         <p style={{ textAlign: "center", fontSize: "0.875rem", color: "var(--muted)", marginBottom: "1.75rem" }}>
           {usage !== null
-            ? `${usage.free_scans_used} / ${usage.free_scans_limit} free scans used this month`
+            ? `${usage.free_scans_used} / ${usage.free_scans_limit} free scans used (lifetime trial)`
             : "Loading usage…"}
         </p>
 

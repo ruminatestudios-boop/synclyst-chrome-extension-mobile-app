@@ -778,7 +778,7 @@ export default function Index() {
                   {atFreeLimit ? (
                     <BlockStack gap="200">
                       <Text as="p" variant="bodySm" fontWeight="semibold">
-                        You&apos;ve used your 5 free scans
+                        You&apos;ve used your 3 free scans
                       </Text>
                       <Text as="p" variant="bodySm">
                         Upgrade to keep scanning.
@@ -1640,7 +1640,7 @@ export default function Index() {
       >
         <Modal.Section>
           <Text as="p" variant="bodyMd">
-            You've used your 5 free scans. Upgrade your plan to keep scanning and adding products.
+            You've used your 3 free scans. Upgrade your plan to keep scanning and adding products.
           </Text>
         </Modal.Section>
       </Modal>

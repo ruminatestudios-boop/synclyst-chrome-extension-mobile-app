@@ -607,6 +607,15 @@ function getEbayRootDocuments() {
   return roots.length ? roots : [document];
 }
 
+/** Shopee Seller Centre's "Add a New Product" form (description/price/weight/specification)
+ * renders inside a same-origin Vue micro-frontend iframe, not the outer page document — every
+ * field-matching function was failing simultaneously because it never looked inside that frame. */
+function getShopeeRootDocuments() {
+  const roots = [];
+  collectSameOriginFrameDocuments(document, roots, 0);
+  return roots.length ? roots : [document];
+}
+
 /**
  * Plain decimal string for marketplace price inputs (no currency symbol).
  * Avoids £NaN when SPAs parseFloat the value we set.
@@ -2221,7 +2230,13 @@ function fillScanIntoPage(platform, scan) {
   const shopee = (platform || "").toLowerCase() === "shopee";
   const depop = (platform || "").toLowerCase() === "depop";
   const grailed = (platform || "").toLowerCase() === "grailed";
-  const roots = shopify ? getShopifyRootDocuments() : ebay ? getEbayRootDocuments() : [document];
+  const roots = shopify
+    ? getShopifyRootDocuments()
+    : ebay
+      ? getEbayRootDocuments()
+      : shopee
+        ? getShopeeRootDocuments()
+        : [document];
   let total = 0;
   let statusSetViaSelect = false;
   for (const rd of roots) {
@@ -9869,7 +9884,7 @@ function shopeeDeriveCategorySearchQuery(scan) {
 }
 
 function shopeeCategoryAppearsFilled(rootEl) {
-  if (shopeeFindCategoryPickerSurface()) return false;
+  if (shopeeFindCategoryPickerSurface(rootEl)) return false;
   try {
     for (const el of querySelectorAllDeep("div, section, form", rootEl)) {
       if (!(el instanceof HTMLElement) || !isVisible(el)) continue;
@@ -9894,13 +9909,13 @@ function shopeeDialogLooksLikeCategoryPicker(el) {
   return sc;
 }
 
-function shopeeFindCategoryPickerSurface() {
+function shopeeFindCategoryPickerSurface(rootEl) {
   let best = null;
   let bestSc = 0;
   try {
     const nodes = querySelectorAllDeep(
       '[role="dialog"], [aria-modal="true"], [class*="modal" i], [class*="Drawer" i], [class*="drawer" i]',
-      document.body
+      rootEl instanceof HTMLElement || (rootEl && rootEl.nodeType) ? rootEl : document.body
     );
     for (const el of nodes) {
       const sc = shopeeDialogLooksLikeCategoryPicker(el);
@@ -10047,7 +10062,7 @@ function shopeeFillCategory(scan, rootEl) {
   const exCat = shopeeGetExtra(scan);
   const categoryNeedsUserConfirm = exCat && exCat.category_needs_confirmation === true;
 
-  const dialog = shopeeFindCategoryPickerSurface();
+  const dialog = shopeeFindCategoryPickerSurface(rootEl);
 
   if (!dialog) {
     const trig = shopeeFindCategoryTrigger(rootEl);
@@ -10368,8 +10383,10 @@ function shopeeResolvePriceStringForFill(scan) {
 function shopeeFillSalesPriceAndShippingWeight(scan, rootEl) {
   let n = 0;
   const priceStr = shopeeResolvePriceStringForFill(scan);
+  console.log("[SyncLyst] Shopee Price/Weight: resolved priceStr =", priceStr);
   if (priceStr) {
     const pe = shopeeBestScoredInput(rootEl, shopeeScoreSalesPriceInput);
+    console.log("[SyncLyst] Shopee Price: best-scored input found =", !!pe, pe);
     const shopeeForceCommitMoneyInput = (inp, want) => {
       if (!(inp instanceof HTMLInputElement) || !want) return false;
       const v = String(want).trim();
@@ -10451,6 +10468,7 @@ function shopeeFillSalesPriceAndShippingWeight(scan, rootEl) {
 
     if (pe) {
       const ok = shopeeForceCommitMoneyInput(pe, priceStr);
+      console.log("[SyncLyst] Shopee Price: commit result =", ok, "value now =", pe.value);
       if (ok) n++;
     }
   }
@@ -10462,7 +10480,12 @@ function shopeeFillSalesPriceAndShippingWeight(scan, rootEl) {
         ? String(Number(ex.weight_g) / 1000)
         : "0.2";
   const we = shopeeBestScoredInput(rootEl, shopeeScoreShippingWeightInput);
-  if (we && fillField(we, wKg)) n++;
+  console.log("[SyncLyst] Shopee Weight: best-scored input found =", !!we, "want =", wKg, we);
+  if (we) {
+    const ok = fillField(we, wKg);
+    console.log("[SyncLyst] Shopee Weight: fillField result =", ok, "value now =", we.value);
+    if (ok) n++;
+  }
   return n;
 }
 
@@ -10807,16 +10830,24 @@ function shopeeBuildSpecificationSteps(scan) {
  * or are skipped (no row). Clicks Specification tab while work remains — not tied to tab rotation.
  */
 function shopeeSpecificationDropdownsTick(scan, rootEl) {
-  if (shopeeFindCategoryPickerSurface()) return 0;
+  const pickerOpen = shopeeFindCategoryPickerSurface(rootEl);
+  if (pickerOpen) {
+    console.log("[SyncLyst] Shopee Specification: bailing out, category picker surface detected as open", pickerOpen);
+    return 0;
+  }
   const win = rootEl.defaultView || window;
   const steps = shopeeBuildSpecificationSteps(scan);
+  console.log("[SyncLyst] Shopee Specification: built", steps.length, "step(s)", steps);
   const stepsKey = `${steps.length}|${String(scan.title || "").slice(0, 48)}|${String(scan.description || "").length}`;
   if (win.__synclystShopeeSpecKey !== stepsKey) {
     win.__synclystShopeeSpecDD = null;
     win.__synclystShopeeSpecFinished = false;
     win.__synclystShopeeSpecKey = stepsKey;
   }
-  if (win.__synclystShopeeSpecFinished) return 0;
+  if (win.__synclystShopeeSpecFinished) {
+    console.log("[SyncLyst] Shopee Specification: already marked finished, skipping");
+    return 0;
+  }
 
   shopeeClickTabByLabel(rootEl, [/specification/i, "specification", "สเปค", "ข้อมูลจำเพาะ"]);
 
@@ -13618,6 +13649,17 @@ function fillFromMapper(platform, scan, root) {
   if (!descEl && deep) descEl = queryFirstDeepVisible(m.description, r);
   if (!descEl && deep) descEl = queryFirstDeep(m.description, r);
   if (!descEl && !deep) descEl = queryFirstDeep(m.description, r);
+  if (platform === "shopee") {
+    console.log(
+      "[SyncLyst] Shopee Description: descEl found =",
+      !!descEl,
+      "descText length =",
+      (descText || "").length,
+      "didRichDescription =",
+      didRichDescription,
+      descEl
+    );
+  }
   if (descEl && descText && !didRichDescription) {
     if (descEl.isContentEditable) {
       descEl.focus();
@@ -13719,6 +13761,20 @@ function showSynclystBanner(text) {
       : "shopify");
   const autoSave = message.auto_save !== false;
   const pFill = (platform || "").toLowerCase();
+  if (pFill === "shopee") {
+    /** Shopee's actual form lives in a cross-origin shopeemobile.com iframe, which now also gets
+     * its own content-script instance (manifest all_frames). Chrome broadcasts SYNCLYST_FILL to
+     * every frame in the tab, so without this guard the outer seller.shopee.* page and the iframe
+     * would race to respond — whichever frame finishes first (almost always the empty outer page)
+     * would win, silently discarding the iframe's real result. Only the iframe should answer. */
+    let isOuterShopeePage = false;
+    try {
+      isOuterShopeePage = window.top === window && /seller\.shopee\.|banhang\.shopee\./i.test(window.location.hostname);
+    } catch {
+      isOuterShopeePage = false;
+    }
+    if (isOuterShopeePage) return false;
+  }
   if (pFill === "ebay") {
     try {
       delete window.__synclystEbaySuggestedApplyDone;
@@ -13729,11 +13785,16 @@ function showSynclystBanner(text) {
     }
   }
   const fillWaitMs =
-    // Shopify admin is a heavy SPA; give it more time so we don't time out after
-    // fields have been filled but Save/paste wiring isn't finished yet.
-    pFill === "shopify" || pFill === "shopee" || pFill === "lazada" || pFill === "depop" || pFill === "ebay"
-      ? 22000
-      : 11000;
+    // Shopee's own tick loop can run close to ~20s (52 attempts at up to 380ms apart) — 22s left
+    // almost no headroom for normal page slowness, so it timed out even when the fill ultimately
+    // succeeded. Give it the same longer window as the heaviest SPAs.
+    pFill === "shopee"
+      ? 28000
+      : // Shopify admin is a heavy SPA; give it more time so we don't time out after
+        // fields have been filled but Save/paste wiring isn't finished yet.
+        pFill === "shopify" || pFill === "lazada" || pFill === "depop" || pFill === "ebay"
+        ? 22000
+        : 11000;
   const fillTimeoutMsg =
     pFill === "shopify"
       ? "Timed out waiting for the product page. Refresh the Shopify tab, wait for Add product to load, then try again."

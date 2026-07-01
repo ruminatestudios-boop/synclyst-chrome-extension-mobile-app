@@ -14,5 +14,8 @@ config.js
 **/__pycache__
 .vercel
 
+# Cloud Run deploy secrets (copy from *.example.yaml)
+**/cloud-run-env.yaml
+
 # Packaged Chrome extension output (regenerate with npm run extension:package)
 dist/

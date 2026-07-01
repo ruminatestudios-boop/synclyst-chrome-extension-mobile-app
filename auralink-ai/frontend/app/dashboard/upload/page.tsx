@@ -275,7 +275,7 @@ export default function UploadPage() {
           window.location.href = "/dashboard?pricing=1";
           return;
         }
-        setError("Scan limit reached. Open billing to upgrade.");
+        setError("You've used all 3 free scans. Open billing to upgrade.");
         return;
       }
       if (!res.ok) throw new Error(await res.text());

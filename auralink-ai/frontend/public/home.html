@@ -1334,11 +1334,12 @@
               .then(function(u) {
                 if (!u) return;
                 var used = typeof u.scans_used === 'number' ? u.scans_used : (typeof u.free_scans_used === 'number' ? u.free_scans_used : 0);
-                var limit = typeof u.scans_limit === 'number' ? u.scans_limit : (typeof u.free_scans_limit === 'number' ? u.free_scans_limit : 10);
+                var limit = typeof u.scans_limit === 'number' ? u.scans_limit : (typeof u.free_scans_limit === 'number' ? u.free_scans_limit : 3);
                 var remaining = Math.max(0, limit - used);
+                var qw = u.quota_window ? String(u.quota_window).toLowerCase() : 'lifetime';
                 if (quotaText) quotaText.textContent = remaining > 0
-                  ? remaining + ' free scan' + (remaining === 1 ? '' : 's') + ' left today'
-                  : 'Daily free scans used up — top up below';
+                  ? remaining + ' free scan' + (remaining === 1 ? '' : 's') + ' left' + (qw === 'lifetime' ? ' (lifetime trial)' : qw === 'daily' ? ' today' : ' this month')
+                  : 'Free scans used up — buy credits or upgrade below';
                 if (quotaBar) quotaBar.classList.remove('hidden');
                 if (used >= limit) {
                   if (buyMoreBtn) buyMoreBtn.classList.remove('hidden');
