@@ -11,6 +11,7 @@ import { buildVintedListingExtraFromVision, mergeVintedIntoListingExtra } from "
 import { buildShopeeListingExtraFromVision, mergeShopeeIntoListingExtra } from "@/lib/snap-pair-shopee-extra";
 import { buildEtsyListingExtraFromVision, mergeEtsyIntoListingExtra } from "@/lib/snap-pair-etsy-extra";
 import { buildDepopListingExtraFromVision, mergeDepopIntoListingExtra } from "@/lib/snap-pair-depop-extra";
+import { resolveVisionAnonId } from "@/lib/snap-pair-anon-id";
 
 export const runtime = "nodejs";
 
@@ -434,10 +435,12 @@ async function handleSnapPairPush(request: NextRequest) {
   }
   const visionUrl = `${base}/api/v1/vision/extract`;
   const auth = request.headers.get("authorization");
-  const anonId = request.headers.get("x-synclyst-anon-id") || request.headers.get("X-SyncLyst-Anon-Id");
-  const visionHeaders: HeadersInit = { "Content-Type": "application/json" };
+  const visionAnonId = resolveVisionAnonId(request, sessionId);
+  const visionHeaders: HeadersInit = {
+    "Content-Type": "application/json",
+    "X-SyncLyst-Anon-Id": visionAnonId,
+  };
   if (auth) visionHeaders.Authorization = auth;
-  if (anonId) visionHeaders["X-SyncLyst-Anon-Id"] = anonId;
 
   const visionBody = JSON.stringify({
     image_base64: imageBase64,
