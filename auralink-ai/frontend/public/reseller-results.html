@@ -1779,7 +1779,7 @@
                 var limit = typeof u.scans_limit === 'number' ? u.scans_limit : 10;
                 var remaining = Math.max(0, limit - used);
                 var bonus = typeof u.bonus_credits === 'number' ? u.bonus_credits : 0;
-                var text = remaining + ' of ' + limit + ' left today';
+                var text = remaining + ' of ' + limit + ' left' + (qw === 'lifetime' ? ' (lifetime trial)' : qw === 'daily' ? ' today' : ' this month');
                 if (bonus > 0) text += ' · ' + bonus + ' bonus';
                 scansLeftEl.textContent = text;
                 scansLeftEl.className = remaining === 0

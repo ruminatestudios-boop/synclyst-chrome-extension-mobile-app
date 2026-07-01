@@ -1190,6 +1190,51 @@ function storageGet(keys) {
   });
 }
 
+const ANON_STORAGE_KEY = "synclyst_anon_id_v1";
+
+async function getOrCreateExtensionAnonId() {
+  const got = await storageGet([ANON_STORAGE_KEY]);
+  let id = String(got[ANON_STORAGE_KEY] || "").trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    return id;
+  }
+  id = crypto.randomUUID();
+  await new Promise((resolve, reject) => {
+    chrome.storage.local.set({ [ANON_STORAGE_KEY]: id }, () => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve();
+    });
+  });
+  return id;
+}
+
+async function refreshPopupScanQuota() {
+  const el = document.getElementById("popup-scan-quota");
+  if (!el) return;
+  try {
+    const anonId = await getOrCreateExtensionAnonId();
+    const r = await fetch("https://app.synclyst.app/api/v1/usage/guest", {
+      headers: { "X-SyncLyst-Anon-Id": anonId },
+    });
+    if (!r.ok) {
+      el.textContent = "";
+      return;
+    }
+    const u = await r.json();
+    const used = typeof u.scans_used === "number" ? u.scans_used : 0;
+    const limit = typeof u.scans_limit === "number" ? u.scans_limit : 3;
+    const remaining = Math.max(0, limit - used);
+    el.textContent =
+      remaining > 0
+        ? `${remaining} of ${limit} free scans left (lifetime)`
+        : "No free scans left — upgrade in Settings";
+    el.classList.toggle("is-low", remaining === 1);
+    el.classList.toggle("is-none", remaining === 0);
+  } catch {
+    el.textContent = "";
+  }
+}
+
 function normalizeBillingTier(raw) {
   const t = raw != null ? String(raw).trim().toLowerCase() : "";
   return t === "pro" || t === "growth" || t === "scale" || t === "starter" ? t : "starter";
@@ -2249,6 +2294,16 @@ function ensurePairingStepControls() {
     }
   } catch {
     /* ignore */
+  }
+
+  const quotaEl = qr.querySelector("#popup-scan-quota");
+  if (!quotaEl && qr.querySelector(".qr-hint")) {
+    const q = document.createElement("p");
+    q.className = "scan-quota-pill";
+    q.id = "popup-scan-quota";
+    q.setAttribute("aria-live", "polite");
+    const hint = qr.querySelector(".qr-hint");
+    if (hint) hint.insertAdjacentElement("afterend", q);
   }
 
   if (!document.getElementById("btn-open-snap-on-this-computer")) {
@@ -4028,6 +4083,7 @@ window.addEventListener("beforeunload", () => {
     }
 
     ensurePairingStepControls();
+    void refreshPopupScanQuota();
     wireSnapPairCtaButtons();
     wireBatchUpload();
     refreshBatchGateUI();
