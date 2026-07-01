@@ -32,6 +32,8 @@ const SELLER_HOST_MATCHES = [
   "https://seller.shopee.vn/*",
   "https://seller.shopee.com.br/*",
   "https://banhang.shopee.vn/*",
+  /** Shopee listing form runs inside a cross-origin iframe on shopeemobile.com. */
+  "https://*.shopeemobile.com/*",
   "https://sellercenter.lazada.co.id/*",
   "https://sellercenter.lazada.sg/*",
   "https://sellercenter.lazada.co.th/*",
@@ -159,6 +161,7 @@ const manifest = {
       matches: SELLER_HOST_MATCHES,
       js: ["mapper.js", "content-script.js"],
       run_at: "document_idle",
+      all_frames: true,
     },
     {
       matches: snapBridgeMatches,
