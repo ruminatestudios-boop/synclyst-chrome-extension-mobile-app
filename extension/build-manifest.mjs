@@ -139,7 +139,7 @@ const manifest = {
   description:
     "Pair your Phone to scan products and auto-fill listings on Shopify, eBay, Etsy, Amazon, TikTok Shop, and more.",
   icons: extensionIcons,
-  permissions: ["storage", "activeTab", "scripting", "tabs"],
+  permissions: ["storage", "activeTab", "scripting", "tabs", "alarms"],
   host_permissions,
   action: {
     default_title: "SyncLyst®",

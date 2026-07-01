@@ -3036,7 +3036,9 @@ function burstPollUntilListing(sessionId, opts) {
 function updateContinueListingButton() {
   const cont = document.getElementById("btn-continue-listing");
   if (!cont) return;
-  const show = qrHomeActive && listingHydrated && sessionListingHasContent(lastPayload);
+  const emptyEl = document.getElementById("state-empty");
+  const onQrScreen = !!emptyEl && !emptyEl.classList.contains("hidden");
+  const show = onQrScreen && listingHydrated && sessionListingHasContent(lastPayload);
   cont.classList.toggle("hidden", !show);
 }
 
@@ -3462,6 +3464,7 @@ function applyListing(row) {
     }
   }
   row = mergeListingCoreFromLastPayload(row);
+  const prevStamp = lastAppliedListingStamp != null ? String(lastAppliedListingStamp).trim() : "";
   const stamp =
     row.updated_at != null && String(row.updated_at).trim() !== ""
       ? String(row.updated_at)
@@ -3567,6 +3570,17 @@ function applyListing(row) {
   lastAppliedListingStamp = stamp;
   updateContinueListingButton();
   refreshLoadedSubstate();
+
+  const isNewListingEvent = !prevStamp || stamp !== prevStamp;
+  if (!viewingPinnedDraft && isNewListingEvent) {
+    const emptyEl = document.getElementById("state-empty");
+    const onQrScreen = !!emptyEl && !emptyEl.classList.contains("hidden");
+    if (onQrScreen) {
+      hideQrSyncBanner();
+      continueToListing();
+      showToast("Scan ready — review your listing below", "success", 2400);
+    }
+  }
 }
 
 function getSelectedPlatform() {
@@ -4231,6 +4245,8 @@ window.addEventListener("beforeunload", () => {
     }
 
     const uiPrefs = await storageGet([STORAGE_LAST_PLATFORM, STORAGE_PREFERS_QR_HOME]);
+    /** Default popup shows the QR pairing screen — keep `qrHomeActive` in sync so Continue / library UI work. */
+    qrHomeActive = uiPrefs[STORAGE_PREFERS_QR_HOME] !== false;
 
     const cfg = await fetchConfig();
     const g = typeof window !== "undefined" ? window : {};
@@ -4269,8 +4285,12 @@ window.addEventListener("beforeunload", () => {
     }, 800);
 
     const initial = await pollSession(sessionId);
-    if (initial && !initial.empty && initial.listing && sessionListingHasContent(initial.listing)) {
+    const hadInitialListing =
+      initial && !initial.empty && initial.listing && sessionListingHasContent(initial.listing);
+    if (hadInitialListing) {
       applyListing(initial.listing);
+    } else if (qrHomeActive) {
+      showQrHomeView();
     }
     refreshLoadedSubstate();
 
