@@ -346,6 +346,8 @@ let extractionPending = false;
  */
 let viewingPinnedDraft = false;
 let suppressMergeNextPoll = false;
+/** While waiting for a new scan, ignore session rows that still match the previous product. */
+let staleListingGuard = null;
 let extractionStartedAtMs = 0;
 let extractionTickerId = null;
 
@@ -2136,11 +2138,8 @@ function wireSnapPairCtaButtons() {
       // A genuinely new scan is starting — resume live polling even if the user had a
       // historical draft pinned open.
       viewingPinnedDraft = false;
-      // Reset local UI so the user understands we're waiting for a *new* scan.
-      listingHydrated = false;
-      lastPayload = null;
-      lastAppliedListingStamp = null;
-      lastAppliedImageUrl = null;
+      beginAwaitingFreshListing();
+      clearReviewFieldsForNewScan();
       // Don't flip the popup to the loading/review screen the instant this button is
       // clicked — the user is about to switch tabs to actually upload a photo, so an
       // empty loading box appearing here for a few seconds is just noise. Poll quietly
@@ -3282,12 +3281,13 @@ function pickFirstListingImageUrl(row) {
  */
 function resolveListingDescription(row) {
   if (!row || typeof row !== "object") return "";
+  const topLevel = pickStr(row.description);
+  if (topLevel) return topLevel;
   const parts = [];
   const push = (s) => {
     const t = String(s == null ? "" : s).trim();
     if (t) parts.push(t);
   };
-  push(row.description);
   try {
     const le = row.listing_extra;
     if (le && typeof le === "object") {
@@ -3363,6 +3363,50 @@ function syncPayloadFromReviewFields() {
  * IMPORTANT: only merge within the same scan (same updated_at stamp). If the stamp has changed,
  * this is a new product scan — do NOT carry old description/title across to the new product.
  */
+function beginAwaitingFreshListing() {
+  staleListingGuard = {
+    stamp: lastAppliedListingStamp != null ? String(lastAppliedListingStamp).trim() : "",
+    imageUrl: lastAppliedImageUrl != null ? String(lastAppliedImageUrl).trim() : "",
+  };
+  listingHydrated = false;
+  lastPayload = null;
+  lastAppliedListingStamp = null;
+  lastAppliedImageUrl = null;
+}
+
+function listingRowMatchesStaleGuard(row) {
+  if (!staleListingGuard || !row) return false;
+  const rowStamp = row.updated_at != null ? String(row.updated_at).trim() : "";
+  const rowImg = pickFirstListingImageUrl(row);
+  const g = staleListingGuard;
+  if (g.stamp && rowStamp && rowStamp === g.stamp) return true;
+  if (g.imageUrl && rowImg && rowImg === g.imageUrl) return true;
+  return false;
+}
+
+function clearReviewFieldsForNewScan() {
+  const titleEl = document.getElementById("review-title");
+  const descEl = document.getElementById("review-description");
+  const priceEl = document.getElementById("review-price");
+  const thumb = document.getElementById("preview-thumb");
+  if (titleEl) titleEl.value = "";
+  if (descEl) descEl.value = "";
+  if (priceEl) priceEl.value = "";
+  if (thumb) {
+    thumb.style.display = "none";
+    thumb.removeAttribute("src");
+  }
+  try {
+    const wrap = document.getElementById("review-extra-images");
+    if (wrap) {
+      wrap.innerHTML = "";
+      wrap.classList.add("hidden");
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function mergeListingCoreFromLastPayload(row) {
   if (!listingHydrated || !lastPayload) return row;
   // After opening a library draft, the first server response must not merge stale cached fields.
@@ -3374,6 +3418,9 @@ function mergeListingCoreFromLastPayload(row) {
   const rowStamp = row.updated_at != null ? String(row.updated_at).trim() : "";
   const prevStamp = lastAppliedListingStamp != null ? String(lastAppliedListingStamp).trim() : "";
   if (rowStamp && prevStamp && rowStamp !== prevStamp) return row;
+  const rowImg = pickFirstListingImageUrl(row);
+  const prevImg = lastAppliedImageUrl != null ? String(lastAppliedImageUrl).trim() : "";
+  if (rowImg && prevImg && rowImg !== prevImg) return row;
   const out = { ...row };
   if (!pickStr(out.title) && pickStr(lastPayload.title)) out.title = lastPayload.title;
   const rowDesc = out.description != null ? String(out.description).trim() : "";
@@ -3388,6 +3435,10 @@ function mergeListingCoreFromLastPayload(row) {
 
 function applyListing(row) {
   if (!sessionListingHasContent(row)) return;
+  if (staleListingGuard) {
+    if (listingRowMatchesStaleGuard(row)) return;
+    staleListingGuard = null;
+  }
   // We have real listing content; clear any "waiting for scan" UI.
   if (extractionPending) {
     extractionPending = false;
@@ -4138,10 +4189,8 @@ window.addEventListener("beforeunload", () => {
           /* ignore */
         }
         // A new scan/upload finished on the phone; don't show stale or blank fields—wait until the session has content.
-        listingHydrated = false;
-        lastPayload = null;
-        lastAppliedListingStamp = null;
-        lastAppliedImageUrl = null;
+        beginAwaitingFreshListing();
+        clearReviewFieldsForNewScan();
         showQrSyncBanner("📱 Photo received — AI is extracting your listing…");
         setReviewLoadingState(true, "Syncing from phone…");
         continueToListing();

@@ -550,8 +550,9 @@ async function handleSnapPairPush(request: NextRequest) {
   const depopPatch = buildDepopListingExtraFromVision(visionJson as Parameters<typeof buildDepopListingExtraFromVision>[0]);
 
   if (useDevMemory) {
-    const prev = devGet(sessionId);
-    let mergedExtra = mergeShopifyIntoListingExtra(prev?.listing_extra ?? {}, shopifyPatch);
+    // Full vision scan replaces the product — do not merge with the previous session's
+    // listing_extra (stale ebay/shopify descriptions were bleeding into new scans).
+    let mergedExtra = mergeShopifyIntoListingExtra({}, shopifyPatch);
     mergedExtra = mergeEbayIntoListingExtra(mergedExtra, ebayPatch);
     mergedExtra = mergeVintedIntoListingExtra(mergedExtra, vintedPatch);
     mergedExtra = mergeShopeeIntoListingExtra(mergedExtra, shopeePatch);
@@ -580,16 +581,8 @@ async function handleSnapPairPush(request: NextRequest) {
     return NextResponse.json({ ok: true, title, price }, { headers: h });
   }
 
-  const { data: prevRow } = await supabase!
-    .from("snap_pair_sessions")
-    .select("listing_extra")
-    .eq("session_id", sessionId)
-    .maybeSingle();
-
-  let mergedListingExtra = mergeShopifyIntoListingExtra(
-    (prevRow as { listing_extra?: unknown } | null)?.listing_extra ?? {},
-    shopifyPatch
-  );
+  // Full vision scan replaces the product — build listing_extra from this extraction only.
+  let mergedListingExtra = mergeShopifyIntoListingExtra({}, shopifyPatch);
   mergedListingExtra = mergeEbayIntoListingExtra(mergedListingExtra, ebayPatch);
   mergedListingExtra = mergeVintedIntoListingExtra(mergedListingExtra, vintedPatch);
   mergedListingExtra = mergeShopeeIntoListingExtra(mergedListingExtra, shopeePatch);
