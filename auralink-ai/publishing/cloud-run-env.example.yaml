@@ -1,0 +1,8 @@
+# Copy to cloud-run-env.yaml (gitignored) and fill in real values before deploy.
+NODE_ENV: "production"
+FRONTEND_URL: "https://synclyst.app"
+APP_URL: "https://synclyst-publishing-YOUR_HASH.us-central1.run.app"
+JWT_SECRET: "YOUR_JWT_SECRET"
+SHOPIFY_API_KEY: "YOUR_SHOPIFY_CLIENT_ID"
+SHOPIFY_API_SECRET: "shpss_..."
+ENABLED_PLATFORMS: "shopify"

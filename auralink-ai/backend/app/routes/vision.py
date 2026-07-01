@@ -77,10 +77,10 @@ def _get_client_ip(request: Request) -> str:
 
 
 def _consume_scan(supabase, qk: str, http_request: Request) -> None:
-    """Consume one scan against the anon quota AND the IP daily counter."""
+    """Consume one scan against the anon quota AND the IP counter (same quota window)."""
     consume_one_scan(supabase, qk)
     # Also tick the IP counter so other browsers on the same network
-    # share the same daily budget and can't bypass by clearing cookies.
+    # share the same free-trial budget and can't bypass by clearing cookies.
     if qk and qk.startswith("anon:"):
         ip = _get_client_ip(http_request)
         increment_ip_scan(supabase, ip)
@@ -175,6 +175,25 @@ async def _fast_reseller_extract(image_b64: str, mime: str) -> dict:
     return {}
 
 
+def _quota_window_label() -> str:
+    w = (get_settings().starter_scan_quota_window or "lifetime").strip().lower()
+    return w if w in ("daily", "monthly", "lifetime") else "lifetime"
+
+
+def _scan_limit_block_message(quota_window: str | None = None) -> str:
+    n = starter_monthly_limit()
+    plural = "s" if n != 1 else ""
+    qw = (quota_window or _quota_window_label()).strip().lower()
+    if qw == "lifetime":
+        return (
+            f"You've used all {n} free scan{plural}. "
+            "Buy scan credits or upgrade to continue."
+        )
+    if qw == "monthly":
+        return "Scan limit reached. Buy scan credits or upgrade your plan."
+    return "Scan limit reached. Buy scan credits or try again tomorrow."
+
+
 def _maybe_scan_quota_block(http_request: Request, _auth: dict | None) -> JSONResponse | None:
     supabase = get_supabase()
     if not supabase:
@@ -191,12 +210,13 @@ def _maybe_scan_quota_block(http_request: Request, _auth: dict | None) -> JSONRe
         return None
     usage = get_scan_usage_unified(supabase, qk)
     if not usage.get("can_scan", True):
+        qw = str(usage.get("quota_window") or _quota_window_label())
         return JSONResponse(
             status_code=402,
             content={
-                "detail": "Scan limit reached. Buy scan credits or try again tomorrow.",
-                "scans_limit": int(usage.get("scans_limit", 10)),
-                "quota_window": str(usage.get("quota_window", "daily")),
+                "detail": _scan_limit_block_message(qw),
+                "scans_limit": int(usage.get("scans_limit", starter_monthly_limit())),
+                "quota_window": qw,
                 "bonus_credits": int(usage.get("bonus_credits") or 0),
             },
         )
@@ -207,14 +227,15 @@ def _maybe_scan_quota_block(http_request: Request, _auth: dict | None) -> JSONRe
         if bonus == 0:  # Paid credits bypass the IP check
             client_ip = _get_client_ip(http_request)
             ip_count = get_ip_scan_count(supabase, client_ip)
-            daily_limit = starter_monthly_limit()
-            if ip_count >= daily_limit:
+            lifetime_limit = starter_monthly_limit()
+            if ip_count >= lifetime_limit:
+                qw = _quota_window_label()
                 return JSONResponse(
                     status_code=402,
                     content={
-                        "detail": "Scan limit reached. Buy scan credits or try again tomorrow.",
-                        "scans_limit": daily_limit,
-                        "quota_window": "daily",
+                        "detail": _scan_limit_block_message(qw),
+                        "scans_limit": lifetime_limit,
+                        "quota_window": qw,
                         "bonus_credits": 0,
                     },
                 )

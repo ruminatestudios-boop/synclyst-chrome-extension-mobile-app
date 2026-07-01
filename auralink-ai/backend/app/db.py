@@ -480,7 +480,7 @@ def upsert_description_variation(
 # ---------------------------------------------------------------------------
 
 TIER_LIMITS = {
-    "starter": 10,
+    "starter": 3,
     "pro": 100,
     "growth": 500,
     "scale": 10**9,  # treat as unlimited
@@ -720,7 +720,7 @@ def _hash_ip(ip: str) -> str:
 
 
 def get_ip_scan_count(supabase, ip: str) -> int:
-    """Return how many scans this IP has used today (quota window bucket)."""
+    """Return how many scans this IP has used in the current quota window bucket."""
     if not supabase or not ip or ip in _LOCALHOST_IPS:
         return 0
     ip_key = f"ip:{_hash_ip(ip)}"
@@ -742,7 +742,7 @@ def get_ip_scan_count(supabase, ip: str) -> int:
 
 
 def increment_ip_scan(supabase, ip: str) -> None:
-    """Increment today's scan counter for this IP address."""
+    """Increment scan counter for this IP address in the current quota window."""
     if not supabase or not ip or ip in _LOCALHOST_IPS:
         return
     ip_key = f"ip:{_hash_ip(ip)}"

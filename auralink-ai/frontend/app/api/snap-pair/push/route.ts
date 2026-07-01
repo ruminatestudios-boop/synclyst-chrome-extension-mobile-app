@@ -487,9 +487,27 @@ async function handleSnapPairPush(request: NextRequest) {
   }
 
   if (!visionRes.ok) {
+    const status = visionRes.status >= 400 ? visionRes.status : 502;
+    const body = visionJson as {
+      detail?: string;
+      scans_limit?: number;
+      quota_window?: string;
+      bonus_credits?: number;
+    };
+    if (status === 402) {
+      return NextResponse.json(
+        {
+          error: body.detail || "Scan limit reached.",
+          scans_limit: body.scans_limit,
+          quota_window: body.quota_window,
+          bonus_credits: body.bonus_credits,
+        },
+        { status, headers: h }
+      );
+    }
     return NextResponse.json(
-      { error: visionJson.detail || "Vision extract failed" },
-      { status: visionRes.status >= 400 ? visionRes.status : 502, headers: h }
+      { error: body.detail || "Vision extract failed" },
+      { status, headers: h }
     );
   }
 

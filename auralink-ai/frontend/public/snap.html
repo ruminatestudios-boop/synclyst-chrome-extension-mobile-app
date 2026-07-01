@@ -29,6 +29,8 @@
     <script src="/vendor/qrcode-generator.js"></script>
     <script src="/vendor/qrcode-expose.js"></script>
     <script src="/js/synclyst-anon-id.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/synclyst-quota-modal.js"></script>
     <style>
       :root {
         --radius-btn-outline: 12px;
@@ -1576,6 +1578,30 @@
           }
         }
 
+        function tryShowScanQuotaModal(res, data) {
+          if (!res || res.status !== 402) return false;
+          resetProgress();
+          setPhotoInputsEnabled(true);
+          var lim = 3;
+          var qw = "lifetime";
+          var bonus = 0;
+          if (data) {
+            if (typeof data.scans_limit === "number" && data.scans_limit > 0) lim = data.scans_limit;
+            if (data.quota_window) qw = String(data.quota_window).toLowerCase();
+            if (typeof data.bonus_credits === "number") bonus = data.bonus_credits;
+          }
+          if (window.SyncLystQuotaModal && typeof SyncLystQuotaModal.show === "function") {
+            SyncLystQuotaModal.show(lim, qw, {
+              waitlistSource: "snap-pair-402",
+              footerBackHref: window.location.pathname + window.location.search,
+              footerBackLabel: "Back",
+              bonusCredits: bonus,
+            });
+            return true;
+          }
+          return false;
+        }
+
         function setDesktopPairingSuccess() {
           if (!progressWrap) return;
           clearSnapFloatAutoHide();
@@ -2300,6 +2326,10 @@
                   var data = _ref.data;
                   var rawText = _ref.rawText;
                   if (!res.ok) {
+                    if (tryShowScanQuotaModal(res, data)) {
+                      if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                      return;
+                    }
                     if (!opts || !opts.deferResetProgress) resetProgress();
                     var errText = (data && data.error) || "Upload failed (HTTP " + res.status + ")";
                     if (
@@ -2476,6 +2506,10 @@
                       var data = _ref.data;
                       var rawText = _ref.rawText;
                       if (!res.ok) {
+                        if (tryShowScanQuotaModal(res, data)) {
+                          if (opts && typeof opts.onDone === "function") opts.onDone(false);
+                          return;
+                        }
                         if (!opts || !opts.deferResetProgress) resetProgress();
                         var errText = (data && data.error) || "Upload failed (HTTP " + res.status + ")";
                         if (

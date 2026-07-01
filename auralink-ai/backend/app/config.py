@@ -82,10 +82,8 @@ class Settings(BaseSettings):
 
     # Starter tier: free product scans before 402 — cap is per STARTER_SCAN_QUOTA_WINDOW
     # ("daily", "monthly", or "lifetime" — lifetime never resets, a true one-time free-trial cap).
-    # Default: 20/day. Set STARTER_SCAN_QUOTA_WINDOW=lifetime and STARTER_SCAN_LIMIT=5 for a
-    # one-time 5-scan free trial.
-    starter_scan_limit: int = 20
-    starter_scan_quota_window: str = "daily"
+    starter_scan_limit: int = 3
+    starter_scan_quota_window: str = "lifetime"
 
     # eBay API credentials.
     # EBAY_APP_ID  = Production App ID (Client ID) from developer.ebay.com/my/keys
