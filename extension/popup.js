@@ -666,6 +666,121 @@ function updateLibraryBarUI(list) {
   if (fallbackEl) fallbackEl.classList.toggle("hidden", !!thumbUrl);
 }
 
+function draftLibraryItemKey(it) {
+  if (!it || typeof it !== "object") return "";
+  const stamp = safeTrimStr(it.stamp);
+  if (stamp) return `stamp:${stamp}`;
+  const sid = safeTrimStr(it.sessionId);
+  const title = safeTrimStr(it.title).toLowerCase().slice(0, 40);
+  const ms = typeof it.updatedAtMs === "number" && Number.isFinite(it.updatedAtMs) ? it.updatedAtMs : 0;
+  return `sid:${sid}:${title}:${ms}`;
+}
+
+async function removeDraftLibraryItem(item) {
+  const key = draftLibraryItemKey(item);
+  if (!key) return;
+  const list = await readDraftLibrary();
+  const out = list.filter((it) => draftLibraryItemKey(it) !== key);
+  writeDraftLibrary(out);
+  try {
+    renderDraftLibraryUI(out);
+    renderDraftLibraryOverlayUI(out);
+    updateLibraryBarUI(out);
+    showToast("Draft removed", "success", 1400);
+  } catch {
+    /* ignore */
+  }
+}
+
+function buildDraftLibraryRow(it) {
+  const sid = safeTrimStr(it && it.sessionId);
+  if (!sid) return null;
+
+  const row = document.createElement("div");
+  row.className = "settings-library-item";
+
+  const meta = document.createElement("div");
+  meta.className = "settings-library-item-meta";
+
+  const thumbUrl = safeTrimStr(it.imageUrl);
+  if (thumbUrl) {
+    const img = document.createElement("img");
+    img.className = "settings-library-thumb";
+    img.alt = "";
+    img.decoding = "async";
+    img.src = thumbUrl;
+    meta.appendChild(img);
+  } else {
+    const ph = document.createElement("div");
+    ph.className = "settings-library-thumb settings-library-thumb--placeholder";
+    ph.setAttribute("aria-hidden", "true");
+    ph.textContent = "—";
+    meta.appendChild(ph);
+  }
+
+  const lines = document.createElement("div");
+  lines.className = "settings-library-lines";
+  const name = document.createElement("p");
+  name.className = "settings-library-name";
+  const cleanTitle = safeTrimStr(it.title);
+  const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
+  const rawName =
+    cleanTitle && !looksLikeAiRefusalText(cleanTitle)
+      ? cleanTitle
+      : t
+        ? `Untitled draft · ${t}`
+        : "Untitled draft";
+  name.textContent = truncateLibraryTitle(rawName);
+  if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
+  const sub = document.createElement("p");
+  sub.className = "settings-library-sub";
+  sub.textContent = `${t || "—"} · ${sid}`;
+  lines.appendChild(name);
+  lines.appendChild(sub);
+  meta.appendChild(lines);
+
+  const actions = document.createElement("div");
+  actions.className = "settings-library-actions";
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "settings-library-delete";
+  deleteBtn.textContent = "Delete";
+  deleteBtn.setAttribute("aria-label", `Delete draft ${rawName}`);
+  deleteBtn.addEventListener("click", (e) => {
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+    } catch {
+      /* ignore */
+    }
+    void removeDraftLibraryItem(it);
+  });
+
+  const openBtn = document.createElement("button");
+  openBtn.type = "button";
+  openBtn.className = "settings-library-open";
+  openBtn.textContent = "Open";
+  const cachedRow = it.cachedRow && typeof it.cachedRow === "object" ? it.cachedRow : null;
+  openBtn.addEventListener("click", (e) => {
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+    } catch {
+      /* ignore */
+    }
+    openLibrarySession(sid, cachedRow);
+  });
+
+  actions.appendChild(deleteBtn);
+  actions.appendChild(openBtn);
+
+  row.appendChild(meta);
+  row.appendChild(actions);
+  row.addEventListener("click", () => openLibrarySession(sid, cachedRow));
+  return row;
+}
+
 function renderDraftLibraryOverlayUI(list) {
   const wrap = document.getElementById("library-overlay-list");
   const empty = document.getElementById("library-overlay-empty");
@@ -678,70 +793,8 @@ function renderDraftLibraryOverlayUI(list) {
   if (clearBtn) clearBtn.classList.toggle("hidden", !has);
   for (const it of items.slice(0, DRAFT_LIBRARY_MAX_ITEMS)) {
     if (!it || typeof it !== "object") continue;
-    const sid = safeTrimStr(it.sessionId);
-    if (!sid) continue;
-
-    const row = document.createElement("div");
-    row.className = "settings-library-item";
-
-    const meta = document.createElement("div");
-    meta.className = "settings-library-item-meta";
-
-    const thumbUrl = safeTrimStr(it.imageUrl);
-    if (thumbUrl) {
-      const img = document.createElement("img");
-      img.className = "settings-library-thumb";
-      img.alt = "";
-      img.decoding = "async";
-      img.src = thumbUrl;
-      meta.appendChild(img);
-    } else {
-      const ph = document.createElement("div");
-      ph.className = "settings-library-thumb settings-library-thumb--placeholder";
-      ph.setAttribute("aria-hidden", "true");
-      ph.textContent = "—";
-      meta.appendChild(ph);
-    }
-
-    const lines = document.createElement("div");
-    lines.className = "settings-library-lines";
-    const name = document.createElement("p");
-    name.className = "settings-library-name";
-    const cleanTitle = safeTrimStr(it.title);
-    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
-    const rawName = (cleanTitle && !looksLikeAiRefusalText(cleanTitle))
-      ? cleanTitle
-      // Multiple untitled drafts look identical otherwise — tag with the scan time so
-      // the user can tell them apart without opening each one.
-      : (t ? `Untitled draft · ${t}` : "Untitled draft");
-    name.textContent = truncateLibraryTitle(rawName);
-    if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
-    const sub = document.createElement("p");
-    sub.className = "settings-library-sub";
-    sub.textContent = `${t || "—"} · ${sid}`;
-    lines.appendChild(name);
-    lines.appendChild(sub);
-    meta.appendChild(lines);
-
-    const openBtn = document.createElement("button");
-    openBtn.type = "button";
-    openBtn.className = "settings-library-open";
-    openBtn.textContent = "Open";
-    const cachedRow = (it.cachedRow && typeof it.cachedRow === "object") ? it.cachedRow : null;
-    openBtn.addEventListener("click", (e) => {
-      try {
-        e.preventDefault();
-        e.stopPropagation();
-      } catch {
-        /* ignore */
-      }
-      openLibrarySession(sid, cachedRow);
-    });
-
-    row.appendChild(meta);
-    row.appendChild(openBtn);
-    row.addEventListener("click", () => openLibrarySession(sid, cachedRow));
-    wrap.appendChild(row);
+    const row = buildDraftLibraryRow(it);
+    if (row) wrap.appendChild(row);
   }
 }
 
@@ -873,69 +926,8 @@ function renderDraftLibraryUI(list) {
   if (clearBtn) clearBtn.classList.toggle("hidden", !has);
   for (const it of items.slice(0, DRAFT_LIBRARY_MAX_ITEMS)) {
     if (!it || typeof it !== "object") continue;
-    const sid = safeTrimStr(it.sessionId);
-    if (!sid) continue;
-    const row = document.createElement("div");
-    row.className = "settings-library-item";
-
-    const meta = document.createElement("div");
-    meta.className = "settings-library-item-meta";
-
-    const thumbUrl = safeTrimStr(it.imageUrl);
-    if (thumbUrl) {
-      const img = document.createElement("img");
-      img.className = "settings-library-thumb";
-      img.alt = "";
-      img.decoding = "async";
-      img.src = thumbUrl;
-      meta.appendChild(img);
-    } else {
-      const ph = document.createElement("div");
-      ph.className = "settings-library-thumb settings-library-thumb--placeholder";
-      ph.setAttribute("aria-hidden", "true");
-      ph.textContent = "—";
-      meta.appendChild(ph);
-    }
-
-    const lines = document.createElement("div");
-    lines.className = "settings-library-lines";
-    const name = document.createElement("p");
-    name.className = "settings-library-name";
-    const cleanTitle = safeTrimStr(it.title);
-    const t = fmtShortTime(typeof it.updatedAtMs === "number" ? it.updatedAtMs : 0);
-    const rawName = (cleanTitle && !looksLikeAiRefusalText(cleanTitle))
-      ? cleanTitle
-      // Multiple untitled drafts look identical otherwise — tag with the scan time so
-      // the user can tell them apart without opening each one.
-      : (t ? `Untitled draft · ${t}` : "Untitled draft");
-    name.textContent = truncateLibraryTitle(rawName);
-    if (rawName.length > LIBRARY_UI_TITLE_MAX_CHARS) name.title = rawName;
-    const sub = document.createElement("p");
-    sub.className = "settings-library-sub";
-    sub.textContent = `${t || "—"} · ${sid}`;
-    lines.appendChild(name);
-    lines.appendChild(sub);
-    meta.appendChild(lines);
-
-    const openBtn = document.createElement("button");
-    openBtn.type = "button";
-    openBtn.className = "settings-library-open";
-    openBtn.textContent = "Open";
-    const cachedRowNonOverlay = (it.cachedRow && typeof it.cachedRow === "object") ? it.cachedRow : null;
-    openBtn.addEventListener("click", (e) => {
-      try {
-        e.preventDefault();
-        e.stopPropagation();
-      } catch {
-        /* ignore */
-      }
-      openLibrarySession(sid, cachedRowNonOverlay);
-    });
-
-    row.appendChild(meta);
-    row.appendChild(openBtn);
-    row.addEventListener("click", () => openLibrarySession(sid, cachedRowNonOverlay));
-    wrap.appendChild(row);
+    const row = buildDraftLibraryRow(it);
+    if (row) wrap.appendChild(row);
   }
 }
 
